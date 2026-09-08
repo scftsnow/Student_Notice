@@ -179,8 +179,8 @@ export default function BoardClient({
 
       {/* 글상자 4: 루틴 당번 글상자 (위치: left 2.5%, bottom 3.5%, width 95% - 교사 미리보기와 동일) */}
       <div
-        className="absolute z-10 flex items-center gap-6 sm:gap-8 flex-wrap text-lg sm:text-2xl font-bold opacity-95"
-        style={{ left: "2.5%", bottom: "3.5%", width: "95%" }}
+        className="absolute z-10 flex items-center gap-6 sm:gap-8 flex-wrap font-bold opacity-95 leading-snug"
+        style={{ left: "2.5%", bottom: "3.5%", width: "95%", fontSize: `${fontSize}px` }}
       >
         {routines.map((r) => {
           const currentWorkers =

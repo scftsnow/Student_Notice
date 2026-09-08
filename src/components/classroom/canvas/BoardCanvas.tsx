@@ -133,7 +133,7 @@ export default function BoardCanvas({
 
           {/* 글상자 4: 루틴 당번 목록 글상자 (하단, 위치: left 2.5%, bottom 3.5%, width 95%) */}
           <div
-            className="absolute z-10 flex items-center gap-4 flex-wrap px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-xs text-xs sm:text-sm font-semibold transition-colors"
+            className={`absolute z-10 flex items-center gap-4 flex-wrap px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-xs font-semibold transition-colors ${fontClass}`}
             style={{ left: "2.5%", bottom: "3.5%", width: "95%" }}
           >
             <span className="text-white/40 text-xs select-none" title="루틴 당번 글상자">⠿</span>
