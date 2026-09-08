@@ -203,7 +203,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
             skipped.push(name);
           } else {
             maxNo += 1;
-            nextList.push({ no: maxNo, name, balance: 1000 });
+            nextList.push({ no: maxNo, name, balance: 0 });
             added.push(name);
           }
         }
@@ -211,7 +211,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       });
 
       if (added.length === 1) {
-        showToast(`'${added[0]}' 학생이 명단에 등록되었습니다. (지원금 1,000 ${currencyName} 지급)`);
+        showToast(`'${added[0]}' 학생이 명단에 등록되었습니다.`);
       } else if (added.length > 1) {
         showToast(`총 ${added.length}명(${added.join(", ")}) 학생이 연속 등록되었습니다.`);
       }

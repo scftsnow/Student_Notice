@@ -23,7 +23,9 @@ export default function UnifiedLedgerModal({
   currencyName = "원",
 }: UnifiedLedgerModalProps) {
   const [studentFilter, setStudentFilter] = useState(initialStudentFilter);
-  const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d">("all");
+  const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   if (!isOpen) return null;
 
@@ -46,6 +48,17 @@ export default function UnifiedLedgerModal({
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       if (new Date(item.date) < thirtyDaysAgo) return false;
+    } else if (periodPreset === "custom") {
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (new Date(item.date) < start) return false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (new Date(item.date) > end) return false;
+      }
     }
     return true;
   });
@@ -70,7 +83,7 @@ export default function UnifiedLedgerModal({
         </div>
 
         {/* 필터 영역 */}
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 flex-wrap text-xs">
+        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2.5 flex-wrap text-xs">
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-slate-600">대상:</span>
             <select
@@ -88,43 +101,93 @@ export default function UnifiedLedgerModal({
             </select>
           </div>
 
-          <div className="inline-flex p-0.5 bg-slate-200/80 rounded-lg font-bold">
-            <button
-              type="button"
-              onClick={() => setPeriodPreset("all")}
-              className={`px-2.5 py-1 rounded text-xs transition-all ${
-                periodPreset === "all" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
-              }`}
-            >
-              전체
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodPreset("today")}
-              className={`px-2.5 py-1 rounded text-xs transition-all ${
-                periodPreset === "today" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
-              }`}
-            >
-              오늘
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodPreset("7d")}
-              className={`px-2.5 py-1 rounded text-xs transition-all ${
-                periodPreset === "7d" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
-              }`}
-            >
-              7일
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriodPreset("30d")}
-              className={`px-2.5 py-1 rounded text-xs transition-all ${
-                periodPreset === "30d" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
-              }`}
-            >
-              이번 달
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 달력 직접 선택 */}
+            <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+              <span className="text-[11px] text-slate-400">📅</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setPeriodPreset("custom");
+                }}
+                className="text-[11px] font-semibold text-slate-700 bg-transparent focus:outline-none"
+                title="조회 시작일"
+              />
+              <span className="text-slate-300 text-xs">~</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setPeriodPreset("custom");
+                }}
+                className="text-[11px] font-semibold text-slate-700 bg-transparent focus:outline-none"
+                title="조회 종료일"
+              />
+            </div>
+
+            {/* 프리셋 버튼 */}
+            <div className="inline-flex p-0.5 bg-slate-200/80 rounded-lg font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodPreset("all");
+                  setStartDate("");
+                  setEndDate("");
+                }}
+                className={`px-2 py-1 rounded text-[11px] transition-all ${
+                  periodPreset === "all" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                }`}
+              >
+                전체
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodPreset("today");
+                  const today = new Date().toISOString().split("T")[0];
+                  setStartDate(today);
+                  setEndDate(today);
+                }}
+                className={`px-2 py-1 rounded text-[11px] transition-all ${
+                  periodPreset === "today" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                }`}
+              >
+                오늘
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodPreset("7d");
+                  const end = new Date().toISOString().split("T")[0];
+                  const start = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
+                  setStartDate(start);
+                  setEndDate(end);
+                }}
+                className={`px-2 py-1 rounded text-[11px] transition-all ${
+                  periodPreset === "7d" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                }`}
+              >
+                7일
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPeriodPreset("30d");
+                  const end = new Date().toISOString().split("T")[0];
+                  const start = new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0];
+                  setStartDate(start);
+                  setEndDate(end);
+                }}
+                className={`px-2 py-1 rounded text-[11px] transition-all ${
+                  periodPreset === "30d" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                }`}
+              >
+                30일
+              </button>
+            </div>
           </div>
         </div>
 

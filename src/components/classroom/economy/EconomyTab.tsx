@@ -287,47 +287,61 @@ export default function EconomyTab({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 p-3">
+        <div className="flex-1 overflow-y-auto min-h-0 p-2.5">
           {students.length === 0 ? (
             <div className="h-full flex items-center justify-center text-slate-400 font-bold text-sm">
               등록된 학생 계좌가 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
               {students.map((s) => {
                 const isChecked = checkedNames.includes(s.name);
                 return (
                   <div
                     key={s.no}
                     onClick={() => toggleCheck(s.name)}
-                    className={`relative p-3 rounded-xl border cursor-pointer transition-all select-none ${
+                    className={`relative p-2 rounded-lg border cursor-pointer transition-all select-none ${
                       isChecked
-                        ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400"
+                        ? "border-indigo-400 bg-indigo-50/80 ring-1 ring-indigo-400"
                         : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-bold text-slate-300 font-mono">{String(s.no).padStart(2, "0")}</span>
+                    {/* 상단: 번호 + 이름 + 체크박스 */}
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-[10px] font-bold text-slate-400 font-mono shrink-0">
+                          {String(s.no).padStart(2, "0")}
+                        </span>
+                        <span className="font-extrabold text-slate-800 text-xs truncate">
+                          {s.name}
+                        </span>
+                      </div>
                       <input
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => toggleCheck(s.name)}
                         onClick={(e) => e.stopPropagation()}
-                        className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5"
+                        className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5 shrink-0"
                       />
                     </div>
-                    <div className="font-extrabold text-slate-800 text-sm mb-1.5 truncate">{s.name}</div>
-                    <div className="font-black text-indigo-700 font-mono text-base leading-none">
-                      {s.balance.toLocaleString()}
-                      <span className="text-[10px] font-normal text-slate-400 ml-1">{currencyName}</span>
+
+                    {/* 하단: 잔액 + 내역 버튼 */}
+                    <div className="mt-1.5 pt-1 border-t border-slate-100 flex items-center justify-between gap-1">
+                      <div className="font-black text-xs font-mono text-indigo-700 leading-none truncate">
+                        {s.balance.toLocaleString()}
+                        <span className="text-[9px] font-normal text-slate-400 ml-0.5">{currencyName}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLedgerModalStudent(s.name);
+                        }}
+                        className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 transition-all shrink-0 leading-tight"
+                      >
+                        내역
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setLedgerModalStudent(s.name); }}
-                      className="mt-2 w-full py-1 rounded-md border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 font-bold text-[11px] transition-all"
-                    >
-                      내역
-                    </button>
                   </div>
                 );
               })}

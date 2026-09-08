@@ -40,7 +40,7 @@ export default function StudentManagementClient({
   const [name, setName] = useState("");
   const [gender, setGender] = useState("남");
   const [memo, setMemo] = useState("");
-  const [initialBalance, setInitialBalance] = useState(1000);
+  const [initialBalance, setInitialBalance] = useState(0);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -62,7 +62,7 @@ export default function StudentManagementClient({
     setName("");
     setGender("남");
     setMemo("");
-    setInitialBalance(1000);
+    setInitialBalance(0);
     setErrorMsg("");
     setIsAddModalOpen(true);
   };
