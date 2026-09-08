@@ -1,0 +1,255 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
+import { ClassroomStudent, BoardTheme } from "@/types/classroom";
+
+interface EconomyBoardClientProps {
+  initialClassName?: string;
+  initialCurrencyName?: string;
+}
+
+export default function EconomyBoardClient({
+  initialClassName = "우리 반",
+  initialCurrencyName = "원",
+}: EconomyBoardClientProps) {
+  const [className, setClassName] = useState<string>(initialClassName);
+  const [currencyName, setCurrencyName] = useState<string>(initialCurrencyName);
+  const [students, setStudents] = useState<ClassroomStudent[]>([]);
+  const [treasuryBalance, setTreasuryBalance] = useState<number>(0);
+  const [theme, setTheme] = useState<BoardTheme>("chalkboard");
+  const [currentTime, setCurrentTime] = useState<string>("");
+  const [liveDateStr, setLiveDateStr] = useState<string>("");
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<"number" | "balance_desc">("number");
+
+  // 실시간 시계 및 날짜
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      const s = String(now.getSeconds()).padStart(2, "0");
+      setCurrentTime(`${h}:${m}:${s}`);
+
+      const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+      const mo = now.getMonth() + 1;
+      const d = now.getDate();
+      const dayName = days[now.getDay()];
+      setLiveDateStr(`${mo}월 ${d}일 ${dayName}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // localStorage 하이드레이션 및 BroadcastChannel 실시간 수신
+  useEffect(() => {
+    try {
+      const savedV3 = localStorage.getItem("classroom_os_state_v3");
+      const savedV2 = localStorage.getItem("classroom_os_state_v2");
+      const saved = savedV3 || savedV2;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.className) setClassName(parsed.className);
+        if (parsed.currencyName && parsed.currencyName !== "미소") setCurrencyName(parsed.currencyName);
+        if (Array.isArray(parsed.students)) setStudents(parsed.students);
+        if (typeof parsed.treasuryBalance === "number") setTreasuryBalance(parsed.treasuryBalance);
+        if (parsed.theme) setTheme(parsed.theme);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+
+    const channel = new BroadcastChannel("classroom_os_sync");
+
+    channel.onmessage = (event) => {
+      const data = event.data;
+      if (!data) return;
+
+      if (data.className) setClassName(data.className);
+      if (data.currencyName && data.currencyName !== "미소") setCurrencyName(data.currencyName);
+      if (Array.isArray(data.students)) setStudents(data.students);
+      if (typeof data.treasuryBalance === "number") setTreasuryBalance(data.treasuryBalance);
+      if (data.theme) setTheme(data.theme);
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
+  // 정렬된 학생 목록
+  const sortedStudents = [...students].sort((a, b) => {
+    if (sortBy === "balance_desc") {
+      return b.balance - a.balance || a.no - b.no;
+    }
+    return a.no - b.no;
+  });
+
+  const totalCirculation = students.reduce((acc, s) => acc + s.balance, 0);
+
+  // 테마별 스타일
+  const getThemeStyles = () => {
+    switch (theme) {
+      case "white":
+        return {
+          bg: "bg-slate-50 text-slate-900",
+          headerBorder: "border-slate-200 bg-white/90",
+          cardBg: "bg-white border-slate-200 text-slate-900 shadow-sm",
+          badgeBg: "bg-indigo-50 text-indigo-700 border-indigo-200",
+          balanceText: "text-indigo-600",
+          statBg: "bg-slate-100 text-slate-700",
+        };
+      case "navy":
+        return {
+          bg: "bg-[#0b132b] text-slate-100",
+          headerBorder: "border-white/10 bg-black/20",
+          cardBg: "bg-white/10 border-white/15 text-white backdrop-blur-xs",
+          badgeBg: "bg-amber-400/20 text-amber-300 border-amber-400/30",
+          balanceText: "text-amber-300",
+          statBg: "bg-white/10 text-slate-200",
+        };
+      case "warm":
+        return {
+          bg: "bg-[#faf5ea] text-amber-950",
+          headerBorder: "border-amber-200/80 bg-amber-50/90",
+          cardBg: "bg-white border-amber-200/80 text-amber-950 shadow-sm",
+          badgeBg: "bg-amber-100 text-amber-800 border-amber-300",
+          balanceText: "text-amber-700",
+          statBg: "bg-amber-100/80 text-amber-900",
+        };
+      case "chalkboard":
+      default:
+        return {
+          bg: "bg-[#1a382b] text-white",
+          headerBorder: "border-white/15 bg-black/25",
+          cardBg: "bg-white/10 border-white/20 text-white backdrop-blur-xs",
+          badgeBg: "bg-emerald-400/20 text-emerald-200 border-emerald-400/30",
+          balanceText: "text-amber-300 drop-shadow-xs",
+          statBg: "bg-white/10 text-white/90",
+        };
+    }
+  };
+
+  const style = getThemeStyles();
+
+  return (
+    <div
+      className={`fixed inset-0 z-50 w-screen h-screen select-none overflow-hidden flex flex-col ${style.bg}`}
+      style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
+    >
+      {/* 상단 헤더 바 */}
+      <header className={`px-6 py-3 border-b flex items-center justify-between gap-4 shrink-0 backdrop-blur-md ${style.headerBorder}`}>
+        {/* 좌측: 타이틀 및 통계 */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🪙</span>
+            <h1 className="font-extrabold text-xl sm:text-2xl tracking-tight">
+              {className} 학급 화폐 현황판
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className={`px-2.5 py-1 rounded-lg border border-transparent ${style.statBg}`}>
+              학생 {students.length}명
+            </span>
+            <span className={`px-2.5 py-1 rounded-lg border border-transparent ${style.statBg}`}>
+              국고 {treasuryBalance.toLocaleString()} {currencyName}
+            </span>
+            <span className={`px-2.5 py-1 rounded-lg border border-transparent ${style.statBg}`}>
+              총 유통량 {totalCirculation.toLocaleString()} {currencyName}
+            </span>
+          </div>
+        </div>
+
+        {/* 우측: 날짜/시간 및 제어 버튼 */}
+        <div className="flex items-center gap-4">
+          <div className="text-right hidden sm:block">
+            <div className="text-xs opacity-75 font-semibold">{liveDateStr}</div>
+            <div className="font-mono text-lg font-black tracking-wider leading-none">{currentTime}</div>
+          </div>
+
+          {/* 정렬 토글 */}
+          <div className="inline-flex p-0.5 rounded-lg bg-black/20 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setSortBy("number")}
+              className={`px-2.5 py-1 rounded-md transition-all ${
+                sortBy === "number" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+              }`}
+            >
+              번호순
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortBy("balance_desc")}
+              className={`px-2.5 py-1 rounded-md transition-all ${
+                sortBy === "balance_desc" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+              }`}
+            >
+              잔액순
+            </button>
+          </div>
+
+          {/* 전체화면 버튼 */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="p-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all opacity-80 hover:opacity-100"
+            title="전체화면 (F11)"
+          >
+            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+          </button>
+        </div>
+      </header>
+
+      {/* 본문: 학생 계좌 카드 그리드 */}
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        {students.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center opacity-60 font-bold text-base space-y-2">
+            <span className="text-3xl">👥</span>
+            <p>등록된 학생 계좌가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+            {sortedStudents.map((s) => (
+              <div
+                key={s.no}
+                className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${style.cardBg}`}
+              >
+                {/* 상단: 번호 및 이름 */}
+                <div className="flex items-center justify-between gap-1.5 mb-2">
+                  <span
+                    className={`px-2 py-0.5 rounded-md font-mono text-xs font-black border ${style.badgeBg}`}
+                  >
+                    {String(s.no).padStart(2, "0")}
+                  </span>
+                  <span className="font-extrabold text-base sm:text-lg tracking-tight truncate flex-1 text-right">
+                    {s.name}
+                  </span>
+                </div>
+
+                {/* 하단: 잔액 */}
+                <div className="pt-2 border-t border-white/10 flex items-baseline justify-end gap-1">
+                  <span className={`font-mono font-black text-xl sm:text-2xl tracking-tight ${style.balanceText}`}>
+                    {s.balance.toLocaleString()}
+                  </span>
+                  <span className="text-xs font-semibold opacity-70">{currencyName}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

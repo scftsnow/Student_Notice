@@ -67,6 +67,18 @@ export default function EconomyTab({
     setIsDepositOpen(true);
   };
 
+  const handleOpenEconomyBoard = () => {
+    const width = 1280;
+    const height = 720;
+    const left = window.screen.width ? (window.screen.width - width) / 2 : 100;
+    const top = window.screen.height ? (window.screen.height - height) / 2 : 100;
+    window.open(
+      "/economy/board",
+      "StudentEconomyBoardWindow",
+      `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`
+    );
+  };
+
   const payoutLabel = taxConfig.salaryPayoutMode === "AUTO_ON_CONFIRM" ? "즉시 자동" : "담임 승인제";
   const taxMethodLabel =
     taxConfig.taxMethod === "TAX_FREE" ? "면세"
@@ -261,7 +273,16 @@ export default function EconomyTab({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleOpenEconomyBoard}
+              className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center gap-1 transition-all shadow-2xs"
+              title="교실 TV/빔프로젝터용 학생 전용 잔액 전광판 창 띄우기"
+            >
+              <span>학생 화면 띄우기</span>
+              <span>🖥️</span>
+            </button>
             <label className="flex items-center gap-1.5 text-[11px] text-slate-500 font-semibold cursor-pointer select-none">
               <input
                 type="checkbox"
