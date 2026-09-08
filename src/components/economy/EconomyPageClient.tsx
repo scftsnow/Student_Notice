@@ -44,6 +44,7 @@ export default function EconomyPageClient({
 
       <EconomyTab
         students={state.students}
+        routines={state.routines}
         treasuryBalance={state.treasuryBalance}
         totalTaxCollected={state.totalTaxCollected}
         taxConfig={state.taxConfig}

@@ -164,6 +164,7 @@ export default function ClassroomApp() {
         {activeTab === "economy" && (
           <EconomyTab
             students={state.students}
+            routines={state.routines}
             treasuryBalance={state.treasuryBalance}
             totalTaxCollected={state.totalTaxCollected}
             taxConfig={state.taxConfig}
