@@ -1,0 +1,52 @@
+# ─── 의존성 ───────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Next.js 빌드 산출물 ──────────────────────────────
+.next/
+out/
+
+# ─── 환경 변수 (절대 커밋 금지) ─────────────────────────
+.env
+.env*.local
+.env.development
+.env.production
+
+# ─── Prisma ───────────────────────────────────────────
+# 생성된 클라이언트는 재생성 가능하므로 제외 (선택적)
+# prisma/generated/
+
+# ─── SQLite DB 파일 (개발용 로컬 DB) ─────────────────────
+*.db
+*.db-shm
+*.db-wal
+
+# ─── 패키지 매니저 잠금 파일 (npm 사용 시 package-lock.json 유지) ──
+yarn.lock
+pnpm-lock.yaml
+
+# ─── OS 메타파일 ──────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ─── IDE / 에디터 ─────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── 테스트 커버리지 ──────────────────────────────────
+coverage/
+.nyc_output/
+
+# ─── 기타 ────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/

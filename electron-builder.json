@@ -1,0 +1,58 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.classroom.notice",
+  "productName": "ClassroomOS",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "electron/**/*",
+    "package.json"
+  ],
+  "extraResources": [
+    {
+      "from": ".next/standalone",
+      "to": "standalone",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": ".next/static",
+      "to": "standalone/.next/static",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": "public",
+      "to": "standalone/public",
+      "filter": [
+        "**/*"
+      ]
+    },
+    {
+      "from": "prisma",
+      "to": "standalone/prisma",
+      "filter": [
+        "**/*"
+      ]
+    }
+  ],
+  "asar": true,
+  "asarUnpack": [
+    "**/*.node",
+    "**/*.dll",
+    "**/*.exe"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  }
+}

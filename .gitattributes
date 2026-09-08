@@ -1,0 +1,14 @@
+# 모든 텍스트 파일 줄끝을 LF로 통일 (Windows CRLF 경고 제거)
+* text=auto eol=lf
+
+# 바이너리 파일은 변환 제외
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.db binary

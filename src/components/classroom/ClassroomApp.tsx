@@ -1,0 +1,251 @@
+"use client";
+
+import { useState } from "react";
+import { useClassroomState } from "@/hooks/useClassroomState";
+import ClassroomHeader from "./ClassroomHeader";
+import BoardCanvas from "./canvas/BoardCanvas";
+import NoticeTab from "./notice/NoticeTab";
+import StudentTab from "./students/StudentTab";
+import RoutineTab from "./routines/RoutineTab";
+import EconomyTab from "./economy/EconomyTab";
+
+type ActiveTab = "notice" | "students" | "routines" | "economy";
+
+export default function ClassroomApp() {
+  const [activeTab, setActiveTab] = useState<ActiveTab>("notice");
+  const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+
+  const state = useClassroomState();
+
+  const handleOpenBoardWindow = () => {
+    const width = 1280;
+    const height = 720;
+    const left = window.screen.width ? (window.screen.width - width) / 2 : 100;
+    const top = window.screen.height ? (window.screen.height - height) / 2 : 100;
+    window.open(
+      "/board",
+      "StudentBoardWindow",
+      `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`
+    );
+  };
+
+  const handleAddFreeCard = () => {
+    const newId = `free-${Date.now()}`;
+    state.setFreeCards((prev) => [
+      ...prev,
+      { id: newId, html: "자유 메모", left: "25%", top: "45%" },
+    ]);
+  };
+
+  const handleRemoveFreeCard = (id: string) => {
+    state.setFreeCards((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const handleUpdateFreeCard = (id: string, html: string) => {
+    state.setFreeCards((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, html } : c))
+    );
+  };
+
+  if (!state.isMounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-slate-400 font-bold text-sm animate-pulse">
+          학급 알림장 시스템 불러오는 중...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-2 sm:p-4 w-full">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4 w-full">
+        {/* 상단 헤더 */}
+        <ClassroomHeader
+          className={state.className}
+          onClassNameChange={state.setClassName}
+          onOpenQuickView={() => setIsQuickViewOpen(true)}
+          onOpenBoardWindow={handleOpenBoardWindow}
+        />
+
+        {/* 메인 네비게이션 탭 바 */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setActiveTab("notice")}
+            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+              activeTab === "notice"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            📝 알림장
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("students")}
+            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+              activeTab === "students"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            👥 학생 명단 ({state.students.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("routines")}
+            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+              activeTab === "routines"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            🧹 업무 루틴 ({state.routines.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("economy")}
+            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+              activeTab === "economy"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            💰 학급 화폐
+          </button>
+        </div>
+
+        {/* 탭 콘텐츠 영역 */}
+        {activeTab === "notice" && (
+          <div className="space-y-3">
+            <NoticeTab
+              noticeTarget={state.noticeTarget}
+              onNoticeTargetChange={state.setNoticeTarget}
+              fontSize={state.fontSize}
+              onFontSizeChange={state.setFontSize}
+              theme={state.theme}
+              onThemeChange={state.setTheme}
+            />
+            <BoardCanvas
+              theme={state.theme}
+              fontSize={state.fontSize}
+              noticeText={state.noticeText}
+              onNoticeTextChange={state.setNoticeText}
+              routines={state.routines}
+              freeCards={state.freeCards}
+              onAddFreeCard={handleAddFreeCard}
+              onRemoveFreeCard={handleRemoveFreeCard}
+              onUpdateFreeCard={handleUpdateFreeCard}
+            />
+          </div>
+        )}
+
+        {activeTab === "students" && (
+          <StudentTab
+            students={state.students}
+            onAddStudents={state.addStudents}
+            onDeleteStudent={state.deleteStudent}
+          />
+        )}
+
+        {activeTab === "routines" && (
+          <RoutineTab
+            routines={state.routines}
+            students={state.students}
+            onAddRoutine={state.addRoutine}
+            onDeleteRoutine={state.deleteRoutine}
+            onAdvanceRoutine={state.advanceRoutine}
+            onPayRoutineToday={state.payRoutineToday}
+            onUpdateRoutineOrder={state.updateRoutineOrder}
+          />
+        )}
+
+        {activeTab === "economy" && (
+          <EconomyTab
+            students={state.students}
+            treasuryBalance={state.treasuryBalance}
+            totalTaxCollected={state.totalTaxCollected}
+            taxConfig={state.taxConfig}
+            currencyName={state.currencyName}
+            onUpdateCurrencyName={state.setCurrencyName}
+            customBundles={state.customBundles}
+            ledgerHistory={state.ledgerHistory}
+            onExecuteTransaction={state.executeTransaction}
+            onExecuteBatchDeposit={state.executeBatchDeposit}
+            onExecuteDirectTax={state.executeDirectTax}
+            onExecuteBundle={state.executeBundle}
+            onAddBundle={state.addCustomBundle}
+            onUpdateTaxConfig={state.updateTaxConfig}
+          />
+        )}
+      </div>
+
+      {/* 토스트 알림 */}
+      {state.toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-bold flex items-center gap-2">
+          <span>🔔</span>
+          <span>{state.toastMessage}</span>
+        </div>
+      )}
+
+      {/* 간편 재정 조회 모달 */}
+      {isQuickViewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+          onClick={() => setIsQuickViewOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-3 text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-extrabold text-slate-800 text-base">📊 학급 재정 간편 요약</h2>
+              <button
+                type="button"
+                onClick={() => setIsQuickViewOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex justify-between">
+              <div>
+                <span className="text-slate-400 block text-xs">학급 국고 잔고</span>
+                <span className="font-mono font-extrabold text-slate-800 text-sm">
+                  {state.treasuryBalance.toLocaleString()} {state.currencyName || "화폐"}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-slate-400 block text-xs">누적 세수</span>
+                <span className="font-mono font-extrabold text-emerald-600 text-sm">
+                  +{state.totalTaxCollected.toLocaleString()} {state.currencyName || "화폐"}
+                </span>
+              </div>
+            </div>
+            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-56 overflow-y-auto">
+              <div className="p-2 font-bold text-slate-500 bg-slate-100 grid grid-cols-3 text-center">
+                <span>번호</span>
+                <span>이름</span>
+                <span className="text-right">잔액</span>
+              </div>
+              {state.students.length === 0 ? (
+                <div className="p-4 text-center text-slate-400">등록된 학생이 없습니다.</div>
+              ) : (
+                state.students.map((s) => (
+                  <div key={s.no} className="p-2 grid grid-cols-3 text-center items-center">
+                    <span className="text-slate-400 font-bold">{s.no}</span>
+                    <span className="font-bold text-slate-800">{s.name}</span>
+                    <span className="text-right font-mono font-bold text-indigo-600">
+                      {s.balance.toLocaleString()} {state.currencyName || "화폐"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Student {
+  id                 String           @id @default(cuid())
+  studentNumber      Int              @unique
+  name               String
+  gender             String?
+  status             String           @default("ACTIVE")
+  memo               String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  account            Account?
+  pendingPayments    PendingPayment[]
+  routineAssignments RoutineMember[]
+}
+
+model Account {
+  id            String        @id @default(cuid())
+  studentId     String?       @unique
+  accountType   String        @default("STUDENT")
+  name          String
+  balance       Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  student       Student?      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  ledgerEntries LedgerEntry[]
+}
+
+model Transaction {
+  id          String        @id @default(cuid())
+  type        String
+  grossAmount Int
+  taxRate     Float         @default(0.0)
+  taxAmount   Int           @default(0)
+  netAmount   Int
+  memo        String
+  referenceId String?
+  createdAt   DateTime      @default(now())
+  entries     LedgerEntry[]
+}
+
+model LedgerEntry {
+  id            String      @id @default(cuid())
+  transactionId String
+  accountId     String
+  amount        Int
+  memo          String?
+  createdAt     DateTime    @default(now())
+  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model Routine {
+  id              String           @id @default(cuid())
+  title           String
+  description     String?
+  workersPerCycle Int              @default(1)
+  cycleDays       Int              @default(1)
+  salaryAmount    Int              @default(0)
+  salaryCycle     String           @default("DAILY")
+  active          Boolean          @default(true)
+  order           Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  histories       RoutineHistory[]
+  members         RoutineMember[]
+}
+
+model RoutineMember {
+  id         String  @id @default(cuid())
+  routineId  String
+  studentId  String
+  orderIndex Int
+  student    Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  routine    Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, studentId])
+}
+
+model RoutineHistory {
+  id                 String   @id @default(cuid())
+  routineId          String
+  date               String
+  assignedStudentIds String
+  actualStudentIds   String
+  status             String   @default("CONFIRMED")
+  isPaid             Boolean  @default(false)
+  salaryAmount       Int      @default(0)
+  createdAt          DateTime @default(now())
+  routine            Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, date])
+}
+
+model Notice {
+  id              String   @id @default(cuid())
+  date            String   @unique
+  content         String
+  includeRoutines Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ClassSetting {
+  id                   String   @id @default("singleton")
+  className            String   @default("행복한 6학년 1반")
+  currencyName         String   @default("미소")
+  defaultTaxRate       Float    @default(0.1)
+  taxMethod            String   @default("WITHHOLDING")
+  absencePolicy        String   @default("PINCH_HITTER")
+  salaryPayoutMode     String   @default("MANUAL_APPROVAL")
+  allowNegativeBalance Boolean  @default(false)
+  themeColor           String   @default("indigo")
+  schoolHolidays       String   @default("[]")
+  updatedAt            DateTime @updatedAt
+}
+
+model PendingPayment {
+  id        String   @id @default(cuid())
+  title     String
+  studentId String
+  routineId String?
+  amount    Int
+  taxRate   Float    @default(0.0)
+  taxAmount Int      @default(0)
+  netAmount Int      @default(0)
+  status    String   @default("PENDING")
+  date      String
+  createdAt DateTime @default(now())
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
