@@ -442,18 +442,53 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   );
 
   const executeBundle = useCallback(
-    (bundleId: string) => {
+    (bundleId: string, selectedNames?: string[]) => {
       const b = customBundles.find((x) => x.id === bundleId);
       if (!b) return;
 
       for (const act of b.actions) {
-        const amt = act.type === "deposit" ? act.amount : -act.amount;
-        const allNames = students.map((s) => s.name);
-        executeBatchDeposit(allNames, amt, `[${b.name}] ${act.desc}`, act.applyTax);
+        if (act.target === "treasury") {
+          try {
+            executeDirectTax(
+              act.type === "deposit" ? "deposit" : "withdraw",
+              act.amount,
+              `[${b.name}] ${act.desc}`
+            );
+          } catch (err) {
+            showToast(`국고 정산 실패: ${err instanceof Error ? err.message : "오류 발생"}`);
+          }
+        } else {
+          let targets: string[] = [];
+          if (act.target === "selected") {
+            targets = selectedNames || [];
+            if (targets.length === 0) {
+              showToast(`선택된 학생이 없어 '[${b.name}]' 액션이 제외되었습니다.`);
+              continue;
+            }
+          } else if (act.target === "specific") {
+            targets = act.specificTargets || [];
+            if (targets.length === 0) {
+              showToast(`지정된 학생이 없어 '[${b.name}]' 액션이 제외되었습니다.`);
+              continue;
+            }
+          } else {
+            targets = students.map((s) => s.name);
+          }
+
+          if (targets.length > 0) {
+            const amt = act.type === "deposit" ? act.amount : -act.amount;
+            executeBatchDeposit(
+              targets,
+              amt,
+              `[${b.name}] ${act.desc}`,
+              act.type === "deposit" ? act.applyTax : false
+            );
+          }
+        }
       }
       showToast(`[복합 정산 완료] '${b.name}' 실행되었습니다.`);
     },
-    [customBundles, students, executeBatchDeposit, showToast]
+    [customBundles, students, executeBatchDeposit, executeDirectTax, showToast]
   );
 
   const addCustomBundle = useCallback(

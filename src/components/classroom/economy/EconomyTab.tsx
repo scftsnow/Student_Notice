@@ -22,7 +22,7 @@ interface EconomyTabProps {
   onExecuteTransaction: (from: string, to: string, amount: number, desc: string, applyTax: boolean) => void;
   onExecuteBatchDeposit: (targetNames: string[], amount: number, desc: string, applyTax: boolean) => void;
   onExecuteDirectTax: (mode: "deposit" | "withdraw", amount: number, desc: string, refundStudentName?: string) => void;
-  onExecuteBundle: (bundleId: string) => void;
+  onExecuteBundle: (bundleId: string, selectedNames?: string[]) => void;
   onAddBundle: (bundle: CustomBundle) => void;
   onUpdateTaxConfig: (config: TaxConfig) => void;
 }
@@ -177,7 +177,7 @@ export default function EconomyTab({
         {/* 4. 복합 정산 */}
         <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-700 text-xs">📦 복합 정산</span>
+            <span className="font-bold text-slate-700 text-xs">복합 정산</span>
             <button
               type="button"
               onClick={() => setIsBundleModalOpen(true)}
@@ -190,7 +190,6 @@ export default function EconomyTab({
           {/* 루틴 급여 자동 항목 */}
           {routines.filter((r) => r.pay > 0).length > 0 && (
             <div className="space-y-1">
-              <p className="text-[10px] text-slate-400 font-semibold px-0.5">📋 루틴 급여 (자동)</p>
               {routines
                 .filter((r) => r.pay > 0)
                 .map((r) => {
@@ -202,7 +201,6 @@ export default function EconomyTab({
                       : [];
                   return (
                     <div key={r.id} className="px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-2">
-                      <span className="text-sm shrink-0">{r.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-slate-800 text-xs truncate">{r.name}</div>
                         <p className="text-[10px] text-slate-500 truncate">
@@ -228,12 +226,8 @@ export default function EconomyTab({
             <p className="text-[11px] text-slate-400 text-center py-1">등록된 항목 없음</p>
           ) : customBundles.length > 0 ? (
             <div className="space-y-1">
-              {routines.filter((r) => r.pay > 0).length > 0 && (
-                <p className="text-[10px] text-slate-400 font-semibold px-0.5">🗂️ 커스텀 정산</p>
-              )}
               {customBundles.map((b) => (
                 <div key={b.id} className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2">
-                  <span className="text-sm shrink-0">{b.icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-800 text-xs truncate">{b.name}</div>
                     {b.desc && <p className="text-[10px] text-slate-400 truncate">{b.desc}</p>}
@@ -241,7 +235,7 @@ export default function EconomyTab({
                   </div>
                   <button
                     type="button"
-                    onClick={() => onExecuteBundle(b.id)}
+                    onClick={() => onExecuteBundle(b.id, checkedNames)}
                     className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
                   >
                     실행
@@ -353,6 +347,7 @@ export default function EconomyTab({
       {/* ── 복합정산 등록 모달 ── */}
       <CreateBundleModal
         isOpen={isBundleModalOpen}
+        students={students}
         currencyName={currencyName}
         onClose={() => setIsBundleModalOpen(false)}
         onSave={onAddBundle}
