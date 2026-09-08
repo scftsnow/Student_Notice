@@ -380,3 +380,50 @@ export async function updateCurrencyName(currencyName: string) {
   revalidatePath("/routines");
   return updated;
 }
+
+// --- Reset Actions ---
+
+/** 학급화폐 초기화: 모든 거래내역, 잔액, 미결제 승인 대기 항목을 0으로 초기화 */
+export async function resetEconomy() {
+  // Delete pending payments first (references accounts via students)
+  await prisma.pendingPayment.deleteMany({});
+  // Delete ledger entries (references transactions and accounts)
+  await prisma.ledgerEntry.deleteMany({});
+  // Delete transactions
+  await prisma.transaction.deleteMany({});
+  // Reset all account balances to 0
+  await prisma.account.updateMany({
+    data: { balance: 0 },
+  });
+
+  revalidatePath("/economy");
+  revalidatePath("/");
+  return { success: true };
+}
+
+/** 학생 명단 초기화: 모든 학생 및 연관 데이터(계좌, 루틴 멤버, 미결제 등) 삭제 */
+export async function resetStudents() {
+  // pendingPayment → student (onDelete: Cascade)
+  // routineMember  → student (onDelete: Cascade)
+  // account        → student (onDelete: Cascade)
+  // ledgerEntry    → account (onDelete: Cascade)
+  // Deleting students cascades everything above
+  await prisma.student.deleteMany({});
+
+  revalidatePath("/students");
+  revalidatePath("/routines");
+  revalidatePath("/economy");
+  revalidatePath("/");
+  return { success: true };
+}
+
+/** 업무 루틴 초기화: 모든 루틴, 루틴 히스토리, 루틴 멤버 삭제 */
+export async function resetRoutines() {
+  // routineHistory → routine (onDelete: Cascade)
+  // routineMember  → routine (onDelete: Cascade)
+  await prisma.routine.deleteMany({});
+
+  revalidatePath("/routines");
+  revalidatePath("/");
+  return { success: true };
+}

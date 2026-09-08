@@ -4,7 +4,7 @@ const { spawn } = require('child_process');
 const http = require('http');
 
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
-const DEFAULT_PORT = process.env.PORT || 3000;
+const DEFAULT_PORT = process.env.PORT || 3001;
 let serverProcess = null;
 let mainWindow = null;
 let boardWindow = null;

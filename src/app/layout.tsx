@@ -15,20 +15,16 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  let setting = await prisma.classSetting.findUnique({
+  const setting = await prisma.classSetting.upsert({
     where: { id: "singleton" },
+    update: {},
+    create: {
+      id: "singleton",
+      className: "우리 반",
+      currencyName: "원",
+      defaultTaxRate: 0.1,
+    },
   });
-
-  if (!setting) {
-    setting = await prisma.classSetting.create({
-      data: {
-        id: "singleton",
-        className: "우리 반",
-        currencyName: "원",
-        defaultTaxRate: 0.1,
-      },
-    });
-  }
 
   const treasury = await prisma.account.findFirst({
     where: { accountType: "CLASS_TREASURY" },

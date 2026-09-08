@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ClassroomStudent, CustomBundle, BundleAction } from "@/types/classroom";
 
 interface DraftAction {
@@ -18,7 +18,7 @@ const EMPTY_ACTION: DraftAction = {
   specificTargets: [],
   amount: 0,
   desc: "",
-  applyTax: false,
+  applyTax: true,
 };
 
 interface CreateBundleModalProps {
@@ -27,6 +27,7 @@ interface CreateBundleModalProps {
   currencyName: string;
   onClose: () => void;
   onSave: (bundle: CustomBundle) => void;
+  initialBundle?: CustomBundle | null;
 }
 
 export default function CreateBundleModal({
@@ -35,6 +36,7 @@ export default function CreateBundleModal({
   currencyName,
   onClose,
   onSave,
+  initialBundle,
 }: CreateBundleModalProps) {
   const [draftName, setDraftName] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
@@ -45,6 +47,35 @@ export default function CreateBundleModal({
     setDraftDesc("");
     setDraftActions([{ ...EMPTY_ACTION }]);
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      if (initialBundle) {
+        setDraftName(initialBundle.name);
+        setDraftDesc(initialBundle.desc || "");
+        setDraftActions(
+          initialBundle.actions.length > 0
+            ? initialBundle.actions.map((a) => {
+                const target: "all" | "selected" | "treasury" | "specific" =
+                  a.target === "selected" || a.target === "treasury" || a.target === "specific"
+                    ? a.target
+                    : "all";
+                return {
+                  type: a.type,
+                  target,
+                  specificTargets: a.specificTargets ? [...a.specificTargets] : [],
+                  amount: a.amount,
+                  desc: a.desc || "",
+                  applyTax: !!a.applyTax,
+                };
+              })
+            : [{ ...EMPTY_ACTION }]
+        );
+      } else {
+        reset();
+      }
+    }
+  }, [isOpen, initialBundle]);
 
   const handleClose = () => {
     reset();
@@ -100,7 +131,7 @@ export default function CreateBundleModal({
     }
 
     onSave({
-      id: `bundle-${Date.now()}`,
+      id: initialBundle ? initialBundle.id : `bundle-${Date.now()}`,
       name: draftName.trim(),
       desc: draftDesc.trim(),
       actions,
@@ -116,7 +147,9 @@ export default function CreateBundleModal({
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col max-h-[90vh] text-xs overflow-hidden">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
-          <span className="font-bold text-sm text-slate-800">복합 정산 항목 등록</span>
+          <span className="font-bold text-sm text-slate-800">
+            {initialBundle ? "복합 정산 항목 수정" : "복합 정산 항목 등록"}
+          </span>
           <button
             type="button"
             onClick={handleClose}
@@ -294,7 +327,7 @@ export default function CreateBundleModal({
             disabled={!draftName.trim()}
             className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            복합 정산 등록
+            {initialBundle ? "수정 완료" : "복합 정산 등록"}
           </button>
         </div>
       </div>

@@ -5,20 +5,16 @@ import type { ClassSetting } from "@/types";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  let setting = await prisma.classSetting.findUnique({
+  const setting = await prisma.classSetting.upsert({
     where: { id: "singleton" },
+    update: {},
+    create: {
+      id: "singleton",
+      className: "행복한 6학년 1반",
+      currencyName: "원",
+      defaultTaxRate: 0.1,
+    },
   });
-
-  if (!setting) {
-    setting = await prisma.classSetting.create({
-      data: {
-        id: "singleton",
-        className: "행복한 6학년 1반",
-        currencyName: "원",
-        defaultTaxRate: 0.1,
-      },
-    });
-  }
 
   const formattedSetting: ClassSetting = {
     id: setting.id,

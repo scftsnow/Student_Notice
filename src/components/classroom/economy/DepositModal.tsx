@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ClassroomStudent } from "@/types/classroom";
+import { ClassroomStudent, TaxConfig } from "@/types/classroom";
+import { calculateTax } from "@/lib/taxEngine";
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface DepositModalProps {
   students: ClassroomStudent[];
   initialSelectedNames: string[];
   currencyName?: string;
+  taxConfig?: TaxConfig;
   onExecute: (targetNames: string[], amount: number, desc: string, applyTax: boolean) => void;
 }
 
@@ -18,12 +20,13 @@ export default function DepositModal({
   students,
   initialSelectedNames,
   currencyName = "원",
+  taxConfig,
   onExecute,
 }: DepositModalProps) {
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [amount, setAmount] = useState(200);
   const [desc, setDesc] = useState("담임 특별 입금");
-  const [applyTax, setApplyTax] = useState(false);
+  const [applyTax, setApplyTax] = useState(true);
 
   useEffect(() => {
     if (initialSelectedNames.length > 0) {
@@ -32,6 +35,14 @@ export default function DepositModal({
       setSelectedNames(students.map((s) => s.name));
     }
   }, [initialSelectedNames, students]);
+
+  // 세무 설정에 따라 세금 자동 공제 기본값 동기화
+  useEffect(() => {
+    if (taxConfig) {
+      const isTaxActive = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
+      setApplyTax(isTaxActive);
+    }
+  }, [taxConfig, isOpen]);
 
   if (!isOpen) return null;
 
@@ -58,6 +69,12 @@ export default function DepositModal({
     onExecute(selectedNames, finalAmount, desc.trim() || (isDeduct ? "특별 차감" : "특별 입금"), applyTax);
     onClose();
   };
+
+  // 예상 세금 계산
+  const previewTax = (applyTax && taxConfig && amount > 0)
+    ? calculateTax("income", amount, taxConfig)
+    : 0;
+  const netAmount = Math.max(0, amount - previewTax);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
@@ -98,10 +115,10 @@ export default function DepositModal({
                     className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
                       isSelected
                         ? "bg-indigo-600 text-white"
-                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
-                    {s.no}번 {s.name}
+                    {s.no}. {s.name}
                   </button>
                 );
               })}
@@ -114,7 +131,7 @@ export default function DepositModal({
               type="number"
               min={1}
               value={amount}
-              onChange={(e) => setAmount(parseInt(e.target.value, 10) || 0)}
+              onChange={(e) => setAmount(Math.max(1, parseInt(e.target.value, 10) || 0))}
               className="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-bold text-sm focus:outline-none"
             />
           </div>
@@ -136,7 +153,14 @@ export default function DepositModal({
               onChange={(e) => setApplyTax(e.target.checked)}
               className="rounded text-indigo-600"
             />
-            <span className="font-semibold text-slate-700">세금/벌금 자동 공제 (국고 세수 귀속)</span>
+            <div className="flex flex-col">
+              <span className="font-semibold text-slate-700">세금/벌금 자동 공제 (국고 세수 귀속)</span>
+              {applyTax && previewTax > 0 && (
+                <span className="text-[11px] text-indigo-600 font-bold mt-0.5">
+                  1인당 예상 세액: {previewTax.toLocaleString()} {currencyName} (실지급: {netAmount.toLocaleString()} {currencyName})
+                </span>
+              )}
+            </div>
           </label>
         </div>
 

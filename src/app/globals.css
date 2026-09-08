@@ -53,3 +53,23 @@ body {
 .animate-pulse-subtle {
   animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* 자유 글상자 placeholder (contentEditable) */
+[data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* react-rnd / react-draggable 캔버스 판서 요소 즉각 반응 최적화 (마우스 지연 완벽 제거) */
+.react-draggable {
+  transition: none !important;
+  will-change: transform;
+}
+
+.react-draggable-dragging {
+  transition: none !important;
+  cursor: grabbing !important;
+  user-select: none !important;
+}

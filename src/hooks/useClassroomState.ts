@@ -132,6 +132,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         theme,
         targetLabel: noticeTarget === "today" ? "오늘" : "내일",
         routines,
+        students,
         freeCards,
       });
       channel.close();
@@ -262,10 +263,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           if (r.id !== id) return r;
           if (r.order.length === 0) return r;
           const nextIdx = (r.currentIdx + r.slots) % r.order.length;
-          return { ...r, currentIdx: nextIdx };
+          return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined };
         })
       );
-      showToast("순환이 진행되었습니다.");
+      showToast("순환이 진행되었습니다. (당일 대타 설정 초기화)");
     },
     [showToast]
   );
@@ -294,27 +295,59 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const r = routines.find((x) => x.id === id);
       if (!r || r.pay <= 0 || r.order.length === 0) return;
 
-      const targetWorkers = customWorkerNames && customWorkerNames.length > 0
-        ? customWorkerNames
-        : Array.from({ length: r.slots }, (_, i) => r.order[(r.currentIdx + i) % r.order.length]);
+      const rawWorkers = Array.from(
+        { length: r.slots },
+        (_, i) => r.order[(r.currentIdx + i) % r.order.length]
+      );
+
+      const targetWorkers =
+        customWorkerNames && customWorkerNames.length > 0
+          ? customWorkerNames
+          : r.pinchHitterStudent && r.pinchHitterStudent !== "none"
+          ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
+          : rawWorkers;
+
+      // 소득세 원천징수 계산
+      const applyIncomeTax = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
+      const taxPerWorker = applyIncomeTax ? calculateTax("income", r.pay, taxConfig) : 0;
+      const netPay = Math.max(0, r.pay - taxPerWorker);
 
       const paidNames: string[] = [];
       setStudents((prev) =>
         prev.map((s) => {
           if (targetWorkers.includes(s.name)) {
             paidNames.push(s.name);
-            return { ...s, balance: s.balance + r.pay };
+            return { ...s, balance: s.balance + netPay };
           }
           return s;
         })
       );
 
-      for (const name of paidNames) {
-        addLedgerEntry("입금", "🏛️ 학급 국고", name, name, `${r.name} 당번 급여 (${r.payCycle || "1회"})`, r.pay, 0, [name]);
+      const totalTaxCollectedNow = taxPerWorker * paidNames.length;
+      if (totalTaxCollectedNow > 0) {
+        setTreasuryBalance((prev) => prev + totalTaxCollectedNow);
+        setTotalTaxCollected((prev) => prev + totalTaxCollectedNow);
       }
-      showToast(`[급여 지급] ${r.name} 담당 ${paidNames.join(", ")}에게 ${r.pay.toLocaleString()} ${currencyName} 지급 완료`);
+
+      for (const name of paidNames) {
+        addLedgerEntry(
+          "입금",
+          "🏛️ 학급 국고",
+          name,
+          name,
+          `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
+          r.pay,
+          taxPerWorker,
+          [name]
+        );
+      }
+      showToast(
+        `[급여 지급] ${r.name} 담당 ${paidNames.join(", ")}에게 실지급 ${netPay.toLocaleString()} ${currencyName}${
+          taxPerWorker > 0 ? ` (세금 ${taxPerWorker.toLocaleString()} ${currencyName} 원천징수)` : ""
+        } 지급 완료`
+      );
     },
-    [routines, currencyName, addLedgerEntry, showToast]
+    [routines, taxConfig, currencyName, addLedgerEntry, showToast]
   );
 
   // 3. Economy Actions
@@ -499,6 +532,26 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     [showToast]
   );
 
+  const updateCustomBundle = useCallback(
+    (bundle: CustomBundle) => {
+      setCustomBundles((prev) => prev.map((b) => (b.id === bundle.id ? bundle : b)));
+      showToast(`복합 정산 '${bundle.name}'이(가) 수정되었습니다.`);
+    },
+    [showToast]
+  );
+
+  const deleteCustomBundle = useCallback(
+    (id: string) => {
+      setCustomBundles((prev) => {
+        const target = prev.find((b) => b.id === id);
+        const name = target ? target.name : "선택 항목";
+        showToast(`복합 정산 '${name}'이(가) 삭제되었습니다.`);
+        return prev.filter((b) => b.id !== id);
+      });
+    },
+    [showToast]
+  );
+
   const updateTaxConfig = useCallback(
     (newConfig: TaxConfig) => {
       setTaxConfig(newConfig);
@@ -547,5 +600,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     executeDirectTax,
     executeBundle,
     addCustomBundle,
+    updateCustomBundle,
+    deleteCustomBundle,
   };
 }

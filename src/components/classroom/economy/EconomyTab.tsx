@@ -8,6 +8,7 @@ import TransactionModal from "./TransactionModal";
 import DepositModal from "./DepositModal";
 import UnifiedLedgerModal from "./UnifiedLedgerModal";
 import CreateBundleModal from "./CreateBundleModal";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface EconomyTabProps {
   students: ClassroomStudent[];
@@ -24,6 +25,8 @@ interface EconomyTabProps {
   onExecuteDirectTax: (mode: "deposit" | "withdraw", amount: number, desc: string, refundStudentName?: string) => void;
   onExecuteBundle: (bundleId: string, selectedNames?: string[]) => void;
   onAddBundle: (bundle: CustomBundle) => void;
+  onUpdateBundle?: (bundle: CustomBundle) => void;
+  onDeleteBundle?: (bundleId: string) => void;
   onUpdateTaxConfig: (config: TaxConfig) => void;
 }
 
@@ -42,6 +45,8 @@ export default function EconomyTab({
   onExecuteDirectTax,
   onExecuteBundle,
   onAddBundle,
+  onUpdateBundle,
+  onDeleteBundle,
   onUpdateTaxConfig,
 }: EconomyTabProps) {
   const [checkedNames, setCheckedNames] = useState<string[]>([]);
@@ -51,6 +56,31 @@ export default function EconomyTab({
   const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [ledgerModalStudent, setLedgerModalStudent] = useState<string | null>(null);
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
+  const [editingBundle, setEditingBundle] = useState<CustomBundle | null>(null);
+
+  const handleOpenAddBundle = () => {
+    setEditingBundle(null);
+    setIsBundleModalOpen(true);
+  };
+
+  const handleEditBundle = (bundle: CustomBundle) => {
+    setEditingBundle(bundle);
+    setIsBundleModalOpen(true);
+  };
+
+  const handleDeleteBundle = (id: string, name: string) => {
+    if (confirm(`복합 정산 항목 '${name}'을(를) 삭제하시겠습니까?`)) {
+      onDeleteBundle?.(id);
+    }
+  };
+
+  const handleSaveBundle = (bundle: CustomBundle) => {
+    if (editingBundle && onUpdateBundle) {
+      onUpdateBundle(bundle);
+    } else {
+      onAddBundle(bundle);
+    }
+  };
 
   const toggleCheck = (name: string) => {
     setCheckedNames((prev) =>
@@ -177,12 +207,11 @@ export default function EconomyTab({
           </button>
           <button
             type="button"
-            onClick={handleDepositSelected}
-            disabled={checkedNames.length === 0}
-            className="py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            onClick={() => setIsDepositOpen(true)}
+            className="py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs transition-all"
           >
             <span>💰</span>
-            <span>선택 입금{checkedNames.length > 0 ? ` (${checkedNames.length})` : ""}</span>
+            <span>입금 / 차감{checkedNames.length > 0 ? ` (${checkedNames.length}명)` : ""}</span>
           </button>
         </div>
 
@@ -192,7 +221,7 @@ export default function EconomyTab({
             <span className="font-bold text-slate-700 text-xs">복합 정산</span>
             <button
               type="button"
-              onClick={() => setIsBundleModalOpen(true)}
+              onClick={handleOpenAddBundle}
               className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 font-bold text-[11px] border border-slate-200 transition-all"
             >
               + 항목 추가
@@ -222,7 +251,10 @@ export default function EconomyTab({
                       <button
                         type="button"
                         disabled={workers.length === 0}
-                        onClick={() => onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, false)}
+                        onClick={() => {
+                          const shouldTax = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
+                          onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, shouldTax);
+                        }}
                         className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                       >
                         지급
@@ -245,13 +277,33 @@ export default function EconomyTab({
                     {b.desc && <p className="text-[10px] text-slate-400 truncate">{b.desc}</p>}
                     <p className="text-[10px] text-indigo-500">{b.actions.length}개 액션</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onExecuteBundle(b.id, checkedNames)}
-                    className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
-                  >
-                    실행
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleEditBundle(b)}
+                      title="복합 정산 수정"
+                      className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-200/70 transition-colors"
+                      aria-label="복합 정산 수정"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBundle(b.id, b.name)}
+                      title="복합 정산 삭제"
+                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      aria-label="복합 정산 삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onExecuteBundle(b.id, checkedNames)}
+                      className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
+                    >
+                      실행
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -268,9 +320,18 @@ export default function EconomyTab({
               총 {students.length}명
             </span>
             {checkedNames.length > 0 && (
-              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                {checkedNames.length}명 선택
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                  {checkedNames.length}명 선택
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDepositSelected}
+                  className="px-2 py-0.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-2xs"
+                >
+                  선택 입금/차감
+                </button>
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
@@ -365,13 +426,17 @@ export default function EconomyTab({
         </div>
       </div>
 
-      {/* ── 복합정산 등록 모달 ── */}
+      {/* ── 복합정산 등록/수정 모달 ── */}
       <CreateBundleModal
         isOpen={isBundleModalOpen}
         students={students}
         currencyName={currencyName}
-        onClose={() => setIsBundleModalOpen(false)}
-        onSave={onAddBundle}
+        onClose={() => {
+          setIsBundleModalOpen(false);
+          setEditingBundle(null);
+        }}
+        onSave={handleSaveBundle}
+        initialBundle={editingBundle}
       />
 
       {/* ── 모달 렌더링 ── */}
@@ -406,6 +471,7 @@ export default function EconomyTab({
         students={students}
         initialSelectedNames={checkedNames}
         currencyName={currencyName}
+        taxConfig={taxConfig}
         onExecute={onExecuteBatchDeposit}
       />
       <UnifiedLedgerModal

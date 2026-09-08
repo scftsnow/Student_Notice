@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
-import { ClassroomRoutine, FreeCardData, BoardTheme } from "@/types/classroom";
+import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
+import { resolveStudentName } from "@/lib/routineUtils";
 
 interface BoardClientProps {
   initialDateStr: string;
@@ -22,10 +23,17 @@ export default function BoardClient({
   const [fontSize, setFontSize] = useState<number>(42);
   const [theme, setTheme] = useState<BoardTheme>("chalkboard");
   const [routines, setRoutines] = useState<ClassroomRoutine[]>([]);
+  const [students, setStudents] = useState<ClassroomStudent[]>([]);
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [layouts, setLayouts] = useState<BoardElementLayouts>({
+    dateBox: { left: "2.5%", top: "3.0%", fontSize: 42 },
+    clockBox: { left: "68.0%", top: "3.0%", fontSize: 42 },
+    noticeBox: { left: "2.5%", top: "16.0%", width: "95.0%", height: "62.0%", fontSize: 42 },
+    routineBox: { left: "2.5%", top: "82.0%", width: "95.0%", fontSize: 42 },
+  });
 
   // Real-time clock and date
   useEffect(() => {
@@ -50,14 +58,22 @@ export default function BoardClient({
   // BroadcastChannel and localStorage hydration
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("classroom_os_state_v2");
+      const saved = localStorage.getItem("classroom_os_state_v3");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed.noticeText === "string") setContentHtml(parsed.noticeText);
         if (parsed.fontSize) setFontSize(Number(parsed.fontSize));
         if (parsed.theme) setTheme(parsed.theme);
         if (Array.isArray(parsed.routines)) setRoutines(parsed.routines);
+        if (Array.isArray(parsed.students)) setStudents(parsed.students);
         if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards);
+      }
+      const savedLayouts = localStorage.getItem("classroom_board_layouts");
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.noticeBox && parsedLayouts.routineBox) {
+          setLayouts(parsedLayouts);
+        }
       }
     } catch {
       // Ignore parse errors
@@ -75,7 +91,9 @@ export default function BoardClient({
       if (data.fontSize !== undefined) setFontSize(Number(data.fontSize));
       if (data.theme !== undefined) setTheme(data.theme);
       if (Array.isArray(data.routines)) setRoutines(data.routines);
+      if (Array.isArray(data.students)) setStudents(data.students);
       if (Array.isArray(data.freeCards)) setFreeCards(data.freeCards);
+      if (data.layouts) setLayouts(data.layouts);
     };
 
     return () => {
@@ -133,20 +151,40 @@ export default function BoardClient({
         단, 학생 화면 요구사항에 따라 카드 배경(bg)과 테두리(border)는 완전 투명(무배경·무테두리)
       */}
 
-      {/* 글상자 1: 날짜 글상자 (위치: left 2.5%, top 3.5% - 교사 미리보기와 동일) */}
+      {/* 글상자 1: 날짜 글상자 */}
       <div
-        className="absolute z-10 font-extrabold text-2xl sm:text-4xl tracking-tight opacity-95"
-        style={{ left: "2.5%", top: "3.5%" }}
+        className="absolute z-10 font-extrabold tracking-tight opacity-95 whitespace-nowrap"
+        style={{
+          left: layouts.dateBox.left,
+          top: layouts.dateBox.top,
+          width: layouts.dateBox.width,
+          height: layouts.dateBox.height,
+          fontSize: `${layouts.dateBox.fontSize || fontSize || 42}px`,
+          color: layouts.dateBox.color || "inherit",
+          textAlign: layouts.dateBox.align || "left",
+        }}
       >
         {liveDateStr || `${initialDateStr} (${todayDayOfWeek})`}
       </div>
 
-      {/* 글상자 2: 시각 글상자 (위치: right 2.5%, top 3.5% - 교사 미리보기와 동일) */}
+      {/* 글상자 2: 시각 글상자 */}
       <div
         className="absolute z-10 flex items-center gap-3 text-right"
-        style={{ right: "2.5%", top: "3.5%" }}
+        style={{
+          left: layouts.clockBox.left,
+          top: layouts.clockBox.top,
+          width: layouts.clockBox.width,
+          height: layouts.clockBox.height,
+          color: layouts.clockBox.color || "inherit",
+        }}
       >
-        <div className="font-mono text-2xl sm:text-4xl font-black tracking-wider opacity-90">
+        <div
+          className="font-mono font-black tracking-wider opacity-90 whitespace-nowrap"
+          style={{
+            fontSize: `${layouts.clockBox.fontSize || fontSize || 42}px`,
+            color: layouts.clockBox.color || "inherit",
+          }}
+        >
           {currentTime || "--:--:--"}
         </div>
         <button
@@ -159,15 +197,23 @@ export default function BoardClient({
         </button>
       </div>
 
-      {/* 글상자 3: 알림장 본문 글상자 (위치: left 2.5%, top 16%, width 95%, bottom 20% - 교사 미리보기와 동일) */}
+      {/* 글상자 3: 알림장 본문 글상자 (자유 글상자 형식 연동) */}
       <div
         className="absolute z-10 overflow-y-auto"
-        style={{ left: "2.5%", top: "16%", width: "95%", bottom: "20%" }}
+        style={{
+          left: layouts.noticeBox.left,
+          top: layouts.noticeBox.top,
+          width: layouts.noticeBox.width || "95.0%",
+          height: layouts.noticeBox.height || "62.0%",
+          color: layouts.noticeBox.color || "inherit",
+        }}
       >
         <div
-          className="font-bold tracking-tight leading-relaxed transition-all"
+          className="font-bold tracking-tight leading-relaxed transition-all p-2"
           style={{
-            fontSize: `${fontSize}px`,
+            fontSize: `${layouts.noticeBox.fontSize || fontSize || 42}px`,
+            color: layouts.noticeBox.color || "inherit",
+            textAlign: layouts.noticeBox.align || "left",
             lineHeight: "1.6",
             letterSpacing: "-0.02em",
           }}
@@ -177,24 +223,44 @@ export default function BoardClient({
         />
       </div>
 
-      {/* 글상자 4: 루틴 당번 글상자 (위치: left 2.5%, bottom 3.5%, width 95% - 교사 미리보기와 동일) */}
+      {/* 글상자 4: 루틴 당번 글상자 */}
       <div
         className="absolute z-10 flex items-center gap-6 sm:gap-8 flex-wrap font-bold opacity-95 leading-snug"
-        style={{ left: "2.5%", bottom: "3.5%", width: "95%", fontSize: `${fontSize}px` }}
+        style={{
+          left: layouts.routineBox.left,
+          top: layouts.routineBox.top,
+          width: layouts.routineBox.width || "95.0%",
+          height: layouts.routineBox.height,
+          fontSize: `${layouts.routineBox.fontSize || fontSize || 42}px`,
+          color: layouts.routineBox.color || "inherit",
+        }}
       >
         {routines.map((r) => {
-          const currentWorkers =
+          const rawWorkers =
             r.order.length > 0
-              ? Array.from({ length: r.slots }, (_, i) => r.order[(r.currentIdx + i) % r.order.length]).join(", ")
-              : "배정 없음";
+              ? Array.from({ length: r.slots }, (_, i) => {
+                  const raw = r.order[(r.currentIdx + i) % r.order.length];
+                  return resolveStudentName(raw, students);
+                })
+              : [];
+          const pinchHitter =
+            r.pinchHitterStudent && r.pinchHitterStudent !== "none"
+              ? resolveStudentName(r.pinchHitterStudent, students)
+              : "";
+          const displayWorkers = pinchHitter
+            ? `${pinchHitter} (대타)${rawWorkers.length > 1 ? `, ${rawWorkers.slice(1).join(", ")}` : ""}`
+            : rawWorkers.join(", ") || "배정 없음";
 
           return (
             <div key={r.id} className="flex items-center gap-2">
-              <span className={`opacity-80 ${themeStyle.routineText}`}>
+              <span
+                className={`opacity-80 ${layouts.routineBox.color ? "" : themeStyle.routineText}`}
+                style={layouts.routineBox.color ? { color: layouts.routineBox.color } : undefined}
+              >
                 {r.icon} {r.name}:
               </span>
               <span className={`font-black drop-shadow-xs ${themeStyle.routineWorker}`}>
-                {currentWorkers}
+                {displayWorkers}
               </span>
             </div>
           );
@@ -205,8 +271,16 @@ export default function BoardClient({
       {freeCards.map((card) => (
         <div
           key={card.id}
-          className="absolute z-20 text-lg sm:text-2xl font-bold"
-          style={{ left: card.left || "20%", top: card.top || "40%" }}
+          className="absolute z-20 font-bold"
+          style={{
+            left: card.left || "20%",
+            top: card.top || "40%",
+            width: card.width,
+            height: card.height,
+            fontSize: `${card.fontSize || fontSize || 42}px`,
+            textAlign: card.align || "left",
+            color: card.color || "inherit",
+          }}
           dangerouslySetInnerHTML={{ __html: card.html }}
         />
       ))}

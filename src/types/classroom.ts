@@ -71,7 +71,35 @@ export interface FreeCardData {
   top: string;
   width?: string;
   height?: string;
+  align?: "left" | "center" | "right";
+  color?: string;
+  fontSize?: number;
 }
 
+export interface ElementLayout {
+  left: string;
+  top: string;
+  width?: string;
+  height?: string;
+  fontSize?: number;
+  color?: string;
+  align?: "left" | "center" | "right";
+}
+
+export interface BoardElementLayouts {
+  dateBox: ElementLayout;
+  clockBox: ElementLayout;
+  noticeBox: ElementLayout;
+  routineBox: ElementLayout;
+}
+
+export type BoardTargetElement =
+  | "all"
+  | "noticeBox"
+  | "dateBox"
+  | "clockBox"
+  | "routineBox"
+  | "freeCard"
+  | string;
 export type BoardTheme = "chalkboard" | "white" | "navy" | "warm";
 export type NoticeFontSize = "34" | "42" | "50" | "58";

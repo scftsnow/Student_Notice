@@ -11,19 +11,15 @@ export default async function DashboardPage() {
   const d = String(now.getDate()).padStart(2, "0");
   const todayStr = `${y}-${m}-${d}`;
 
-  let setting = await prisma.classSetting.findUnique({
+  const setting = await prisma.classSetting.upsert({
     where: { id: "singleton" },
+    update: {},
+    create: {
+      id: "singleton",
+      className: "우리 반",
+      currencyName: "원",
+    },
   });
-
-  if (!setting) {
-    setting = await prisma.classSetting.create({
-      data: {
-        id: "singleton",
-        className: "우리 반",
-        currencyName: "원",
-      },
-    });
-  }
 
   const students = await prisma.student.findMany({
     orderBy: { studentNumber: "asc" },

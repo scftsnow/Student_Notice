@@ -8,12 +8,22 @@ import NoticeTab from "./notice/NoticeTab";
 import StudentTab from "./students/StudentTab";
 import RoutineTab from "./routines/RoutineTab";
 import EconomyTab from "./economy/EconomyTab";
+import { BoardTargetElement } from "@/types/classroom";
 
 type ActiveTab = "notice" | "students" | "routines" | "economy";
 
 export default function ClassroomApp() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("notice");
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+  const [targetElement, setTargetElement] = useState<BoardTargetElement>("noticeBox");
+  const [currentFontSize, setCurrentFontSize] = useState<number>(42);
+  const [appliedStyle, setAppliedStyle] = useState<{
+    target: BoardTargetElement;
+    color?: string;
+    fontSize?: number;
+    align?: "left" | "center" | "right";
+    timestamp: number;
+  } | null>(null);
 
   const state = useClassroomState();
 
@@ -41,9 +51,13 @@ export default function ClassroomApp() {
     state.setFreeCards((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const handleUpdateFreeCard = (id: string, html: string) => {
+  const handleUpdateFreeCard = (
+    id: string,
+    html: string,
+    updates?: Partial<import("@/types/classroom").FreeCardData>
+  ) => {
     state.setFreeCards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, html } : c))
+      prev.map((c) => (c.id === id ? { ...c, html, ...updates } : c))
     );
   };
 
@@ -126,6 +140,18 @@ export default function ClassroomApp() {
               onFontSizeChange={state.setFontSize}
               theme={state.theme}
               onThemeChange={state.setTheme}
+              targetElement={targetElement}
+              onTargetElementChange={setTargetElement}
+              currentFontSize={currentFontSize}
+              onApplyColor={(color) =>
+                setAppliedStyle({ target: targetElement, color, timestamp: Date.now() })
+              }
+              onApplyFontSize={(size) =>
+                setAppliedStyle({ target: targetElement, fontSize: size, timestamp: Date.now() })
+              }
+              onApplyAlign={(align) =>
+                setAppliedStyle({ target: targetElement, align, timestamp: Date.now() })
+              }
             />
             <BoardCanvas
               theme={state.theme}
@@ -137,6 +163,15 @@ export default function ClassroomApp() {
               onAddFreeCard={handleAddFreeCard}
               onRemoveFreeCard={handleRemoveFreeCard}
               onUpdateFreeCard={handleUpdateFreeCard}
+              students={state.students}
+              currencyName={state.currencyName}
+              onPayRoutineToday={state.payRoutineToday}
+              onUpdateRoutine={state.updateRoutine}
+              onAdvanceRoutine={state.advanceRoutine}
+              targetElement={targetElement}
+              onSelectElement={setTargetElement}
+              onCurrentFontSize={setCurrentFontSize}
+              appliedStyle={appliedStyle}
             />
           </div>
         )}
@@ -153,11 +188,13 @@ export default function ClassroomApp() {
           <RoutineTab
             routines={state.routines}
             students={state.students}
+            currencyName={state.currencyName}
             onAddRoutine={state.addRoutine}
             onDeleteRoutine={state.deleteRoutine}
             onAdvanceRoutine={state.advanceRoutine}
             onPayRoutineToday={state.payRoutineToday}
             onUpdateRoutineOrder={state.updateRoutineOrder}
+            onUpdateRoutine={state.updateRoutine}
           />
         )}
 
@@ -177,6 +214,8 @@ export default function ClassroomApp() {
             onExecuteDirectTax={state.executeDirectTax}
             onExecuteBundle={state.executeBundle}
             onAddBundle={state.addCustomBundle}
+            onUpdateBundle={state.updateCustomBundle}
+            onDeleteBundle={state.deleteCustomBundle}
             onUpdateTaxConfig={state.updateTaxConfig}
           />
         )}

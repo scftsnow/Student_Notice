@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, Save, CheckCircle } from "lucide-react";
 import { updateClassSettings } from "@/app/actions";
 import type { ClassSetting } from "@/types";
+import ResetSection from "./ResetSection";
 
 interface SettingsClientProps {
   initialSetting: ClassSetting;
@@ -11,6 +12,7 @@ interface SettingsClientProps {
 
 export default function SettingsClient({ initialSetting }: SettingsClientProps) {
   const [className, setClassName] = useState(initialSetting.className);
+  const [currencyName, setCurrencyName] = useState(initialSetting.currencyName || "원");
   const [defaultTaxRate] = useState(
     Math.round(initialSetting.defaultTaxRate * 100)
   );
@@ -34,6 +36,7 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
       if (savedRaw) {
         const parsed = JSON.parse(savedRaw);
         if (parsed.className) setClassName(parsed.className);
+        if (parsed.currencyName) setCurrencyName(parsed.currencyName);
       }
     } catch {
       // Ignore
@@ -45,22 +48,9 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
     setSaving(true);
     setSaved(false);
     try {
-      let currentCurrency = initialSetting.currencyName || "원";
-      try {
-        const savedRaw =
-          localStorage.getItem("classroom_os_state_v3") ||
-          localStorage.getItem("classroom_os_state_v2");
-        if (savedRaw) {
-          const parsed = JSON.parse(savedRaw);
-          if (parsed.currencyName) currentCurrency = parsed.currencyName;
-        }
-      } catch {
-        // Ignore
-      }
-
       await updateClassSettings({
         className,
-        currencyName: currentCurrency,
+        currencyName,
         defaultTaxRate: defaultTaxRate / 100,
         taxMethod,
         absencePolicy,
@@ -76,8 +66,12 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
           const savedRaw = localStorage.getItem(key);
           const parsed = savedRaw ? JSON.parse(savedRaw) : {};
           parsed.className = className;
+          parsed.currencyName = currencyName;
           localStorage.setItem(key, JSON.stringify(parsed));
         }
+        const channel = new BroadcastChannel("classroom_os_sync");
+        channel.postMessage({ className, currencyName });
+        channel.close();
       } catch {
         // Ignore
       }
@@ -107,7 +101,7 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-5 text-sm">
-        {/* Class name only */}
+        {/* Class name */}
         <div>
           <label className="text-sm font-bold text-slate-700 block mb-1.5">학급 명칭</label>
           <input
@@ -117,6 +111,22 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
             className="w-full p-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             required
           />
+        </div>
+
+        {/* Currency name */}
+        <div>
+          <label className="text-sm font-bold text-slate-700 block mb-1.5">화폐 단위 명칭</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={currencyName}
+              onChange={(e) => setCurrencyName(e.target.value)}
+              placeholder="예: 원, 포인트, 코인, 별"
+              className="w-full p-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <span className="text-xs text-slate-400 whitespace-nowrap">화폐 기호 (예: 원)</span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">학급 경제 전반에서 표시될 화폐 단위 이름입니다.</p>
         </div>
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
@@ -138,6 +148,9 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
           </button>
         </div>
       </form>
+
+      {/* 데이터 초기화 섹션 */}
+      <ResetSection />
     </div>
   );
 }

@@ -57,6 +57,8 @@ export default function EconomyPageClient({
         onExecuteDirectTax={state.executeDirectTax}
         onExecuteBundle={state.executeBundle}
         onAddBundle={state.addCustomBundle}
+        onUpdateBundle={state.updateCustomBundle}
+        onDeleteBundle={state.deleteCustomBundle}
         onUpdateTaxConfig={state.updateTaxConfig}
       />
     </div>

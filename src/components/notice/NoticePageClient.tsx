@@ -1,11 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import NoticeTab from "@/components/classroom/notice/NoticeTab";
 import BoardCanvas from "@/components/classroom/canvas/BoardCanvas";
+import { BoardTargetElement } from "@/types/classroom";
 
 export default function NoticePageClient() {
   const state = useClassroomState();
+  const [targetElement, setTargetElement] = useState<BoardTargetElement>("noticeBox");
+  const [currentFontSize, setCurrentFontSize] = useState<number>(42);
+  const [appliedStyle, setAppliedStyle] = useState<{
+    target: BoardTargetElement;
+    color?: string;
+    fontSize?: number;
+    align?: "left" | "center" | "right";
+    timestamp: number;
+  } | null>(null);
 
   const handleOpenBoardWindow = () => {
     const width = 1280;
@@ -31,9 +42,13 @@ export default function NoticePageClient() {
     state.setFreeCards((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const handleUpdateFreeCard = (id: string, html: string) => {
+  const handleUpdateFreeCard = (
+    id: string,
+    html: string,
+    updates?: Partial<import("@/types/classroom").FreeCardData>
+  ) => {
     state.setFreeCards((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, html } : c))
+      prev.map((c) => (c.id === id ? { ...c, html, ...updates } : c))
     );
   };
 
@@ -81,6 +96,18 @@ export default function NoticePageClient() {
           onFontSizeChange={state.setFontSize}
           theme={state.theme}
           onThemeChange={state.setTheme}
+          targetElement={targetElement}
+          onTargetElementChange={setTargetElement}
+          currentFontSize={currentFontSize}
+          onApplyColor={(color) =>
+            setAppliedStyle({ target: targetElement, color, timestamp: Date.now() })
+          }
+          onApplyFontSize={(size) =>
+            setAppliedStyle({ target: targetElement, fontSize: size, timestamp: Date.now() })
+          }
+          onApplyAlign={(align) =>
+            setAppliedStyle({ target: targetElement, align, timestamp: Date.now() })
+          }
         />
         <BoardCanvas
           theme={state.theme}
@@ -92,6 +119,15 @@ export default function NoticePageClient() {
           onAddFreeCard={handleAddFreeCard}
           onRemoveFreeCard={handleRemoveFreeCard}
           onUpdateFreeCard={handleUpdateFreeCard}
+          students={state.students}
+          currencyName={state.currencyName}
+          onPayRoutineToday={state.payRoutineToday}
+          onUpdateRoutine={state.updateRoutine}
+          onAdvanceRoutine={state.advanceRoutine}
+          targetElement={targetElement}
+          onSelectElement={setTargetElement}
+          onCurrentFontSize={setCurrentFontSize}
+          appliedStyle={appliedStyle}
         />
       </div>
     </div>
