@@ -17,6 +17,7 @@ export interface ClassroomRoutine {
   absenceMode?: "next" | "defer" | "pass" | "manual";
   pinchHitterStudent?: string;
   displayFormat?: string;
+  visibleInNotice?: boolean;
 }
 
 export interface TaxConfig {

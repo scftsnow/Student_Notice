@@ -235,7 +235,7 @@ export default function BoardClient({
           color: layouts.routineBox.color || "inherit",
         }}
       >
-        {routines.map((r) => {
+        {routines.filter((r) => r.visibleInNotice !== false).map((r) => {
           const rawWorkers =
             r.order.length > 0
               ? Array.from({ length: r.slots }, (_, i) => {

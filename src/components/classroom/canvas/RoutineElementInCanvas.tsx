@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { EyeOff } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
@@ -443,6 +444,21 @@ export default function RoutineElementInCanvas({
               >
                 <span>➡️</span>
                 <span className="font-semibold">이 업무 다음 순번 넘기기</span>
+              </button>
+            )}
+
+            {/* 알림장에서 숨기기 */}
+            {onUpdateRoutine && (
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateRoutine(routine.id, { visibleInNotice: false });
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-slate-300 hover:text-white"
+              >
+                <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-semibold">알림장에서 숨기기</span>
               </button>
             )}
           </div>

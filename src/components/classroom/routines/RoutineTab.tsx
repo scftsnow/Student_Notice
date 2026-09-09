@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 import AddRoutineModal from "./AddRoutineModal";
 import RoutineOrderModal from "./RoutineOrderModal";
@@ -109,17 +110,28 @@ export default function RoutineTab({
             return (
               <div
                 key={r.id}
-                className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between space-y-3.5 shadow-xs"
+                className={`p-4 rounded-2xl bg-white border transition-all flex flex-col justify-between space-y-3.5 shadow-xs ${
+                  r.visibleInNotice !== false
+                    ? "border-slate-200 hover:border-indigo-300 hover:shadow-md"
+                    : "border-dashed border-slate-300 bg-slate-50/60 opacity-85"
+                }`}
               >
-                {/* 카드 상단: 아이콘, 이름, 급여/정원 배지, 삭제 버튼 */}
+                {/* 카드 상단: 아이콘, 이름, 가시성 토글, 삭제 버튼 */}
                 <div className="space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl shrink-0">{r.icon || "📋"}</span>
                       <div>
-                        <h4 className="font-extrabold text-base text-slate-900 leading-tight">
-                          {r.name}
-                        </h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-extrabold text-base text-slate-900 leading-tight">
+                            {r.name}
+                          </h4>
+                          {r.visibleInNotice === false && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/80 text-slate-600 font-bold">
+                              알림장 숨김
+                            </span>
+                          )}
+                        </div>
                         {r.memo && (
                           <p className="text-xs text-slate-400 font-medium line-clamp-1 mt-0.5">
                             {r.memo}
@@ -127,18 +139,45 @@ export default function RoutineTab({
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`"${r.name}" 업무를 삭제하시겠습니까?`)) {
-                          onDeleteRoutine(r.id);
-                        }
-                      }}
-                      className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-lg transition-colors font-bold text-xs shrink-0"
-                      title="업무 삭제"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const isVisible = r.visibleInNotice !== false;
+                          onUpdateRoutine?.(r.id, { visibleInNotice: !isVisible });
+                        }}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-bold transition-all ${
+                          r.visibleInNotice !== false
+                            ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                            : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                        }`}
+                        title={r.visibleInNotice !== false ? "알림장에서 숨기기" : "알림장에 표시하기"}
+                      >
+                        {r.visibleInNotice !== false ? (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="text-[11px]">알림장 표시</span>
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-[11px]">알림장 숨김</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`"${r.name}" 업무를 삭제하시겠습니까?`)) {
+                            onDeleteRoutine(r.id);
+                          }
+                        }}
+                        className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-lg transition-colors font-bold text-xs shrink-0"
+                        title="업무 삭제"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap text-xs">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 interface AddRoutineModalProps {
@@ -24,6 +25,7 @@ export default function AddRoutineModal({
   const [pay, setPay] = useState(200);
   const [memo, setMemo] = useState("");
   const [displayFormat, setDisplayFormat] = useState("");
+  const [visibleInNotice, setVisibleInNotice] = useState(true);
   const [orderList, setOrderList] = useState<string[]>([]);
   const dragItem = useRef<number | null>(null);
   const dragOver = useRef<number | null>(null);
@@ -89,10 +91,12 @@ export default function AddRoutineModal({
       order: orderList,
       absenceMode: "next",
       displayFormat: displayFormat.trim() || undefined,
+      visibleInNotice,
     });
     setName("");
     setOrderList([]);
     setDisplayFormat("");
+    setVisibleInNotice(true);
     onClose();
   };
 
@@ -274,6 +278,42 @@ export default function AddRoutineModal({
               placeholder="예: 매일 하교 전 점검, 급식 전 배부"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-slate-800 focus:border-indigo-500 focus:outline-none"
             />
+          </div>
+
+          {/* 알림장(칠판) 표시 여부 */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                visibleInNotice ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-500"
+              }`}>
+                {visibleInNotice ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </div>
+              <div>
+                <span className="font-bold text-slate-800 text-xs block">알림장(칠판) 표시</span>
+                <span className="text-[11px] text-slate-500">알림장 칠판 및 학생 전광판에 노출</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVisibleInNotice((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                visibleInNotice
+                  ? "bg-indigo-600 text-white border-indigo-700 shadow-xs hover:bg-indigo-700"
+                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
+              }`}
+            >
+              {visibleInNotice ? (
+                <>
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>표시함</span>
+                </>
+              ) : (
+                <>
+                  <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                  <span>숨김</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 

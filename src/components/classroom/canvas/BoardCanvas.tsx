@@ -463,11 +463,15 @@ export default function BoardCanvas({
               className="flex items-center gap-4 sm:gap-6 flex-wrap w-full"
               style={{ fontSize: "inherit" }}
             >
-              {routines.length === 0 ? (
-                <span className="opacity-50 italic text-xs">등록된 학생 업무가 없습니다.</span>
+              {routines.filter((r) => r.visibleInNotice !== false).length === 0 ? (
+                <span className="opacity-50 italic text-xs">
+                  {routines.length === 0 ? "등록된 학생 업무가 없습니다." : "알림장에 표시할 학생 업무가 없습니다."}
+                </span>
               ) : (
                 <>
-                  {routines.map((r) => (
+                  {routines
+                    .filter((r) => r.visibleInNotice !== false)
+                    .map((r) => (
                     <RoutineElementInCanvas
                       key={r.id}
                       routine={r}
