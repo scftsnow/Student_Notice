@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins } from "lucide-react";
+import { useRef, useEffect, useState } from "react";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins, Minus, Plus } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
 
 const TEXT_COLORS = [
@@ -51,6 +51,58 @@ export default function NoticeTab({
   onOpenRoutineNoticeSettings,
 }: NoticeTabProps) {
   const lastRangeRef = useRef<Range | null>(null);
+
+  // 구글 독스 스타일 글자 크기 숫자 입력 및 +/- 스테퍼 로직
+  const effectiveFontSize = currentFontSize ?? (Number(fontSize) || 42);
+  const [fontSizeInput, setFontSizeInput] = useState<string>(String(effectiveFontSize));
+  const isFontSizeFocused = useRef(false);
+
+  useEffect(() => {
+    if (!isFontSizeFocused.current) {
+      setFontSizeInput(String(effectiveFontSize));
+    }
+  }, [effectiveFontSize]);
+
+  const commitFontSize = (valStr: string) => {
+    let num = parseInt(valStr.replace(/[^0-9]/g, ""), 10);
+    if (isNaN(num)) num = effectiveFontSize;
+    num = Math.max(12, Math.min(160, num));
+    setFontSizeInput(String(num));
+    applyFontSizeToSelectionOrTarget(String(num) as NoticeFontSize);
+    onApplyFontSize?.(num);
+  };
+
+  const handleStepFontSize = (delta: number) => {
+    const next = Math.max(12, Math.min(160, effectiveFontSize + delta));
+    setFontSizeInput(String(next));
+    applyFontSizeToSelectionOrTarget(String(next) as NoticeFontSize);
+    onApplyFontSize?.(next);
+  };
+
+  // 구글 독스 스타일 줄간격 숫자 입력 및 +/- 스테퍼 로직
+  const effectiveLineHeight = lineHeight ?? 140;
+  const [lineHeightInput, setLineHeightInput] = useState<string>(String(effectiveLineHeight));
+  const isLineHeightFocused = useRef(false);
+
+  useEffect(() => {
+    if (!isLineHeightFocused.current) {
+      setLineHeightInput(String(effectiveLineHeight));
+    }
+  }, [effectiveLineHeight]);
+
+  const commitLineHeight = (valStr: string) => {
+    let num = parseInt(valStr.replace(/[^0-9]/g, ""), 10);
+    if (isNaN(num)) num = effectiveLineHeight;
+    num = Math.max(80, Math.min(300, num));
+    setLineHeightInput(String(num));
+    onApplyLineHeight?.(num);
+  };
+
+  const handleStepLineHeight = (delta: number) => {
+    const next = Math.max(80, Math.min(300, effectiveLineHeight + delta));
+    setLineHeightInput(String(next));
+    onApplyLineHeight?.(next);
+  };
 
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -236,41 +288,126 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 글자 크기 */}
-          <div className="flex items-center gap-1">
-            <span className="text-slate-400 font-semibold">크기:</span>
-            <select
-              value={currentFontSize ?? fontSize}
-              onChange={(e) => {
-                applyFontSizeToSelectionOrTarget(e.target.value as NoticeFontSize);
-              }}
-              className="rounded border border-slate-200 px-2 py-1 bg-white text-xs font-semibold focus:outline-none"
+          {/* 글자 크기 (구글 독스 스타일: - [숫자] + & 프리셋 드롭다운) */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+            <span className="text-slate-400 font-semibold text-[11px] pl-1">크기</span>
+            <button
+              type="button"
+              onClick={() => handleStepFontSize(-2)}
+              title="글자 크기 2px 축소"
+              className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
             >
-              <option value="34">작게 (34px)</option>
-              <option value="42">보통 (42px)</option>
-              <option value="50">크게 (50px)</option>
-              <option value="58">아주 크게 (58px)</option>
+              <Minus className="w-3 h-3" />
+            </button>
+            <input
+              type="text"
+              value={fontSizeInput}
+              onFocus={() => {
+                isFontSizeFocused.current = true;
+              }}
+              onChange={(e) => setFontSizeInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  isFontSizeFocused.current = false;
+                  commitFontSize(fontSizeInput);
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              onBlur={() => {
+                isFontSizeFocused.current = false;
+                commitFontSize(fontSizeInput);
+              }}
+              title="글자 크기 직접 입력 (Enter로 적용)"
+              className="w-7 text-center text-xs font-bold text-slate-800 bg-transparent focus:outline-none focus:bg-indigo-50/50 rounded"
+            />
+            <button
+              type="button"
+              onClick={() => handleStepFontSize(2)}
+              title="글자 크기 2px 확대"
+              className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+            <select
+              value={effectiveFontSize}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                commitFontSize(String(val));
+              }}
+              title="글자 크기 프리셋"
+              className="w-4 bg-transparent border-l border-slate-200 text-transparent focus:outline-none cursor-pointer text-xs"
+            >
+              <option value="24" className="text-slate-800">24px</option>
+              <option value="34" className="text-slate-800">34px</option>
+              <option value="42" className="text-slate-800">42px</option>
+              <option value="50" className="text-slate-800">50px</option>
+              <option value="58" className="text-slate-800">58px</option>
+              <option value="72" className="text-slate-800">72px</option>
             </select>
           </div>
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 줄간격 (디폴트 140%) */}
-          <div className="flex items-center gap-1">
-            <span className="text-slate-400 font-semibold">줄간격:</span>
-            <select
-              value={lineHeight ?? 140}
-              onChange={(e) => onApplyLineHeight?.(Number(e.target.value))}
-              className="rounded border border-slate-200 px-2 py-1 bg-white text-xs font-semibold focus:outline-none"
+          {/* 줄간격 (구글 독스 스타일: - [숫자%] + & 프리셋 드롭다운) */}
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
+            <span className="text-slate-400 font-semibold text-[11px] pl-1">행간</span>
+            <button
+              type="button"
+              onClick={() => handleStepLineHeight(-10)}
+              title="줄간격 10% 축소"
+              className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
             >
-              <option value="110">110%</option>
-              <option value="120">120%</option>
-              <option value="130">130%</option>
-              <option value="140">140% (기본)</option>
-              <option value="150">150%</option>
-              <option value="160">160%</option>
-              <option value="180">180%</option>
-              <option value="200">200%</option>
+              <Minus className="w-3 h-3" />
+            </button>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={lineHeightInput}
+                onFocus={() => {
+                  isLineHeightFocused.current = true;
+                }}
+                onChange={(e) => setLineHeightInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    isLineHeightFocused.current = false;
+                    commitLineHeight(lineHeightInput);
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                onBlur={() => {
+                  isLineHeightFocused.current = false;
+                  commitLineHeight(lineHeightInput);
+                }}
+                title="줄간격 직접 입력 (%) (Enter로 적용)"
+                className="w-8 text-center text-xs font-bold text-slate-800 bg-transparent focus:outline-none focus:bg-indigo-50/50 rounded pr-1"
+              />
+              <span className="text-[10px] text-slate-400 font-semibold pointer-events-none select-none">%</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleStepLineHeight(10)}
+              title="줄간격 10% 확대"
+              className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+            <select
+              value={effectiveLineHeight}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                commitLineHeight(String(val));
+              }}
+              title="줄간격 프리셋"
+              className="w-4 bg-transparent border-l border-slate-200 text-transparent focus:outline-none cursor-pointer text-xs"
+            >
+              <option value="110" className="text-slate-800">110%</option>
+              <option value="120" className="text-slate-800">120%</option>
+              <option value="130" className="text-slate-800">130%</option>
+              <option value="140" className="text-slate-800">140% (기본)</option>
+              <option value="150" className="text-slate-800">150%</option>
+              <option value="160" className="text-slate-800">160%</option>
+              <option value="180" className="text-slate-800">180%</option>
+              <option value="200" className="text-slate-800">200%</option>
             </select>
           </div>
 

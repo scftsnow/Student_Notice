@@ -108,4 +108,4 @@ export type BoardTargetElement =
   | "freeCard"
   | string;
 export type BoardTheme = "chalkboard" | "white" | "navy" | "warm";
-export type NoticeFontSize = "34" | "42" | "50" | "58";
+export type NoticeFontSize = "34" | "42" | "50" | "58" | (string & {});
