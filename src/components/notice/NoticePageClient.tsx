@@ -120,6 +120,7 @@ export default function NoticePageClient() {
           students={state.students}
           currencyName={state.currencyName}
           onPayRoutineToday={state.payRoutineToday}
+          onPayAllRoutinesToday={state.payAllRoutinesToday}
           onUpdateRoutine={state.updateRoutine}
           onAdvanceRoutine={state.advanceRoutine}
           onAdvanceAllRoutines={state.advanceAllRoutines}

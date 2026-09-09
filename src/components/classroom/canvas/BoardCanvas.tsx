@@ -31,6 +31,7 @@ interface BoardCanvasProps {
   students?: ClassroomStudent[];
   currencyName?: string;
   onPayRoutineToday?: (id: string, workers?: string[]) => void;
+  onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
   onAdvanceAllRoutines?: () => void;
@@ -88,6 +89,7 @@ export default function BoardCanvas({
   students = [],
   currencyName = "원",
   onPayRoutineToday,
+  onPayAllRoutinesToday,
   onUpdateRoutine,
   onAdvanceRoutine,
   onAdvanceAllRoutines,
@@ -474,6 +476,7 @@ export default function BoardCanvas({
                       theme={theme}
                       customColor={layouts.routineBox.color}
                       onPayRoutineToday={onPayRoutineToday}
+                      onPayAllRoutinesToday={onPayAllRoutinesToday}
                       onUpdateRoutine={onUpdateRoutine}
                       onAdvanceRoutine={onAdvanceRoutine}
                     />

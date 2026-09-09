@@ -11,6 +11,7 @@ interface RoutineElementInCanvasProps {
   theme?: BoardTheme;
   customColor?: string;
   onPayRoutineToday?: (id: string, workers?: string[]) => void;
+  onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
 }
@@ -22,12 +23,14 @@ export default function RoutineElementInCanvas({
   theme = "chalkboard",
   customColor,
   onPayRoutineToday,
+  onPayAllRoutinesToday,
   onUpdateRoutine,
   onAdvanceRoutine,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [isFormatEditing, setIsFormatEditing] = useState(false);
   const [formatInput, setFormatInput] = useState(routine.displayFormat || "");
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +66,30 @@ export default function RoutineElementInCanvas({
       return () => document.removeEventListener("mousedown", handleOutsideClick);
     }
   }, [activePopupIndex, isFormatEditing]);
+
+  // Close context menu on any outside click or context menu elsewhere
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("contextmenu", close);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("contextmenu", close);
+    };
+  }, [contextMenu]);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActivePopupIndex(null);
+    setIsFormatEditing(false);
+    const menuWidth = 240;
+    const menuHeight = 180;
+    const x = Math.max(10, Math.min(e.clientX, window.innerWidth - menuWidth - 10));
+    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - menuHeight - 10));
+    setContextMenu({ x, y });
+  };
 
   // 원본 루틴 배정자 (번호일 경우 학생 이름으로 자동 변환)
   const rawWorkers =
@@ -110,6 +137,7 @@ export default function RoutineElementInCanvas({
   return (
     <div
       ref={containerRef}
+      onContextMenu={handleContextMenu}
       className="relative inline-flex items-center gap-1 leading-snug flex-wrap group"
       style={{ fontSize: "inherit" }}
     >
@@ -347,6 +375,77 @@ export default function RoutineElementInCanvas({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 우클릭 컨텍스트 메뉴 */}
+      {contextMenu && (
+        <div
+          className="fixed z-[9999] bg-slate-900/96 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs overflow-hidden"
+          style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 200 }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          {/* 헤더 */}
+          <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
+            <span className="text-amber-300 font-extrabold">{routine.icon || "📋"}</span>
+            <span className="font-bold text-white/90 truncate">{routine.name}</span>
+          </div>
+
+          <div className="p-1.5 space-y-0.5">
+            {/* 이 업무 급여 지급 */}
+            {onPayRoutineToday && (
+              <button
+                type="button"
+                disabled={routine.pay <= 0 || rawWorkers.length === 0}
+                onClick={() => {
+                  onPayRoutineToday(routine.id);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
+              >
+                <span>💰</span>
+                <span className="font-semibold">이 업무 급여 지급</span>
+                {routine.pay > 0 && (
+                  <span className="ml-auto text-amber-300 font-bold">
+                    {routine.pay.toLocaleString()}{currencyName}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* 전체 업무 급여 일괄 지급 */}
+            {onPayAllRoutinesToday && (
+              <button
+                type="button"
+                onClick={() => {
+                  onPayAllRoutinesToday();
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 transition-colors text-left font-bold"
+              >
+                <span>💵</span>
+                <span>전체 업무 급여 일괄 지급</span>
+              </button>
+            )}
+
+            <div className="h-px bg-white/10 my-0.5" />
+
+            {/* 다음 순번 넘기기 */}
+            {onAdvanceRoutine && (
+              <button
+                type="button"
+                onClick={() => {
+                  onAdvanceRoutine(routine.id);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left"
+              >
+                <span>➡️</span>
+                <span className="font-semibold">이 업무 다음 순번 넘기기</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -361,6 +361,72 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     [routines, taxConfig, currencyName, addLedgerEntry, showToast]
   );
 
+  const payAllRoutinesToday = useCallback(() => {
+    const payable = routines.filter((r) => r.pay > 0 && r.order.length > 0);
+    if (payable.length === 0) {
+      showToast("지급할 급여가 책정된 학생 업무가 없습니다.");
+      return;
+    }
+
+    const applyIncomeTax = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
+    let totalTaxCollectedNow = 0;
+    let totalWorkersCount = 0;
+    const paidRoutineNames: string[] = [];
+
+    setStudents((prev) => {
+      const nextStudents = [...prev];
+
+      for (const r of payable) {
+        const rawWorkers = Array.from(
+          { length: r.slots },
+          (_, i) => r.order[(r.currentIdx + i) % r.order.length]
+        );
+        const targetWorkers =
+          r.pinchHitterStudent && r.pinchHitterStudent !== "none"
+            ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
+            : rawWorkers;
+
+        const taxPerWorker = applyIncomeTax ? calculateTax("income", r.pay, taxConfig) : 0;
+        const netPay = Math.max(0, r.pay - taxPerWorker);
+
+        let countForRoutine = 0;
+        for (let i = 0; i < nextStudents.length; i++) {
+          const s = nextStudents[i];
+          if (targetWorkers.includes(s.name)) {
+            nextStudents[i] = { ...s, balance: s.balance + netPay };
+            totalTaxCollectedNow += taxPerWorker;
+            countForRoutine++;
+            addLedgerEntry(
+              "입금",
+              "🏛️ 학급 국고",
+              s.name,
+              s.name,
+              `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
+              r.pay,
+              taxPerWorker,
+              [s.name]
+            );
+          }
+        }
+        if (countForRoutine > 0) {
+          paidRoutineNames.push(r.name);
+          totalWorkersCount += countForRoutine;
+        }
+      }
+
+      return nextStudents;
+    });
+
+    if (totalTaxCollectedNow > 0) {
+      setTreasuryBalance((prev) => prev + totalTaxCollectedNow);
+      setTotalTaxCollected((prev) => prev + totalTaxCollectedNow);
+    }
+
+    showToast(
+      `전체 ${paidRoutineNames.length}개 업무 (${totalWorkersCount}명) 당번 급여 일괄 지급 완료`
+    );
+  }, [routines, taxConfig, addLedgerEntry, showToast]);
+
   // 3. Economy Actions
   const executeTransaction = useCallback(
     (fromVal: string, toVal: string, amount: number, desc: string, applyTax: boolean) => {
@@ -607,6 +673,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     updateRoutineOrder,
     updateRoutine,
     payRoutineToday,
+    payAllRoutinesToday,
     executeTransaction,
     executeBatchDeposit,
     executeDirectTax,
