@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ClassroomStudent,
   ClassroomRoutine,
@@ -13,7 +13,7 @@ import {
 } from "@/types/classroom";
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
-import { updateCurrencyName } from "@/app/actions";
+import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
 
 export interface ClassroomStateOptions {
   initialCurrencyName?: string;
@@ -42,62 +42,77 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   // Toast message state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 3500);
-  }, []);
+  // Debounce timer ref for background DB sync (does NOT affect UI reactivity)
+  const dbSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Update currency name and sync to server DB
-  const handleSetCurrencyName = useCallback((newName: string) => {
-    setCurrencyName(newName);
-    try {
-      updateCurrencyName(newName).catch(() => {});
-    } catch {
-      // Ignore background sync errors
+  // Helper: apply parsed snapshot object to state
+  const applyParsedState = useCallback((parsed: Record<string, unknown>, initialCurrencyName?: string) => {
+    const MOCK_BUNDLE_IDS = ["bundle-basic-income", "bundle-job-salary", "bundle-seat-rent", "bundle-1", "bundle-2", "bundle-3"];
+    if (parsed.className) setClassName(parsed.className as string);
+    if (initialCurrencyName && (parsed.currencyName === "미소" || !parsed.currencyName)) {
+      setCurrencyName(initialCurrencyName);
+    } else if (parsed.currencyName) {
+      setCurrencyName(parsed.currencyName as string);
+    } else if (initialCurrencyName) {
+      setCurrencyName(initialCurrencyName);
     }
+    if (Array.isArray(parsed.students)) setStudents(parsed.students as ClassroomStudent[]);
+    if (Array.isArray(parsed.routines)) setRoutines(parsed.routines as ClassroomRoutine[]);
+    if (typeof parsed.treasuryBalance === "number") setTreasuryBalance(parsed.treasuryBalance);
+    if (typeof parsed.totalTaxCollected === "number") setTotalTaxCollected(parsed.totalTaxCollected);
+    if (parsed.taxConfig) setTaxConfig({ ...DEFAULT_TAX_CONFIG, ...(parsed.taxConfig as TaxConfig) });
+    if (Array.isArray(parsed.customBundles)) {
+      setCustomBundles((parsed.customBundles as CustomBundle[]).filter((b) => !MOCK_BUNDLE_IDS.includes(b.id)));
+    }
+    if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory as LedgerRecord[]);
+    if (typeof parsed.noticeText === "string") setNoticeText(parsed.noticeText);
+    if (parsed.theme) setTheme(parsed.theme as BoardTheme);
+    if (parsed.fontSize) setFontSize(parsed.fontSize as NoticeFontSize);
+    if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards as FreeCardData[]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load from localStorage on client mount
+  // Load from localStorage on client mount; DB fallback if localStorage is empty
   useEffect(() => {
     setIsMounted(true);
-    try {
-      const savedV3 = localStorage.getItem("classroom_os_state_v3");
-      const savedV2 = localStorage.getItem("classroom_os_state_v2");
-      const saved = savedV3 || savedV2;
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.className) setClassName(parsed.className);
-        // Prioritize server DB setting if local storage has old default '미소' or empty
-        if (options?.initialCurrencyName && (parsed.currencyName === "미소" || !parsed.currencyName)) {
-          setCurrencyName(options.initialCurrencyName);
-        } else if (parsed.currencyName) {
-          setCurrencyName(parsed.currencyName);
-        } else if (options?.initialCurrencyName) {
-          setCurrencyName(options.initialCurrencyName);
+    const doLoad = async () => {
+      try {
+        const savedV3 = localStorage.getItem("classroom_os_state_v3");
+        const savedV2 = localStorage.getItem("classroom_os_state_v2");
+        const saved = savedV3 || savedV2;
+        if (saved) {
+          const parsed = JSON.parse(saved) as Record<string, unknown>;
+          applyParsedState(parsed, options?.initialCurrencyName);
+          return;
         }
-        if (Array.isArray(parsed.students)) setStudents(parsed.students);
-        if (Array.isArray(parsed.routines)) setRoutines(parsed.routines);
-        if (typeof parsed.treasuryBalance === "number") setTreasuryBalance(parsed.treasuryBalance);
-        if (typeof parsed.totalTaxCollected === "number") setTotalTaxCollected(parsed.totalTaxCollected);
-        if (parsed.taxConfig) setTaxConfig({ ...DEFAULT_TAX_CONFIG, ...parsed.taxConfig });
-        if (Array.isArray(parsed.customBundles)) {
-          const MOCK_BUNDLE_IDS = ["bundle-basic-income", "bundle-job-salary", "bundle-seat-rent", "bundle-1", "bundle-2", "bundle-3"];
-          setCustomBundles(parsed.customBundles.filter((b: CustomBundle) => !MOCK_BUNDLE_IDS.includes(b.id)));
-        }
-        if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory);
-        if (typeof parsed.noticeText === "string") setNoticeText(parsed.noticeText);
-        if (parsed.theme) setTheme(parsed.theme);
-        if (parsed.fontSize) setFontSize(parsed.fontSize);
-        if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards);
+      } catch {
+        // localStorage parse error — fall through to DB
       }
-    } catch {
-      // Ignore parse errors
-    }
+      // DB fallback: localStorage was empty or parse failed
+      try {
+        const dbData = await loadClassroomSnapshot();
+        if (dbData) {
+          const parsed = JSON.parse(dbData) as Record<string, unknown>;
+          applyParsedState(parsed, options?.initialCurrencyName);
+          // Repopulate localStorage from DB so next load is fast
+          try { localStorage.setItem("classroom_os_state_v3", dbData); } catch { /* noop */ }
+        }
+      } catch {
+        // DB also unavailable — start fresh
+      }
+    };
+    doLoad();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save to localStorage & Broadcast to student window
+  // Cleanup DB sync timer on unmount
+  useEffect(() => {
+    return () => {
+      if (dbSyncTimerRef.current) clearTimeout(dbSyncTimerRef.current);
+    };
+  }, []);
+
+  // Save to localStorage (instant) & schedule debounced DB save & Broadcast to student window
   useEffect(() => {
     if (!isMounted) return;
     const payload = {
@@ -116,12 +131,18 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       freeCards,
       noticeTarget,
     };
-    try {
-      localStorage.setItem("classroom_os_state_v3", JSON.stringify(payload));
-    } catch {
-      // Ignore storage errors
-    }
+    const json = JSON.stringify(payload);
 
+    // 1) Instant: localStorage for zero-latency UI
+    try { localStorage.setItem("classroom_os_state_v3", json); } catch { /* noop */ }
+
+    // 2) Debounced: DB write 1.5s after last state change (Write-through cache)
+    if (dbSyncTimerRef.current) clearTimeout(dbSyncTimerRef.current);
+    dbSyncTimerRef.current = setTimeout(() => {
+      saveClassroomSnapshot(json).catch(() => { /* silent background failure */ });
+    }, 1500);
+
+    // 3) Instant: BroadcastChannel to student window
     try {
       const channel = new BroadcastChannel("classroom_os_sync");
       channel.postMessage({
@@ -136,12 +157,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         freeCards,
       });
       channel.close();
-    } catch {
-      // Ignore channel errors
-    }
+    } catch { /* noop */ }
   }, [
     isMounted,
     className,
+    currencyName,
     students,
     routines,
     treasuryBalance,
@@ -156,7 +176,28 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     noticeTarget,
   ]);
 
+
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 3500);
+  }, []);
+
+  // Update currency name and sync to server DB
+  const handleSetCurrencyName = useCallback((newName: string) => {
+    setCurrencyName(newName);
+    try {
+      updateCurrencyName(newName).catch(() => {});
+    } catch {
+      // Ignore background sync errors
+    }
+  }, []);
+
+
   // Helper to add ledger record
+
   const addLedgerEntry = useCallback(
     (
       type: string,

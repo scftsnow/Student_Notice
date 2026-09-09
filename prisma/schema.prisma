@@ -136,3 +136,9 @@ model PendingPayment {
   createdAt DateTime @default(now())
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
+
+model ClassroomSnapshot {
+  id        String   @id @default("singleton")
+  data      String   // JSON blob of classroom_os_state_v3
+  updatedAt DateTime @updatedAt
+}

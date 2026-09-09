@@ -427,3 +427,22 @@ export async function resetRoutines() {
   revalidatePath("/");
   return { success: true };
 }
+
+// --- Classroom Snapshot Actions (Write-through Cache for data durability) ---
+
+/** 현재 교실 전체 상태를 DB에 스냅샷으로 저장 (캐시 삭제 시 복구용) */
+export async function saveClassroomSnapshot(jsonData: string): Promise<void> {
+  await prisma.classroomSnapshot.upsert({
+    where: { id: "singleton" },
+    update: { data: jsonData },
+    create: { id: "singleton", data: jsonData },
+  });
+}
+
+/** DB에 저장된 교실 상태 스냅샷을 불러옴 (localStorage 비어있을 때 복구용) */
+export async function loadClassroomSnapshot(): Promise<string | null> {
+  const snapshot = await prisma.classroomSnapshot.findUnique({
+    where: { id: "singleton" },
+  });
+  return snapshot?.data ?? null;
+}
