@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 interface RoutineOrderModalProps {
@@ -19,26 +19,57 @@ export default function RoutineOrderModal({
   onSave,
 }: RoutineOrderModalProps) {
   const [orderList, setOrderList] = useState<string[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState("");
+  const dragItem = useRef<number | null>(null);
+  const dragOver = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    if (routine) {
-      setOrderList([...routine.order]);
-    }
-    if (students.length > 0) {
-      setSelectedStudent(students[0].name);
-    }
-  }, [routine, students]);
+    if (routine) setOrderList([...routine.order]);
+  }, [routine]);
 
   if (!isOpen || !routine) return null;
 
-  const handleAdd = () => {
-    if (!selectedStudent) return;
-    setOrderList((prev) => [...prev, selectedStudent]);
+  const toggleStudent = (name: string) => {
+    setOrderList((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
   };
 
-  const handleRemove = (index: number) => {
+  const handleRemoveAt = (index: number) => {
     setOrderList((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragStart = (idx: number) => {
+    dragItem.current = idx;
+    setDragIndex(idx);
+  };
+
+  const handleDragEnter = (idx: number) => {
+    dragOver.current = idx;
+    setDropIndex(idx);
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOver.current === null) {
+      setDragIndex(null);
+      setDropIndex(null);
+      return;
+    }
+    const from = dragItem.current;
+    const to = dragOver.current;
+    if (from !== to) {
+      setOrderList((prev) => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        return next;
+      });
+    }
+    dragItem.current = null;
+    dragOver.current = null;
+    setDragIndex(null);
+    setDropIndex(null);
   };
 
   const handleSave = () => {
@@ -48,63 +79,100 @@ export default function RoutineOrderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between">
           <h2 className="font-extrabold text-slate-800 text-base">
             {routine.icon} {routine.name} — 순번 편집
           </h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none"
+          >
             ✕
           </button>
         </div>
 
-        <div className="space-y-3 text-xs">
-          <div className="flex flex-col gap-1">
-            <label className="font-semibold text-slate-500">학생 추가</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedStudent}
-                onChange={(e) => setSelectedStudent(e.target.value)}
-                className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none"
-              >
-                {students.map((s) => (
-                  <option key={s.no} value={s.name}>
-                    {s.no}번 {s.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200"
-              >
-                추가
-              </button>
+        {/* 학생 카드 선택 영역 */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold text-slate-500">학생 선택 (클릭으로 순번 목록 추가/제거)</p>
+          {students.length === 0 ? (
+            <p className="text-xs text-slate-400 italic py-2">등록된 학생이 없습니다.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-xl bg-slate-50 border border-slate-200">
+              {students.map((s) => {
+                const isInOrder = orderList.includes(s.name);
+                const count = orderList.filter((n) => n === s.name).length;
+                return (
+                  <button
+                    key={s.no}
+                    type="button"
+                    onClick={() => toggleStudent(s.name)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
+                      isInOrder
+                        ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
+                    }`}
+                  >
+                    <span className="opacity-60 text-[10px]">{s.no}</span>
+                    <span>{s.name}</span>
+                    {isInOrder && count > 0 && (
+                      <span className="ml-0.5 bg-white/20 text-white rounded-full px-1 text-[10px] font-extrabold">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          )}
+        </div>
 
-          <div className="flex flex-wrap gap-1.5 min-h-[40px] p-3 rounded-xl bg-slate-50 border border-slate-200">
+        {/* 순환 순서 드래그 영역 */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-bold text-slate-500">순환 순서 (⠿ 드래그로 순서 이동)</p>
+          <div className="min-h-[60px] p-2 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
             {orderList.length === 0 ? (
-              <span className="text-slate-400 text-[11px] italic">순환 순서가 비어 있습니다.</span>
+              <span className="text-slate-400 text-[11px] italic block text-center py-3">
+                위에서 학생을 선택하면 여기에 표시됩니다.
+              </span>
             ) : (
               orderList.map((name, idx) => (
-                <span
-                  key={`${name}-${idx}`}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[11px]"
+                <div
+                  key={`order-${name}-${idx}`}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragEnter={() => handleDragEnter(idx)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => e.preventDefault()}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-grab active:cursor-grabbing ${
+                    dragIndex === idx
+                      ? "opacity-50 bg-indigo-50 border-indigo-300 ring-2 ring-indigo-400"
+                      : dropIndex === idx && dragIndex !== null && dragIndex !== idx
+                      ? "border-indigo-400 bg-indigo-50 scale-[1.02]"
+                      : "bg-white border-slate-200 hover:border-slate-300"
+                  }`}
                 >
-                  <span>{idx + 1}. {name}</span>
+                  <span className="text-slate-300 select-none text-base leading-none cursor-grab">⠿</span>
+                  <span className="text-slate-400 font-bold text-[11px] w-5 shrink-0">{idx + 1}.</span>
+                  <span className="flex-1 text-slate-800 font-bold">{name}</span>
                   <button
                     type="button"
-                    onClick={() => handleRemove(idx)}
-                    className="text-indigo-400 hover:text-rose-500 font-bold leading-none"
+                    onClick={() => handleRemoveAt(idx)}
+                    className="text-slate-300 hover:text-rose-500 font-bold leading-none transition-colors"
                   >
                     ✕
                   </button>
-                </span>
+                </div>
               ))
             )}
           </div>
-          <p className="text-[11px] text-slate-400">이름 옆 ✕를 눌러 순환 순서에서 제외합니다.</p>
+          <p className="text-[10px] text-slate-400">
+            같은 학생을 여러 번 추가하면 순환 주기를 늘릴 수 있습니다.
+          </p>
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-1">

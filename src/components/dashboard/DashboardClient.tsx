@@ -145,7 +145,7 @@ export default function DashboardClient({
               <span className="text-xl sm:text-2xl font-bold tracking-tight">
                 {liveRoutinesCount}
               </span>
-              <span className="text-xs text-indigo-200">개 루틴</span>
+              <span className="text-xs text-indigo-200">개 업무</span>
             </div>
           </div>
 
@@ -191,7 +191,7 @@ export default function DashboardClient({
                   <CheckSquare className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-slate-800">오늘의 업무 루틴 & 당번</h2>
+                  <h2 className="text-base font-bold text-slate-800">오늘의 학생 업무 & 당번</h2>
                   <p className="text-xs text-slate-500">
                     결석생에 대응할 수 있도록 매일 1회 확인하고 대타를 지정할 수 있습니다.
                   </p>
@@ -208,7 +208,7 @@ export default function DashboardClient({
 
             {routinesData.length === 0 ? (
               <div className="text-center py-8 text-slate-400 text-sm">
-                등록된 활성 업무 루틴이 없습니다.
+                등록된 활성 학생 업무가 없습니다.
               </div>
             ) : (
               <div className="space-y-3">
@@ -440,7 +440,7 @@ export default function DashboardClient({
                   {absentStudents.map((s) => `${s.studentNumber}번 ${s.name}`).join(", ")}
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  업무 루틴에서 해당 학생의 당번 차례를 대타로 변경해 주세요.
+                  학생 업무에서 해당 학생의 당번 차례를 대타로 변경해 주세요.
                 </p>
               </div>
             )}

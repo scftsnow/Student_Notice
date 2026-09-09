@@ -76,7 +76,7 @@ export default function RoutineTab({
           className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold shadow-xs hover:bg-indigo-700 flex items-center gap-1.5 transition-all"
         >
           <span>＋</span>
-          <span>새 루틴 등록</span>
+          <span>새 학생 업무 등록</span>
         </button>
       </div>
 
@@ -84,8 +84,8 @@ export default function RoutineTab({
       {routines.length === 0 ? (
         <div className="py-16 text-center text-slate-400 rounded-2xl border border-dashed border-slate-200 bg-white">
           <div className="text-3xl mb-2">📋</div>
-          <div className="font-semibold text-base">등록된 업무 루틴이 없습니다.</div>
-          <div className="text-xs mt-1">새 루틴 등록 버튼으로 1인1역 당번을 추가하세요.</div>
+          <div className="font-semibold text-base">등록된 학생 업무가 없습니다.</div>
+          <div className="text-xs mt-1">새 학생 업무 등록 버튼으로 1인 1역 당번을 추가하세요.</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -130,12 +130,12 @@ export default function RoutineTab({
                     <button
                       type="button"
                       onClick={() => {
-                        if (confirm(`"${r.name}" 루틴을 삭제하시겠습니까?`)) {
+                        if (confirm(`"${r.name}" 업무를 삭제하시겠습니까?`)) {
                           onDeleteRoutine(r.id);
                         }
                       }}
                       className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-lg transition-colors font-bold text-xs shrink-0"
-                      title="루틴 삭제"
+                      title="업무 삭제"
                     >
                       ✕
                     </button>

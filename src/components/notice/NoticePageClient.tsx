@@ -90,8 +90,6 @@ export default function NoticePageClient() {
       {/* 알림장 툴바 및 16:9 판서 캔버스 */}
       <div className="space-y-3">
         <NoticeTab
-          noticeTarget={state.noticeTarget}
-          onNoticeTargetChange={state.setNoticeTarget}
           fontSize={state.fontSize}
           onFontSizeChange={state.setFontSize}
           theme={state.theme}
@@ -124,6 +122,7 @@ export default function NoticePageClient() {
           onPayRoutineToday={state.payRoutineToday}
           onUpdateRoutine={state.updateRoutine}
           onAdvanceRoutine={state.advanceRoutine}
+          onAdvanceAllRoutines={state.advanceAllRoutines}
           targetElement={targetElement}
           onSelectElement={setTargetElement}
           onCurrentFontSize={setCurrentFontSize}

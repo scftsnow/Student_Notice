@@ -131,7 +131,7 @@ export default function RoutineManagementClient({
   };
 
   const handleDelete = async (id: string, rTitle: string) => {
-    if (!confirm(`'${rTitle}' 루틴을 삭제하시겠습니까?`)) return;
+    if (!confirm(`'${rTitle}' 업무를 삭제하시겠습니까?`)) return;
     try {
       await deleteRoutine(id);
       window.location.reload();
@@ -161,7 +161,7 @@ export default function RoutineManagementClient({
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
             <CheckSquare className="w-6 h-6 text-indigo-600" />
-            학생 업무 루틴 관리
+            학생 업무 관리
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             업무명, 1회 투입 인원, 순환 주기, 급여액을 설정하고 결석생 대응 및 알림장과 자동 연동합니다.
@@ -173,7 +173,7 @@ export default function RoutineManagementClient({
           className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-200 flex items-center gap-2 transition-all self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          신규 루틴 등록
+          신규 업무 등록
         </button>
       </div>
 
@@ -338,7 +338,7 @@ export default function RoutineManagementClient({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-800">
-                {editingRoutine ? "루틴 정보 수정" : "새로운 업무 루틴 등록"}
+                {editingRoutine ? "업무 정보 수정" : "새로운 학생 업무 등록"}
               </h3>
               <button
                 onClick={() => {
@@ -470,7 +470,7 @@ export default function RoutineManagementClient({
                   disabled={loading}
                   className="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition-colors disabled:opacity-50"
                 >
-                  {loading ? "저장 중..." : editingRoutine ? "수정 완료" : "루틴 등록"}
+                  {loading ? "저장 중..." : editingRoutine ? "수정 완료" : "업무 등록"}
                 </button>
               </div>
             </form>

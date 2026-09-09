@@ -95,7 +95,7 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
             학급 기본 정보 설정
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            학급 명칭을 관리합니다 (화폐 단위 명칭 및 세율/급여 정책은 [학급 화폐]에서, 대타 관리는 [업무 루틴]에서 설정합니다).
+            학급 명칭을 관리합니다 (화폐 단위 명칭 및 세율/급여 정책은 [학급 화폐]에서, 대타 관리는 [학생 업무]에서 설정합니다).
           </p>
         </div>
       </div>

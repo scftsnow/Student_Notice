@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 interface AddRoutineModalProps {
@@ -25,17 +25,53 @@ export default function AddRoutineModal({
   const [memo, setMemo] = useState("");
   const [displayFormat, setDisplayFormat] = useState("");
   const [orderList, setOrderList] = useState<string[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState(students[0]?.name || "");
+  const dragItem = useRef<number | null>(null);
+  const dragOver = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   if (!isOpen) return null;
 
-  const handleAddStudentToOrder = () => {
-    if (!selectedStudent) return;
-    setOrderList((prev) => [...prev, selectedStudent]);
+  const toggleStudent = (name: string) => {
+    setOrderList((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
   };
 
-  const handleRemoveOrderItem = (index: number) => {
-    setOrderList((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveAt = (idx: number) => {
+    setOrderList((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleDragStart = (idx: number) => {
+    dragItem.current = idx;
+    setDragIndex(idx);
+  };
+
+  const handleDragEnter = (idx: number) => {
+    dragOver.current = idx;
+    setDropIndex(idx);
+  };
+
+  const handleDragEnd = () => {
+    if (dragItem.current === null || dragOver.current === null) {
+      setDragIndex(null);
+      setDropIndex(null);
+      return;
+    }
+    const from = dragItem.current;
+    const to = dragOver.current;
+    if (from !== to) {
+      setOrderList((prev) => {
+        const next = [...prev];
+        const [moved] = next.splice(from, 1);
+        next.splice(to, 0, moved);
+        return next;
+      });
+    }
+    dragItem.current = null;
+    dragOver.current = null;
+    setDragIndex(null);
+    setDropIndex(null);
   };
 
   const handleSave = () => {
@@ -62,10 +98,17 @@ export default function AddRoutineModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <h2 className="font-extrabold text-slate-800 text-lg">새 업무 루틴 등록</h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-xl leading-none">
+          <h2 className="font-extrabold text-slate-800 text-lg">새 학생 업무 등록</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 font-bold text-xl leading-none"
+          >
             ✕
           </button>
         </div>
@@ -73,7 +116,9 @@ export default function AddRoutineModal({
         <div className="space-y-4 text-sm">
           {/* 업무 이름 */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-bold text-slate-700">업무 이름 <span className="text-rose-500">*</span></label>
+            <label className="font-bold text-slate-700">
+              업무 이름 <span className="text-rose-500">*</span>
+            </label>
             <input
               type="text"
               value={name}
@@ -84,7 +129,7 @@ export default function AddRoutineModal({
           </div>
 
           {/* 정원 및 급여 주기/금액 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="font-bold text-slate-700">정원 (명)</label>
               <input
@@ -121,50 +166,83 @@ export default function AddRoutineModal({
             </div>
           </div>
 
-          {/* 순환 순서 지정 */}
+          {/* 학생 카드 선택 */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-bold text-slate-700">담당 순환 순서 (학생 선택 후 추가)</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedStudent}
-                onChange={(e) => setSelectedStudent(e.target.value)}
-                className="flex-1 px-3 py-2 border border-slate-200 rounded-xl font-medium focus:outline-none"
-              >
-                {students.map((s) => (
-                  <option key={s.no} value={s.name}>
-                    {s.no}번 {s.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={handleAddStudentToOrder}
-                className="px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-all"
-              >
-                추가
-              </button>
-            </div>
-            <div className="mt-1 flex flex-wrap gap-1.5 min-h-[40px] p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p className="font-bold text-slate-700">담당 학생 선택 (클릭으로 순번 목록 추가/제거)</p>
+            {students.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-2">등록된 학생이 없습니다.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-xl bg-slate-50 border border-slate-200">
+                {students.map((s) => {
+                  const isInOrder = orderList.includes(s.name);
+                  const count = orderList.filter((n) => n === s.name).length;
+                  return (
+                    <button
+                      key={s.no}
+                      type="button"
+                      onClick={() => toggleStudent(s.name)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
+                        isInOrder
+                          ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
+                          : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
+                      }`}
+                    >
+                      <span className="opacity-60 text-[10px]">{s.no}</span>
+                      <span>{s.name}</span>
+                      {isInOrder && count > 0 && (
+                        <span className="ml-0.5 bg-white/20 text-white rounded-full px-1 text-[10px] font-extrabold">
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 순환 순서 드래그 영역 */}
+          <div className="flex flex-col gap-1.5">
+            <p className="font-bold text-slate-700">순환 순서 <span className="font-normal text-slate-400 text-xs">(⠿ 드래그로 순서 이동)</span></p>
+            <div className="min-h-[48px] p-2 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
               {orderList.length === 0 ? (
-                <span className="text-slate-400 text-xs italic">담당 학생을 순서대로 추가하세요.</span>
+                <span className="text-slate-400 text-[11px] italic block text-center py-2">
+                  위에서 학생을 클릭하면 순번이 여기에 추가됩니다.
+                </span>
               ) : (
-                orderList.map((stName, idx) => (
-                  <span
-                    key={`${stName}-${idx}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 font-bold text-xs"
+                orderList.map((sName, idx) => (
+                  <div
+                    key={`order-${sName}-${idx}`}
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragEnter={() => handleDragEnter(idx)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => e.preventDefault()}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-grab active:cursor-grabbing ${
+                      dragIndex === idx
+                        ? "opacity-50 bg-indigo-50 border-indigo-300 ring-2 ring-indigo-400"
+                        : dropIndex === idx && dragIndex !== null && dragIndex !== idx
+                        ? "border-indigo-400 bg-indigo-50 scale-[1.02]"
+                        : "bg-white border-slate-200 hover:border-slate-300"
+                    }`}
                   >
-                    <span>{idx + 1}. {stName}</span>
+                    <span className="text-slate-300 select-none text-base leading-none cursor-grab">⠿</span>
+                    <span className="text-slate-400 font-bold text-[11px] w-5 shrink-0">{idx + 1}.</span>
+                    <span className="flex-1 text-slate-800 font-bold">{sName}</span>
                     <button
                       type="button"
-                      onClick={() => handleRemoveOrderItem(idx)}
-                      className="text-indigo-400 hover:text-rose-600 font-bold leading-none ml-1"
+                      onClick={() => handleRemoveAt(idx)}
+                      className="text-slate-300 hover:text-rose-500 font-bold leading-none transition-colors"
                     >
                       ✕
                     </button>
-                  </span>
+                  </div>
                 ))
               )}
             </div>
+            <p className="text-[11px] text-slate-400">
+              같은 학생을 여러 번 추가하려면 카드를 다시 클릭하세요.
+            </p>
           </div>
 
           {/* 알림장 표시 문구 서식 (선택) */}
@@ -181,7 +259,8 @@ export default function AddRoutineModal({
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none text-xs"
             />
             <p className="text-[11px] text-slate-500">
-              각 당번 학생 이름이 들어갈 자리에 <span className="font-bold text-indigo-600">?</span> 기호를 입력하세요.
+              각 당번 학생 이름이 들어갈 자리에{" "}
+              <span className="font-bold text-indigo-600">?</span> 기호를 입력하세요.
             </p>
           </div>
 

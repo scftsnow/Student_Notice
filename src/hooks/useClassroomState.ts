@@ -266,10 +266,21 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined };
         })
       );
-      showToast("순환이 진행되었습니다. (당일 대타 설정 초기화)");
+      showToast("업무 순환이 진행되었습니다. (당일 대타 설정 초기화)");
     },
     [showToast]
   );
+
+  const advanceAllRoutines = useCallback(() => {
+    setRoutines((prev) =>
+      prev.map((r) => {
+        if (r.order.length === 0) return r;
+        const nextIdx = (r.currentIdx + r.slots) % r.order.length;
+        return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined };
+      })
+    );
+    showToast("전체 학생 업무 순환이 진행되었습니다.");
+  }, [showToast]);
 
   const updateRoutineOrder = useCallback(
     (id: string, newOrder: string[]) => {
@@ -592,6 +603,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     addRoutine,
     deleteRoutine,
     advanceRoutine,
+    advanceAllRoutines,
     updateRoutineOrder,
     updateRoutine,
     payRoutineToday,

@@ -219,7 +219,7 @@ export default function NoticeClient({
                 onChange={(e) => setIncludeRoutines(e.target.checked)}
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
               />
-              하단에 학생 업무 루틴 카드 첨부
+              하단에 학생 업무 카드 첨부
             </label>
           </div>
 

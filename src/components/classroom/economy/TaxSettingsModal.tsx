@@ -97,7 +97,7 @@ export default function TaxSettingsModal({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="font-bold text-slate-800">급여 지급 승인 방식</div>
-                <div className="text-xs text-slate-500">당번/루틴 수행 후 급여 정산 승인 규칙</div>
+                <div className="text-xs text-slate-500">당번/업무 수행 후 급여 정산 승인 규칙</div>
               </div>
               <select
                 value={formData.salaryPayoutMode || "MANUAL_APPROVAL"}

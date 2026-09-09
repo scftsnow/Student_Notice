@@ -80,7 +80,7 @@ export default function Navbar({
   const navItems = [
     { href: "/", label: "대시보드", icon: LayoutDashboard },
     { href: "/students", label: "학생 명단", icon: Users },
-    { href: "/routines", label: "업무 루틴", icon: CheckSquare },
+    { href: "/routines", label: "학생 업무", icon: CheckSquare },
     { href: "/notice", label: "알림장", icon: FileText },
     { href: "/economy", label: "학급 화폐", icon: Coins },
     { href: "/settings", label: "설정", icon: Settings },

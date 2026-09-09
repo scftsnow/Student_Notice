@@ -115,7 +115,7 @@ export default function ClassroomApp() {
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            🧹 업무 루틴 ({state.routines.length})
+            🧹 학생 업무 ({state.routines.length})
           </button>
           <button
             type="button"
@@ -134,8 +134,6 @@ export default function ClassroomApp() {
         {activeTab === "notice" && (
           <div className="space-y-3">
             <NoticeTab
-              noticeTarget={state.noticeTarget}
-              onNoticeTargetChange={state.setNoticeTarget}
               fontSize={state.fontSize}
               onFontSizeChange={state.setFontSize}
               theme={state.theme}
@@ -168,6 +166,7 @@ export default function ClassroomApp() {
               onPayRoutineToday={state.payRoutineToday}
               onUpdateRoutine={state.updateRoutine}
               onAdvanceRoutine={state.advanceRoutine}
+              onAdvanceAllRoutines={state.advanceAllRoutines}
               targetElement={targetElement}
               onSelectElement={setTargetElement}
               onCurrentFontSize={setCurrentFontSize}

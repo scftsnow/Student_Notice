@@ -253,10 +253,10 @@ export default function RoutineElementInCanvas({
             e.stopPropagation();
             onAdvanceRoutine(routine.id);
           }}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white transition-all font-semibold select-none border border-white/10 ml-0.5 leading-tight shrink-0"
-          title="다음 순번으로 건너뛰기"
+          className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 active:scale-95 text-white hover:text-white transition-all font-bold select-none border border-white/20 ml-1 leading-tight shrink-0 cursor-pointer shadow-2xs"
+          title="이 업무의 다음 당번 순번으로 넘기기"
         >
-          건너뛰기
+          넘기기 ➡️
         </button>
       )}
 
@@ -270,8 +270,8 @@ export default function RoutineElementInCanvas({
               setFormatInput(routine.displayFormat || "");
               setIsFormatEditing(!isFormatEditing);
             }}
-            className="opacity-0 group-hover:opacity-60 hover:opacity-100 p-0.5 text-xs transition-opacity cursor-pointer inline-flex items-center leading-none"
-            title="루틴 문구 서식 편집 (? 기호로 당번 배치)"
+            className="opacity-0 group-hover:opacity-60 hover:opacity-100 p-0.5 text-xs transition-opacity cursor-pointer inline-flex items-center leading-none ml-0.5"
+            title="학생 업무 문구 서식 편집 (? 기호로 당번 배치)"
           >
             ✏️
           </button>
@@ -285,7 +285,7 @@ export default function RoutineElementInCanvas({
               <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
                 <span className="font-extrabold text-white flex items-center gap-1.5 text-xs">
                   <span>✏️</span>
-                  <span>루틴 표시 문구 서식 편집</span>
+                  <span>학생 업무 표시 문구 서식 편집</span>
                 </span>
                 <button
                   type="button"

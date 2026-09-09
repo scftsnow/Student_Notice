@@ -33,6 +33,7 @@ interface BoardCanvasProps {
   onPayRoutineToday?: (id: string, workers?: string[]) => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
+  onAdvanceAllRoutines?: () => void;
   targetElement?: import("@/types/classroom").BoardTargetElement;
   onSelectElement?: (target: import("@/types/classroom").BoardTargetElement) => void;
   onCurrentFontSize?: (size: number) => void;
@@ -89,6 +90,7 @@ export default function BoardCanvas({
   onPayRoutineToday,
   onUpdateRoutine,
   onAdvanceRoutine,
+  onAdvanceAllRoutines,
   targetElement = "noticeBox",
   onSelectElement,
   onCurrentFontSize,
@@ -456,25 +458,40 @@ export default function BoardCanvas({
           >
             <div
               id="canvas-routine-container"
-              className="flex items-center gap-6 sm:gap-8 flex-wrap"
+              className="flex items-center gap-4 sm:gap-6 flex-wrap w-full"
               style={{ fontSize: "inherit" }}
             >
               {routines.length === 0 ? (
-                <span className="opacity-50 italic text-xs">등록된 업무 루틴이 없습니다.</span>
+                <span className="opacity-50 italic text-xs">등록된 학생 업무가 없습니다.</span>
               ) : (
-                routines.map((r) => (
-                  <RoutineElementInCanvas
-                    key={r.id}
-                    routine={r}
-                    students={students}
-                    currencyName={currencyName}
-                    theme={theme}
-                    customColor={layouts.routineBox.color}
-                    onPayRoutineToday={onPayRoutineToday}
-                    onUpdateRoutine={onUpdateRoutine}
-                    onAdvanceRoutine={onAdvanceRoutine}
-                  />
-                ))
+                <>
+                  {routines.map((r) => (
+                    <RoutineElementInCanvas
+                      key={r.id}
+                      routine={r}
+                      students={students}
+                      currencyName={currencyName}
+                      theme={theme}
+                      customColor={layouts.routineBox.color}
+                      onPayRoutineToday={onPayRoutineToday}
+                      onUpdateRoutine={onUpdateRoutine}
+                      onAdvanceRoutine={onAdvanceRoutine}
+                    />
+                  ))}
+                  {onAdvanceAllRoutines && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAdvanceAllRoutines();
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 ml-auto leading-tight shrink-0 shadow-xs cursor-pointer"
+                      title="모든 학생 업무의 순번을 다음으로 일괄 넘기기"
+                    >
+                      전체 넘기기 ⏩
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </Rnd>

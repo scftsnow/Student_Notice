@@ -15,8 +15,6 @@ const TEXT_COLORS = [
 ];
 
 interface NoticeTabProps {
-  noticeTarget: "today" | "tomorrow";
-  onNoticeTargetChange: (target: "today" | "tomorrow") => void;
   fontSize: NoticeFontSize;
   onFontSizeChange: (size: NoticeFontSize) => void;
   theme: BoardTheme;
@@ -30,8 +28,6 @@ interface NoticeTabProps {
 }
 
 export default function NoticeTab({
-  noticeTarget,
-  onNoticeTargetChange,
   fontSize,
   onFontSizeChange,
   theme,
@@ -95,35 +91,7 @@ export default function NoticeTab({
       {/* 상단 통합 편집 툴바 */}
       <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          {/* 오늘 / 내일 전환 */}
-          <div className="inline-flex p-0.5 bg-slate-200/80 rounded-lg font-bold">
-            <button
-              type="button"
-              onClick={() => onNoticeTargetChange("today")}
-              className={`px-3 py-1 rounded-md transition-all ${
-                noticeTarget === "today"
-                  ? "bg-white text-indigo-700 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              오늘 알림장
-            </button>
-            <button
-              type="button"
-              onClick={() => onNoticeTargetChange("tomorrow")}
-              className={`px-3 py-1 rounded-md transition-all ${
-                noticeTarget === "tomorrow"
-                  ? "bg-white text-indigo-700 shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              내일 알림장
-            </button>
-          </div>
-
-          <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
-
-          {/* 대상 요소 선택 (알림장, 날짜, 시간, 루틴, 전체) */}
+          {/* 대상 요소 선택 (알림장, 날짜, 시간, 학생 업무, 전체) */}
           <div className="flex items-center gap-1">
             <span className="text-slate-400 font-bold">대상:</span>
             <div className="inline-flex p-0.5 bg-slate-200/80 rounded-lg text-[11px] font-bold">
@@ -132,7 +100,7 @@ export default function NoticeTab({
                   { id: "noticeBox", label: "알림장" },
                   { id: "dateBox", label: "날짜" },
                   { id: "clockBox", label: "시간" },
-                  { id: "routineBox", label: "루틴" },
+                  { id: "routineBox", label: "학생 업무" },
                   { id: "freeCard", label: "자유글" },
                   { id: "all", label: "전체" },
                 ] as const

@@ -319,6 +319,15 @@ export default function EconomyTab({
             <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
               총 {students.length}명
             </span>
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900 font-semibold cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={students.length > 0 && checkedNames.length === students.length}
+                onChange={(e) => toggleAll(e.target.checked)}
+                className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5"
+              />
+              전체 선택
+            </label>
             {checkedNames.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
@@ -344,15 +353,6 @@ export default function EconomyTab({
               <span>학생 화면 띄우기</span>
               <span>🖥️</span>
             </button>
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-500 font-semibold cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={students.length > 0 && checkedNames.length === students.length}
-                onChange={(e) => toggleAll(e.target.checked)}
-                className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5"
-              />
-              전체 선택
-            </label>
             <button
               type="button"
               onClick={() => setLedgerModalStudent("all")}
