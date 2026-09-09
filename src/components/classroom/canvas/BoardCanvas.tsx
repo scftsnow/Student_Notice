@@ -265,12 +265,13 @@ export default function BoardCanvas({
       : "bg-[#faf5ea] text-amber-950";
 
   const fontPx = Number(fontSize) || 42;
+  const scaleFont = (size: number) => Math.round(size * 0.75);
 
   return (
     <div className="space-y-2">
       {/* 상단 툴바 안내 */}
       <div className="flex items-center justify-between text-xs">
-        <span className="font-bold text-slate-700">🖥️ 전자칠판 판서 화면</span>
+        <span className="font-bold text-slate-700">🖥️ 전자칠판 판서 화면 (학생 화면 대비 75% 축소)</span>
         <button
           type="button"
           onClick={onAddFreeCard}
@@ -281,14 +282,15 @@ export default function BoardCanvas({
         </button>
       </div>
 
-      {/* 16:9 캔버스 본체 */}
-      <div
-        ref={containerRef}
-        id="preview-16-9-wrapper"
-        className="relative w-full overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
-        style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
-      >
-        <div className={`absolute inset-0 ${themeBg}`}>
+      {/* 16:9 캔버스 본체 (학생 전체창 대비 75% 비율) */}
+      <div className="flex justify-center w-full">
+        <div
+          ref={containerRef}
+          id="preview-16-9-wrapper"
+          className="relative w-[75%] overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
+          style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
+        >
+          <div className={`absolute inset-0 ${themeBg}`}>
 
           {/* 요소 1: 날짜 글상자 */}
           <Rnd
@@ -326,7 +328,7 @@ export default function BoardCanvas({
                 : "border-transparent hover:border-white/30"
             }`}
             style={{
-              fontSize: `${layouts.dateBox.fontSize || fontPx}px`,
+              fontSize: `${scaleFont(layouts.dateBox.fontSize || fontPx)}px`,
               color: layouts.dateBox.color || "inherit",
               textAlign: layouts.dateBox.align || "left",
             }}
@@ -373,7 +375,7 @@ export default function BoardCanvas({
                 : "border-transparent hover:border-white/30"
             }`}
             style={{
-              fontSize: `${layouts.clockBox.fontSize || fontPx}px`,
+              fontSize: `${scaleFont(layouts.clockBox.fontSize || fontPx)}px`,
               color: layouts.clockBox.color || "inherit",
               textAlign: layouts.clockBox.align || "right",
             }}
@@ -392,7 +394,7 @@ export default function BoardCanvas({
               top: layouts.noticeBox.top,
               width: layouts.noticeBox.width || "95.0%",
               height: layouts.noticeBox.height || "62.0%",
-              fontSize: layouts.noticeBox.fontSize || fontPx,
+              fontSize: scaleFont(layouts.noticeBox.fontSize || fontPx),
               color: layouts.noticeBox.color,
               align: layouts.noticeBox.align,
             }}
@@ -453,7 +455,7 @@ export default function BoardCanvas({
                 : "border-transparent hover:border-white/30"
             }`}
             style={{
-              fontSize: `${layouts.routineBox.fontSize || fontPx}px`,
+              fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
               color: layouts.routineBox.color || "inherit",
               textAlign: layouts.routineBox.align || "left",
             }}
@@ -507,7 +509,10 @@ export default function BoardCanvas({
           {freeCards.map((card) => (
             <FreeCardItem
               key={card.id}
-              card={card}
+              card={{
+                ...card,
+                fontSize: scaleFont(card.fontSize || fontPx),
+              }}
               containerSize={containerSize}
               isSelected={targetElement === card.id}
               onSelect={() => onSelectElement?.(card.id)}
@@ -519,5 +524,6 @@ export default function BoardCanvas({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
