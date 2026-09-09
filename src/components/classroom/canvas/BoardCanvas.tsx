@@ -6,6 +6,7 @@ import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
 import CanvasClock from "./CanvasClock";
+import CanvasAccountIcon from "./CanvasAccountIcon";
 import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
@@ -34,13 +35,13 @@ interface BoardCanvasProps {
   onAdvanceRoutine?: (id: string) => void;
   onAdvanceAllRoutines?: () => void;
   onOpenRoutineNoticeSettings?: () => void;
-  targetElement?: import("@/types/classroom").BoardTargetElement;
-  onSelectElement?: (target: import("@/types/classroom").BoardTargetElement) => void;
+  targetElement?: string;
+  onSelectElement?: (elem: string) => void;
   onCurrentFontSize?: (size: number) => void;
   onCurrentLineHeight?: (lineHeight: number) => void;
   showEconomyShortcut?: boolean;
   appliedStyle?: {
-    target: import("@/types/classroom").BoardTargetElement;
+    target: string;
     color?: string;
     fontSize?: number;
     align?: "left" | "center" | "right";
@@ -54,6 +55,7 @@ const DEFAULT_LAYOUTS: BoardElementLayouts = {
   clockBox: { left: "81.0%", top: "3.0%", fontSize: 32, lineHeight: 1.4 },
   noticeBox: { left: "2.5%", top: "15.0%", width: "95%", height: "64%", fontSize: 42, lineHeight: 1.4 },
   routineBox: { left: "2.5%", top: "82.0%", width: "95%", height: "12%", fontSize: 34, lineHeight: 1.4 },
+  accountBox: { left: "93.0%", top: "3.0%", width: "48px", height: "48px", fontSize: 32 },
 };
 
 export default function BoardCanvas({
@@ -477,7 +479,6 @@ export default function BoardCanvas({
                       onPayAllRoutinesToday={onPayAllRoutinesToday}
                       onUpdateRoutine={onUpdateRoutine}
                       onAdvanceRoutine={onAdvanceRoutine}
-                      showEconomyShortcut={showEconomyShortcut}
                     />
                   ))}
                   <div className="flex items-center gap-1.5 ml-auto shrink-0">
@@ -515,14 +516,10 @@ export default function BoardCanvas({
             </div>
           </Rnd>
 
-          {/* 요소 5: 추가 자유 글상자 레이어 */}
           {freeCards.map((card) => (
             <FreeCardItem
               key={card.id}
-              card={{
-                ...card,
-                fontSize: scaleFont(card.fontSize || fontPx),
-              }}
+              card={{ ...card, fontSize: scaleFont(card.fontSize || fontPx) }}
               containerSize={containerSize}
               isSelected={targetElement === card.id}
               onSelect={() => onSelectElement?.(card.id)}
@@ -530,6 +527,15 @@ export default function BoardCanvas({
               onRemove={onRemoveFreeCard}
             />
           ))}
+          {showEconomyShortcut && (
+            <CanvasAccountIcon
+              layout={layouts.accountBox}
+              containerSize={containerSize}
+              targetElement={targetElement}
+              onSelectElement={onSelectElement}
+              onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, accountBox: updater(p.accountBox ?? DEFAULT_LAYOUTS.accountBox!) }))}
+            />
+          )}
         </div>
       </div>
     </div>

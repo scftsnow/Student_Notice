@@ -120,6 +120,7 @@ export default function NoticeTab({
     if (target === "dateBox") return "날짜";
     if (target === "clockBox") return "시간";
     if (target === "routineBox") return "학생 업무";
+    if (target === "accountBox") return "계좌 아이콘";
     if (target.startsWith("free-") || target === "freeCard") return "자유 글상자";
     if (target === "all") return "전체";
     return "선택 요소";

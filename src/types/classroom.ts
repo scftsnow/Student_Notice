@@ -97,6 +97,7 @@ export interface BoardElementLayouts {
   clockBox: ElementLayout;
   noticeBox: ElementLayout;
   routineBox: ElementLayout;
+  accountBox?: ElementLayout;
 }
 
 export type BoardTargetElement =
@@ -105,6 +106,7 @@ export type BoardTargetElement =
   | "dateBox"
   | "clockBox"
   | "routineBox"
+  | "accountBox"
   | "freeCard"
   | string;
 export type BoardTheme = "chalkboard" | "white" | "navy" | "warm";
