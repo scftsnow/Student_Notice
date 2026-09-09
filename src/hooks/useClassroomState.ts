@@ -384,7 +384,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       for (const name of paidNames) {
         addLedgerEntry(
           "입금",
-          "🏛️ 학급 국고",
+          "학급 국고",
           name,
           name,
           `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
@@ -439,7 +439,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
             countForRoutine++;
             addLedgerEntry(
               "입금",
-              "🏛️ 학급 국고",
+              "학급 국고",
               s.name,
               s.name,
               `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
@@ -508,8 +508,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         );
       }
 
-      const fromName = fromVal === "treasury" ? "🏛️ 학급 국고" : `${fromVal}번 학생`;
-      const toName = toVal === "treasury" ? "🏛️ 학급 국고" : `${toVal}번 학생`;
+      const fromName = fromVal === "treasury" ? "학급 국고" : `${fromVal}번 학생`;
+      const toName = toVal === "treasury" ? "학급 국고" : `${toVal}번 학생`;
       addLedgerEntry("거래", fromName, toName, `${fromName} → ${toName}`, desc, amount, tax, [fromVal, toVal]);
       showToast(`[거래 완료] ${fromName} → ${toName}: ${amount.toLocaleString()} ${currencyName} (세금: ${tax} ${currencyName})`);
     },
@@ -545,10 +545,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       for (const name of targetNames) {
         addLedgerEntry(
           amount > 0 ? "입금" : "차감",
-          amount > 0 ? "🏛️ 학급 국고" : name,
+          amount > 0 ? "학급 국고" : name,
           amount > 0
             ? name
-            : (taxConfig.penaltyDisposition === "void" ? "🔥 화폐 소멸(소각)" : "🏛️ 학급 국고"),
+            : (taxConfig.penaltyDisposition === "void" ? "화폐 소멸(소각)" : "학급 국고"),
           name,
           desc,
           amount,
@@ -570,7 +570,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       if (mode === "deposit") {
         setTreasuryBalance((prev) => prev + amount);
         setTotalTaxCollected((prev) => prev + amount);
-        addLedgerEntry("입금", "외부 수입", "🏛️ 학급 국고(세수)", "🏛️ 학급 국고 세수", desc, amount, amount, ["treasury"]);
+        addLedgerEntry("입금", "외부 수입", "학급 국고(세수)", "학급 국고 세수", desc, amount, amount, ["treasury"]);
         showToast(`[세금 직접 입금] +${amount.toLocaleString()} ${currencyName} 편입`);
       } else {
         if (treasuryBalance < amount) throw new Error("국고 세수 잔고가 부족합니다.");
@@ -581,10 +581,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           setStudents((prev) =>
             prev.map((s) => (s.name === refundStudentName ? { ...s, balance: s.balance + amount } : s))
           );
-          addLedgerEntry("입금", "🏛️ 학급 국고(세수)", refundStudentName, refundStudentName, desc, amount, 0, [refundStudentName, "treasury"]);
+          addLedgerEntry("입금", "학급 국고(세수)", refundStudentName, refundStudentName, desc, amount, 0, [refundStudentName, "treasury"]);
           showToast(`[세금 환급] ${refundStudentName} 학생에게 ${amount.toLocaleString()} ${currencyName} 환급`);
         } else {
-          addLedgerEntry("차감", "🏛️ 학급 국고(세수)", "공동 지출처", "학급 공동 지출", desc, -amount, 0, ["treasury"]);
+          addLedgerEntry("차감", "학급 국고(세수)", "공동 지출처", "학급 공동 지출", desc, -amount, 0, ["treasury"]);
           showToast(`[세금 출금] 학급 공동 지출 ${amount.toLocaleString()} ${currencyName} 집행`);
         }
       }

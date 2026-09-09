@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { X, ArrowRightLeft } from "lucide-react";
 import { ClassroomStudent } from "@/types/classroom";
 
 interface TransactionModalProps {
@@ -57,11 +58,11 @@ export default function TransactionModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🔄</span>
+            <ArrowRightLeft className="w-5 h-5 text-emerald-600" />
             <h2 className="font-extrabold text-slate-800 text-base">학급 화폐 송금 및 거래</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none">
-            ✕
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 flex items-center justify-center">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -74,7 +75,7 @@ export default function TransactionModal({
                 onChange={(e) => setFromVal(e.target.value)}
                 className="px-2 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none"
               >
-                <option value="treasury">🏛️ 학급 국고 ({treasuryBalance.toLocaleString()} {currencyName})</option>
+                <option value="treasury">학급 국고 ({treasuryBalance.toLocaleString()} {currencyName})</option>
                 {students.map((s) => (
                   <option key={s.name} value={s.name}>
                     {s.name} ({s.balance.toLocaleString()} {currencyName})
@@ -90,7 +91,7 @@ export default function TransactionModal({
                 onChange={(e) => setToVal(e.target.value)}
                 className="px-2 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none"
               >
-                <option value="treasury">🏛️ 학급 국고</option>
+                <option value="treasury">학급 국고</option>
                 {students.map((s) => (
                   <option key={s.name} value={s.name}>
                     {s.name} ({s.balance.toLocaleString()} {currencyName})

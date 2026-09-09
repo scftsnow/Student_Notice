@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ClipboardList, CheckSquare, X } from "lucide-react";
 import { ClassroomRoutine } from "@/types/classroom";
 
 interface RoutineNoticeSettingsModalProps {
@@ -32,7 +32,7 @@ export default function RoutineNoticeSettingsModal({
       >
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📋</span>
+            <ClipboardList className="w-5 h-5 text-indigo-600" />
             <div>
               <h2 className="font-extrabold text-slate-800 text-base">
                 칠판 표시 학생 업무 설정
@@ -45,9 +45,9 @@ export default function RoutineNoticeSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors leading-none"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -107,7 +107,7 @@ export default function RoutineNoticeSettingsModal({
                         }
                         className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
                       />
-                      <span className="text-base">{r.icon || "📌"}</span>
+                      <CheckSquare className="w-4 h-4 text-indigo-600 shrink-0" />
                       <span className="font-extrabold text-slate-800 text-xs">
                         {r.name}
                       </span>

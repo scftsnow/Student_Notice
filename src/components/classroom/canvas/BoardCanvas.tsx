@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import { ClipboardList, FastForward } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
 import {
-  BoardTheme,
-  NoticeFontSize,
-  ClassroomRoutine,
-  ClassroomStudent,
-  FreeCardData,
-  BoardElementLayouts,
+  BoardTheme, NoticeFontSize, ClassroomRoutine,
+  ClassroomStudent, FreeCardData, BoardElementLayouts,
 } from "@/types/classroom";
 
 interface BoardCanvasProps {
@@ -465,9 +462,10 @@ export default function BoardCanvas({
                         e.stopPropagation();
                         onOpenRoutineNoticeSettings();
                       }}
-                      className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold border border-white/25 cursor-pointer transition-all shadow-2xs"
+                      className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold border border-white/25 cursor-pointer transition-all shadow-2xs inline-flex items-center gap-1"
                     >
-                      📋 칠판 표시 업무 선택
+                      <ClipboardList className="w-3 h-3" />
+                      <span>칠판 표시 업무 선택</span>
                     </button>
                   )}
                 </div>
@@ -497,10 +495,11 @@ export default function BoardCanvas({
                           e.stopPropagation();
                           onAdvanceAllRoutines();
                         }}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shrink-0 shadow-xs cursor-pointer"
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shrink-0 shadow-xs cursor-pointer inline-flex items-center gap-1"
                         title="모든 학생 업무의 순번을 다음으로 일괄 넘기기"
                       >
-                        전체 넘기기 ⏩
+                        <span>전체 넘기기</span>
+                        <FastForward className="w-3 h-3" />
                       </button>
                     )}
                     {onOpenRoutineNoticeSettings && routines.length > 0 && (
@@ -510,10 +509,11 @@ export default function BoardCanvas({
                           e.stopPropagation();
                           onOpenRoutineNoticeSettings();
                         }}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shadow-xs cursor-pointer"
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shadow-xs cursor-pointer inline-flex items-center gap-1"
                         title="알림장 칠판에 노출할 학생 업무 및 표시 문구 서식 설정"
                       >
-                        📋 칠판 표시 업무
+                        <ClipboardList className="w-3 h-3" />
+                        <span>칠판 표시 업무</span>
                       </button>
                     )}
                   </div>
@@ -537,7 +537,6 @@ export default function BoardCanvas({
               onRemove={onRemoveFreeCard}
             />
           ))}
-
         </div>
       </div>
     </div>

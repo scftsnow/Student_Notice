@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, KeyboardEvent } from "react";
+import { User, Users, Plus, X } from "lucide-react";
 import { ClassroomStudent } from "@/types/classroom";
 
 interface StudentTabProps {
@@ -67,14 +68,14 @@ export default function StudentTab({
               autoComplete="off"
               className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-bold text-slate-800 transition-all placeholder:font-normal placeholder:text-slate-400"
             />
-            <span className="absolute left-3 top-3 text-slate-400 text-sm">👤</span>
+            <User className="absolute left-3 top-3.5 text-slate-400 w-4 h-4" />
           </div>
           <button
             type="button"
             onClick={handleSubmit}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xs flex items-center gap-1 transition-all active:scale-95 whitespace-nowrap"
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xs flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap"
           >
-            <span>＋</span>
+            <Plus className="w-4 h-4" />
             <span>추가</span>
           </button>
         </div>
@@ -83,7 +84,7 @@ export default function StudentTab({
       {/* 학생 카드 그리드 */}
       {students.length === 0 ? (
         <div className="p-10 text-center text-slate-400 rounded-2xl border border-dashed border-slate-200 bg-white">
-          <div className="text-3xl mb-2">👥</div>
+          <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
           <div className="font-semibold text-base">등록된 학생이 없습니다.</div>
           <div className="text-xs mt-1">
             위의 입력창에 학생 이름을 입력하고 Enter를 누르면 추가됩니다.
@@ -97,7 +98,7 @@ export default function StudentTab({
               className="group p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-xs flex items-center justify-between gap-2 transition-all"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm shrink-0">👤</span>
+                <User className="w-4 h-4 text-slate-400 shrink-0" />
                 <span className="font-bold text-slate-800 text-sm truncate">{s.name}</span>
               </div>
               <button
@@ -110,7 +111,7 @@ export default function StudentTab({
                 className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors shrink-0 font-bold text-sm"
                 title={`${s.name} 학생 삭제`}
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}

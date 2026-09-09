@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import NoticeTab from "@/components/classroom/notice/NoticeTab";
 import BoardCanvas from "@/components/classroom/canvas/BoardCanvas";
@@ -65,8 +66,8 @@ export default function NoticePageClient() {
       {/* 알림장 상단 헤더 */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-            📝
+          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+            <FileText className="w-4 h-4" />
           </span>
           <div>
             <h1 className="text-lg font-bold text-slate-900">알림장 & 전자칠판</h1>

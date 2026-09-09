@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { X, Zap, Landmark, Coins } from "lucide-react";
 import { ClassroomStudent, CustomBundle, BundleAction } from "@/types/classroom";
 
 interface DraftAction {
@@ -153,9 +154,9 @@ export default function CreateBundleModal({
           <button
             type="button"
             onClick={handleClose}
-            className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center font-bold text-base"
+            className="w-6 h-6 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -186,7 +187,7 @@ export default function CreateBundleModal({
 
           {/* 빠른 템플릿 (국고 연동 포함) */}
           <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-1.5 text-[11px]">
-            <span className="font-bold text-indigo-900 block">⚡ 빠른 템플릿 설정:</span>
+            <span className="font-bold text-indigo-900 flex items-center gap-1"><Zap className="w-3 h-3" /> 빠른 템플릿 설정:</span>
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
@@ -212,9 +213,9 @@ export default function CreateBundleModal({
                     },
                   ]);
                 }}
-                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs"
+                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs flex items-center gap-1"
               >
-                🏛️ 국고 지원금 분배
+                <Landmark className="w-3 h-3" /> 국고 지원금 분배
               </button>
               <button
                 type="button"
@@ -240,9 +241,9 @@ export default function CreateBundleModal({
                     },
                   ]);
                 }}
-                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs"
+                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs flex items-center gap-1"
               >
-                💰 학급비 국고 전입
+                <Coins className="w-3 h-3" /> 학급비 국고 전입
               </button>
             </div>
           </div>
@@ -278,7 +279,7 @@ export default function CreateBundleModal({
                         <option value="all">전체 학생</option>
                         <option value="selected">카드 선택 학생</option>
                         <option value="specific">특정 학생 지정</option>
-                        <option value="treasury">🏛️ 학급 국고</option>
+                        <option value="treasury">학급 국고</option>
                       </select>
 
                       {/* 구분 (입금/차감) */}
@@ -329,9 +330,9 @@ export default function CreateBundleModal({
                         <button
                           type="button"
                           onClick={() => removeAction(idx)}
-                          className="text-slate-300 hover:text-rose-500 font-bold text-sm ml-1 transition-colors"
+                          className="text-slate-300 hover:text-rose-500 ml-1 transition-colors"
                         >
-                          ✕
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>

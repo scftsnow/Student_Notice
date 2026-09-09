@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { EyeOff } from "lucide-react";
+import { EyeOff, RefreshCw, X, Coins, ArrowRight, Pencil, CheckSquare, User } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
@@ -180,17 +180,17 @@ export default function RoutineElementInCanvas({
               <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[210px] bg-slate-900/95 border border-white/20 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-2.5 text-white">
                 <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
                   <span className="font-extrabold text-white flex items-center gap-1">
-                    <span>👤</span>
+                    <User className="w-3.5 h-3.5" />
                     <span className="text-amber-300">{currentWorker}</span>
                     {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">(대타)</span>}
                   </span>
                   <button
                     type="button"
                     onClick={() => setActivePopupIndex(null)}
-                    className="text-white/40 hover:text-white font-bold p-0.5 leading-none"
+                    className="text-white/40 hover:text-white p-0.5 leading-none"
                     title="닫기"
                   >
-                    ✕
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -198,17 +198,19 @@ export default function RoutineElementInCanvas({
                 {onUpdateRoutine && students.length > 0 && (
                   <div className="space-y-1.5 pb-2 border-b border-white/10">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-white/80 block">
-                        🔄 대타 지정
+                      <label className="text-[11px] font-bold text-white/80 flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3" />
+                        <span>대타 지정</span>
                       </label>
                       {isSubstituted && (
                         <button
                           type="button"
                           onClick={() => handlePinchChange("")}
-                          className="text-[10px] text-rose-300 hover:text-rose-200 underline font-semibold transition-colors"
+                          className="text-[10px] text-rose-300 hover:text-rose-200 underline font-semibold transition-colors flex items-center gap-0.5"
                           title="대타 해제"
                         >
-                          ✕ 대타 해제
+                          <X className="w-2.5 h-2.5" />
+                          <span>대타 해제</span>
                         </button>
                       )}
                     </div>
@@ -264,7 +266,7 @@ export default function RoutineElementInCanvas({
                     disabled={routine.pay <= 0 || !onPayRoutineToday}
                     className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
                   >
-                    <span>💰</span>
+                    <Coins className="w-3.5 h-3.5" />
                     <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
                   </button>
                 </div>
@@ -282,10 +284,11 @@ export default function RoutineElementInCanvas({
             e.stopPropagation();
             onAdvanceRoutine(routine.id);
           }}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 active:scale-95 text-white hover:text-white transition-all font-bold select-none border border-white/20 ml-1 leading-tight shrink-0 cursor-pointer shadow-2xs"
+          className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 active:scale-95 text-white hover:text-white transition-all font-bold select-none border border-white/20 ml-1 leading-tight shrink-0 cursor-pointer shadow-2xs inline-flex items-center gap-0.5"
           title="이 업무의 다음 당번 순번으로 넘기기"
         >
-          넘기기 ➡️
+          <span>넘기기</span>
+          <ArrowRight className="w-2.5 h-2.5" />
         </button>
       )}
 
@@ -302,7 +305,7 @@ export default function RoutineElementInCanvas({
             className="opacity-30 hover:opacity-100 hover:scale-110 p-0.5 text-xs transition-all cursor-pointer inline-flex items-center leading-none ml-0.5"
             title="학생 업무 문구 서식 편집 (? 기호로 당번 배치)"
           >
-            ✏️
+            <Pencil className="w-3 h-3 text-white/80" />
           </button>
 
           {/* 문구 형식 편집 팝오버 */}
@@ -313,16 +316,16 @@ export default function RoutineElementInCanvas({
             >
               <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
                 <span className="font-extrabold text-white flex items-center gap-1.5 text-xs">
-                  <span>✏️</span>
+                  <Pencil className="w-3.5 h-3.5 text-indigo-300" />
                   <span>학생 업무 표시 문구 서식 편집</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsFormatEditing(false)}
-                  className="text-white/40 hover:text-white font-bold p-0.5 leading-none"
+                  className="text-white/40 hover:text-white p-0.5 leading-none"
                   title="닫기"
                 >
-                  ✕
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -389,7 +392,7 @@ export default function RoutineElementInCanvas({
         >
           {/* 헤더 */}
           <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
-            <span className="text-amber-300 font-extrabold">{routine.icon || "📋"}</span>
+            <CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />
             <span className="font-bold text-white/90 truncate">{routine.name}</span>
           </div>
 
@@ -405,7 +408,7 @@ export default function RoutineElementInCanvas({
                 }}
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
               >
-                <span>💰</span>
+                <Coins className="w-3.5 h-3.5" />
                 <span className="font-semibold">이 업무 급여 지급</span>
                 {routine.pay > 0 && (
                   <span className="ml-auto text-amber-300 font-bold">
@@ -425,7 +428,7 @@ export default function RoutineElementInCanvas({
                 }}
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 transition-colors text-left font-bold"
               >
-                <span>💵</span>
+                <Coins className="w-3.5 h-3.5" />
                 <span>전체 업무 급여 일괄 지급</span>
               </button>
             )}
@@ -442,7 +445,7 @@ export default function RoutineElementInCanvas({
                 }}
                 className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left"
               >
-                <span>➡️</span>
+                <ArrowRight className="w-3.5 h-3.5" />
                 <span className="font-semibold">이 업무 다음 순번 넘기기</span>
               </button>
             )}

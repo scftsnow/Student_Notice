@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { X, Coins } from "lucide-react";
 import { ClassroomStudent, TaxConfig } from "@/types/classroom";
 import { calculateTax } from "@/lib/taxEngine";
 
@@ -81,11 +82,11 @@ export default function DepositModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">💰</span>
+            <Coins className="w-5 h-5 text-indigo-600" />
             <h2 className="font-extrabold text-slate-800 text-base">학생 화폐 입금 및 차감</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none">
-            ✕
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 flex items-center justify-center">
+            <X className="w-5 h-5" />
           </button>
         </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AlertTriangle, Trash2, X } from "lucide-react";
+import { AlertTriangle, Trash2, X, CheckCircle } from "lucide-react";
 import { resetEconomy, resetStudents, resetRoutines } from "@/app/actions";
 
 interface ResetTarget {
@@ -137,8 +137,8 @@ function ResetModal({ target, onClose, onSuccess }: ResetModalProps) {
             </ul>
           </div>
 
-          <div className={`p-3 rounded-xl border ${c.bg} text-xs ${c.heading} font-semibold`}>
-            ⚠️ 이 작업은 되돌릴 수 없습니다. 신중하게 진행해 주세요.
+          <div className={`p-3 rounded-xl border ${c.bg} text-xs ${c.heading} font-semibold flex items-center gap-1.5`}>
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> 이 작업은 되돌릴 수 없습니다. 신중하게 진행해 주세요.
           </div>
 
           <div>
@@ -203,8 +203,8 @@ export default function ResetSection() {
         </p>
 
         {successMsg && (
-          <div className="mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold text-emerald-700">
-            ✅ {successMsg}
+          <div className="mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold text-emerald-700 flex items-center gap-1.5">
+            <CheckCircle className="w-4 h-4 shrink-0" /> {successMsg}
           </div>
         )}
 

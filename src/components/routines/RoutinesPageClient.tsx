@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckSquare } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import RoutineTab from "@/components/classroom/routines/RoutineTab";
 
@@ -19,8 +20,8 @@ export default function RoutinesPageClient() {
       {/* 학생 업무 상단 헤더 */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-            🧹
+          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+            <CheckSquare className="w-4 h-4" />
           </span>
           <div>
             <h1 className="text-lg font-bold text-slate-900">학급 학생 업무 및 순환 관리</h1>

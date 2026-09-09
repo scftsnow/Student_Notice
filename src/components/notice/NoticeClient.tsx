@@ -204,10 +204,10 @@ export default function NoticeClient({
                   onChange={(e) => setTheme(e.target.value)}
                   className="w-full p-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold"
                 >
-                  <option value="chalkboard">🟢 칠판 녹색</option>
-                  <option value="white">⚪ 깔끔 화이트</option>
-                  <option value="navy">🔵 딥 네이비</option>
-                  <option value="warm">🟡 따뜻한 미색</option>
+                  <option value="chalkboard">칠판 녹색</option>
+                  <option value="white">깔끔 화이트</option>
+                  <option value="navy">딥 네이비</option>
+                  <option value="warm">따뜻한 미색</option>
                 </select>
               </div>
             </div>

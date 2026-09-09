@@ -117,7 +117,7 @@ export default function AddRoutineModal({
       });
     } else if (onSave) {
       onSave({
-        icon: "📌",
+        icon: "",
         name: name.trim(),
         slots: Math.max(1, slots),
         pay: Math.max(0, pay),

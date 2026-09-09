@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X, Landmark, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { ClassroomStudent } from "@/types/classroom";
 
 interface DirectTaxModalProps {
@@ -45,11 +46,11 @@ export default function DirectTaxModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🏛️</span>
+            <Landmark className="w-5 h-5 text-indigo-600" />
             <h2 className="font-extrabold text-slate-800 text-base">국고 세금 별도 직접 입금 / 출금</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none">
-            ✕
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 flex items-center justify-center">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -72,11 +73,11 @@ export default function DirectTaxModal({
               setMode("deposit");
               setDesc("학급 바자회 수익금 세수 편입");
             }}
-            className={`py-1.5 rounded-lg transition-all ${
+            className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
               mode === "deposit" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            📥 세금 직접 입금 (세수 증액)
+            <ArrowDownToLine className="w-3.5 h-3.5" /> 세금 직접 입금 (세수 증액)
           </button>
           <button
             type="button"
@@ -84,11 +85,11 @@ export default function DirectTaxModal({
               setMode("withdraw");
               setDesc("학급 문구류 구입 세수 지출");
             }}
-            className={`py-1.5 rounded-lg transition-all ${
+            className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
               mode === "withdraw" ? "bg-white text-rose-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            📤 세금 출금 / 학생 환급
+            <ArrowUpFromLine className="w-3.5 h-3.5" /> 세금 출금 / 학생 환급
           </button>
         </div>
 
@@ -113,8 +114,8 @@ export default function DirectTaxModal({
                   onChange={(e) => setTargetType(e.target.value as "common" | "student")}
                   className="px-2 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none"
                 >
-                  <option value="common">🏛️ 학급 공동 행사/물품 지출</option>
-                  <option value="student">👤 특정 학생에게 세금 환급</option>
+                  <option value="common">학급 공동 행사/물품 지출</option>
+                  <option value="student">특정 학생에게 세금 환급</option>
                 </select>
                 {targetType === "student" && (
                   <select

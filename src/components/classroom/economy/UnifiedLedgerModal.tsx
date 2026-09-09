@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X, FileSpreadsheet, Calendar } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
 
 interface UnifiedLedgerModalProps {
@@ -74,11 +75,11 @@ export default function UnifiedLedgerModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-5 space-y-4 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">📜</span>
+            <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
             <h2 className="font-extrabold text-slate-800 text-base">학급 통합 출입금 원장</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none">
-            ✕
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 flex items-center justify-center">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -91,11 +92,11 @@ export default function UnifiedLedgerModal({
               onChange={(e) => setStudentFilter(e.target.value)}
               className="px-2 py-1 rounded border border-slate-200 bg-white font-semibold focus:outline-none"
             >
-              <option value="all">🌟 전체 학생 및 국고 통합</option>
-              <option value="treasury">🏛️ 학급 국고 (잔고: {treasuryBalance.toLocaleString()} {currencyName})</option>
+              <option value="all">전체 학생 및 국고 통합</option>
+              <option value="treasury">학급 국고 (잔고: {treasuryBalance.toLocaleString()} {currencyName})</option>
               {students.map((s) => (
                 <option key={s.name} value={s.name}>
-                  👤 {s.name} ({s.balance.toLocaleString()} {currencyName})
+                  {s.name} ({s.balance.toLocaleString()} {currencyName})
                 </option>
               ))}
             </select>
@@ -104,7 +105,7 @@ export default function UnifiedLedgerModal({
           <div className="flex items-center gap-2 flex-wrap">
             {/* 달력 직접 선택 */}
             <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-              <span className="text-[11px] text-slate-400">📅</span>
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
               <input
                 type="date"
                 value={startDate}

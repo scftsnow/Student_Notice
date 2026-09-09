@@ -8,7 +8,7 @@ import TransactionModal from "./TransactionModal";
 import DepositModal from "./DepositModal";
 import UnifiedLedgerModal from "./UnifiedLedgerModal";
 import CreateBundleModal from "./CreateBundleModal";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, User } from "lucide-react";
 
 interface EconomyTabProps {
   students: ClassroomStudent[];
@@ -120,7 +120,7 @@ export default function EconomyTab({
 
         {/* 1. 국고 — 1줄 */}
         <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-2">
-          <span className="text-[11px] text-slate-400 font-bold shrink-0">🏛️ 국고</span>
+          <span className="text-[11px] text-slate-400 font-bold shrink-0 flex items-center gap-1"><Landmark className="w-3.5 h-3.5" /> 국고</span>
           <span className="font-black text-base font-mono text-slate-800 flex-1 truncate">
             {treasuryBalance.toLocaleString()}
             <span className="text-xs font-normal text-slate-400 ml-1">{currencyName}</span>
@@ -145,7 +145,7 @@ export default function EconomyTab({
         <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-100 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-bold text-indigo-900 text-xs flex items-center gap-1">
-              <span>⚙️</span><span>화폐 및 세무 정책</span>
+              <Settings className="w-3.5 h-3.5" /><span>화폐 및 세무 정책</span>
             </span>
             <button
               type="button"
@@ -212,14 +212,14 @@ export default function EconomyTab({
             onClick={() => setIsTransactionOpen(true)}
             className="py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs transition-all"
           >
-            <span>🔄</span><span>학생 간 거래</span>
+            <ArrowRightLeft className="w-3.5 h-3.5" /><span>학생 간 거래</span>
           </button>
           <button
             type="button"
             onClick={() => setIsDepositOpen(true)}
             className="py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs transition-all"
           >
-            <span>💰</span>
+            <Coins className="w-3.5 h-3.5" />
             <span>입금 / 차감{checkedNames.length > 0 ? ` (${checkedNames.length}명)` : ""}</span>
           </button>
         </div>
@@ -288,7 +288,7 @@ export default function EconomyTab({
                       {b.actions.map((act, i) => {
                         const isTreasury = act.target === "treasury";
                         const targetLabel = isTreasury
-                          ? "🏛️국고"
+                          ? "국고"
                           : act.target === "all"
                           ? "전체"
                           : act.target === "selected"
@@ -394,7 +394,7 @@ export default function EconomyTab({
               title="교실 TV/빔프로젝터용 학생 전용 잔액 전광판 창 띄우기"
             >
               <span>학생 화면 띄우기</span>
-              <span>🖥️</span>
+              <Monitor className="w-3.5 h-3.5" />
             </button>
             <button
               type="button"
@@ -428,7 +428,7 @@ export default function EconomyTab({
                     {/* 상단: 이름 + 체크박스 */}
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-xs shrink-0">👤</span>
+                        <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                         <span className="font-extrabold text-slate-800 text-xs truncate">
                           {s.name}
                         </span>

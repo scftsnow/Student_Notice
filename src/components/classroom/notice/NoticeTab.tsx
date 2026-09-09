@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { AlignLeft, AlignCenter, AlignRight } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
 
 const TEXT_COLORS = [
@@ -271,7 +271,8 @@ export default function NoticeTab({
             className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 shadow-2xs"
             title="알림장 칠판에 노출할 학생 업무 및 문구 서식을 설정합니다"
           >
-            📋 칠판 표시 업무 설정
+            <ClipboardList className="w-3.5 h-3.5" />
+            <span>칠판 표시 업무 설정</span>
           </button>
         )}
       </div>

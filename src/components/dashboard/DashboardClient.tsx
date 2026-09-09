@@ -14,6 +14,8 @@ import {
   Clock,
   Send,
   CalendarCheck,
+  MapPin,
+  Bell,
 } from "lucide-react";
 import DailyCheckInModal from "@/components/routines/DailyCheckInModal";
 import { approvePayments } from "@/app/actions";
@@ -308,7 +310,7 @@ export default function DashboardClient({
 
             <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/60 font-sans space-y-3">
               <div className="text-xs font-semibold text-amber-800 flex items-center gap-1">
-                📌 알림장 내용 ({initialDate})
+                <MapPin className="w-3.5 h-3.5" /> 알림장 내용 ({initialDate})
               </div>
               <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
                 {liveNoticeContent || notice?.content || "오늘 등록된 일반 알림장 내용이 없습니다."}
@@ -317,8 +319,8 @@ export default function DashboardClient({
               {/* Routine section inside notice if enabled */}
               {notice?.includeRoutines && (
                 <div className="mt-4 pt-3 border-t border-amber-200/50">
-                  <span className="text-xs font-bold text-indigo-700 block mb-1.5">
-                    🔔 오늘의 담당 당번 안내:
+                  <span className="text-xs font-bold text-indigo-700 flex items-center gap-1 block mb-1.5">
+                    <Bell className="w-3.5 h-3.5" /> 오늘의 담당 당번 안내:
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {routinesData
@@ -430,8 +432,8 @@ export default function DashboardClient({
             </div>
 
             {absentStudents.length === 0 ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200/60 rounded-xl text-xs text-emerald-800 font-medium text-center">
-                👏 오늘 결석생이 없습니다. 전원 출석!
+              <div className="p-3 bg-emerald-50 border border-emerald-200/60 rounded-xl text-xs text-emerald-800 font-medium text-center flex items-center justify-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5" /> 오늘 결석생이 없습니다. 전원 출석!
               </div>
             ) : (
               <div className="space-y-2">

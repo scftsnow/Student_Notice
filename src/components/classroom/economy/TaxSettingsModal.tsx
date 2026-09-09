@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { X, Settings } from "lucide-react";
 import { TaxConfig } from "@/types/classroom";
 import { DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 
@@ -69,11 +70,11 @@ export default function TaxSettingsModal({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <span className="text-xl">⚙️</span>
+            <Settings className="w-5 h-5 text-indigo-600" />
             <h2 className="font-extrabold text-slate-800 text-lg">학급 화폐 및 세무·급여 정책 설정</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold text-xl leading-none">
-            ✕
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 flex items-center justify-center">
+            <X className="w-5 h-5" />
           </button>
         </div>
 

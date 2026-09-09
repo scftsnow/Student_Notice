@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText, Users, CheckSquare, Coins, Bell, BarChart3, X } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import ClassroomHeader from "./ClassroomHeader";
 import BoardCanvas from "./canvas/BoardCanvas";
@@ -90,46 +91,50 @@ export default function ClassroomApp() {
           <button
             type="button"
             onClick={() => setActiveTab("notice")}
-            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+            className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "notice"
                 ? "bg-white text-indigo-700 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            📝 알림장
+            <FileText className="w-4 h-4" />
+            <span>알림장</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("students")}
-            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+            className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "students"
                 ? "bg-white text-indigo-700 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            👥 학생 명단 ({state.students.length})
+            <Users className="w-4 h-4" />
+            <span>학생 명단 ({state.students.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("routines")}
-            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+            className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "routines"
                 ? "bg-white text-indigo-700 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            🧹 학생 업무 ({state.routines.length})
+            <CheckSquare className="w-4 h-4" />
+            <span>학생 업무 ({state.routines.length})</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("economy")}
-            className={`flex-1 py-2 rounded-lg transition-all text-center ${
+            className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "economy"
                 ? "bg-white text-indigo-700 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            💰 학급 화폐
+            <Coins className="w-4 h-4" />
+            <span>학급 화폐</span>
           </button>
         </div>
 
@@ -229,7 +234,7 @@ export default function ClassroomApp() {
       {/* 토스트 알림 */}
       {state.toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-bold flex items-center gap-2">
-          <span>🔔</span>
+          <Bell className="w-4 h-4 text-amber-400 shrink-0" />
           <span>{state.toastMessage}</span>
         </div>
       )}
@@ -245,13 +250,16 @@ export default function ClassroomApp() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="font-extrabold text-slate-800 text-base">📊 학급 재정 간편 요약</h2>
+              <div className="flex items-center gap-1.5">
+                <BarChart3 className="w-4 h-4 text-indigo-600" />
+                <h2 className="font-extrabold text-slate-800 text-base">학급 재정 간편 요약</h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsQuickViewOpen(false)}
-                className="text-slate-400 hover:text-slate-700 font-bold text-lg leading-none"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors leading-none"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex justify-between">
