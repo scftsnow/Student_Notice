@@ -35,13 +35,9 @@ export function calculateTax(
     }
   }
 
-  // 세금 반올림 단위 처리 (1단위, 10단위, 100단위)
+  // 세금 반올림 단위 처리 (정수 단위: 1/10/100, 소수 단위: 0.1/0.01/0.001)
   const unit = config.taxRoundingUnit || 1;
-  if (unit > 1) {
-    tax = Math.round(tax / unit) * unit;
-  } else {
-    tax = Math.round(tax);
-  }
+  tax = Math.round(tax / unit) * unit;
 
   return Math.max(0, tax);
 }
@@ -53,7 +49,7 @@ export const DEFAULT_TAX_CONFIG: TaxConfig = {
   incomeTaxValue: 10,
   otherTaxType: "rate",
   otherTaxValue: 10,
-  penaltyDisposition: "treasury",
+  penaltyDisposition: "void",
   taxRoundingUnit: 1,
   salaryPayoutMode: "MANUAL_APPROVAL",
   taxMethod: "WITHHOLDING",

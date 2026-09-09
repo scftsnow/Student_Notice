@@ -26,7 +26,7 @@ export default function TaxSettingsModal({
     ...config,
     salaryPayoutMode: config.salaryPayoutMode || "MANUAL_APPROVAL",
     taxMethod: config.taxMethod || "WITHHOLDING",
-    penaltyDisposition: config.penaltyDisposition || "treasury",
+    penaltyDisposition: config.penaltyDisposition || "void",
     taxRoundingUnit: config.taxRoundingUnit || 1,
     incomeTaxValue: config.incomeTaxValue ?? 10,
     txTaxValue: config.txTaxValue ?? 10,
@@ -38,7 +38,7 @@ export default function TaxSettingsModal({
       ...config,
       salaryPayoutMode: config.salaryPayoutMode || "MANUAL_APPROVAL",
       taxMethod: config.taxMethod || "WITHHOLDING",
-      penaltyDisposition: config.penaltyDisposition || "treasury",
+      penaltyDisposition: config.penaltyDisposition || "void",
       taxRoundingUnit: config.taxRoundingUnit || 1,
       incomeTaxValue: config.incomeTaxValue ?? 10,
       txTaxValue: config.txTaxValue ?? 10,
@@ -139,54 +139,21 @@ export default function TaxSettingsModal({
             {formData.taxMethod !== "TAX_FREE" && (
               <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-100/60">
                 <div>
-                  <div className="font-bold text-slate-800">세금 반올림 자리수</div>
-                  <div className="text-xs text-slate-500">세액 계산 시 반올림할 자리수</div>
+                  <div className="font-bold text-slate-800">세금 반올림</div>
+                  <div className="text-xs text-slate-500">세액 계산 후 반올림할 자릿수</div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="inline-flex items-center border border-indigo-200 rounded-lg bg-white overflow-hidden shadow-2xs">
-                    <input
-                      type="number"
-                      min={0}
-                      max={6}
-                      value={Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)))}
-                      onChange={(e) => {
-                        const d = Math.max(0, Math.min(6, parseInt(e.target.value, 10) || 0));
-                        setFormData({ ...formData, taxRoundingUnit: Math.pow(10, d) });
-                      }}
-                      className="w-10 px-2 py-1 text-center font-bold text-slate-800 text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <div className="flex flex-col border-l border-indigo-100 bg-slate-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)));
-                          const next = Math.min(6, current + 1);
-                          setFormData({ ...formData, taxRoundingUnit: Math.pow(10, next) });
-                        }}
-                        className="px-1.5 py-0.5 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 text-[9px] leading-none transition-colors cursor-pointer select-none"
-                        title="자리수 올리기"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const current = Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)));
-                          const next = Math.max(0, current - 1);
-                          setFormData({ ...formData, taxRoundingUnit: Math.pow(10, next) });
-                        }}
-                        className="px-1.5 py-0.5 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 text-[9px] leading-none border-t border-indigo-100 transition-colors cursor-pointer select-none"
-                        title="자리수 내리기"
-                      >
-                        ▼
-                      </button>
-                    </div>
-                  </div>
-                  <span className="font-bold text-slate-700 text-xs">째 자리</span>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    ({Math.pow(10, Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)))).toLocaleString()} 단위)
-                  </span>
-                </div>
+                <select
+                  value={formData.taxRoundingUnit ?? 1}
+                  onChange={(e) =>
+                    setFormData({ ...formData, taxRoundingUnit: parseFloat(e.target.value) })
+                  }
+                  className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-bold text-indigo-900 focus:outline-none"
+                >
+                  <option value={1}>정수 단위</option>
+                  <option value={0.1}>소수 첫째 자리</option>
+                  <option value={0.01}>소수 둘째 자리</option>
+                  <option value={0.001}>소수 셋째 자리</option>
+                </select>
               </div>
             )}
           </div>
