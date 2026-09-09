@@ -92,14 +92,14 @@ export default function DepositModal({
         <div className="space-y-3 text-xs">
           {/* 학생 선택 */}
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-600">
                 대상 학생 선택 ({selectedNames.length}/{students.length}명)
               </span>
               <button
                 type="button"
                 onClick={handleSelectAll}
-                className="text-indigo-600 hover:underline text-[11px] font-bold"
+                className="text-indigo-600 hover:text-indigo-800 text-[11px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 transition-colors"
               >
                 {selectedNames.length === students.length ? "전체 해제" : "전체 선택"}
               </button>

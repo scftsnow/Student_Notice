@@ -52,7 +52,7 @@ export const DEFAULT_TAX_CONFIG: TaxConfig = {
   incomeTaxType: "rate",
   incomeTaxValue: 10,
   otherTaxType: "rate",
-  otherTaxValue: 5,
+  otherTaxValue: 10,
   penaltyDisposition: "treasury",
   taxRoundingUnit: 1,
   salaryPayoutMode: "MANUAL_APPROVAL",

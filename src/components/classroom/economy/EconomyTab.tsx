@@ -169,30 +169,34 @@ export default function EconomyTab({
               <dt className="text-slate-400 font-semibold">세금</dt>
               <dd className="font-bold text-slate-700 truncate">{taxMethodLabel}</dd>
             </div>
-            <div>
-              <dt className="text-slate-400 font-semibold">소득세율</dt>
-              <dd className="font-bold text-slate-700">
-                {taxConfig.incomeTaxValue}{taxConfig.incomeTaxType === "rate" ? "%" : ` ${currencyName}`}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-400 font-semibold">거래세율</dt>
-              <dd className="font-bold text-slate-700">
-                {taxConfig.txTaxValue}{taxConfig.txTaxType === "rate" ? "%" : ` ${currencyName}`}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-400 font-semibold">반올림</dt>
-              <dd className="font-bold text-slate-700">
-                {Math.max(0, Math.round(Math.log10(taxConfig.taxRoundingUnit || 1)))}째 자리
-              </dd>
-            </div>
-            <div className="col-span-3">
-              <dt className="text-slate-400 font-semibold">벌금 처리</dt>
-              <dd className="font-bold text-slate-700">
-                {taxConfig.penaltyDisposition === "void" ? "소멸 (국고 미귀속)" : "국고 세수 귀속"}
-              </dd>
-            </div>
+            {taxConfig.taxMethod !== "TAX_FREE" && (
+              <>
+                <div>
+                  <dt className="text-slate-400 font-semibold">소득세율</dt>
+                  <dd className="font-bold text-slate-700">
+                    {taxConfig.incomeTaxValue}{taxConfig.incomeTaxType === "rate" ? "%" : ` ${currencyName}`}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-400 font-semibold">거래세율</dt>
+                  <dd className="font-bold text-slate-700">
+                    {taxConfig.txTaxValue}{taxConfig.txTaxType === "rate" ? "%" : ` ${currencyName}`}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-400 font-semibold">반올림</dt>
+                  <dd className="font-bold text-slate-700">
+                    {Math.max(0, Math.round(Math.log10(taxConfig.taxRoundingUnit || 1)))}째 자리
+                  </dd>
+                </div>
+                <div className="col-span-3">
+                  <dt className="text-slate-400 font-semibold">벌금 처리</dt>
+                  <dd className="font-bold text-slate-700">
+                    {taxConfig.penaltyDisposition === "void" ? "소멸 (국고 미귀속)" : "국고 세수 귀속"}
+                  </dd>
+                </div>
+              </>
+            )}
           </dl>
         </div>
 
@@ -314,29 +318,32 @@ export default function EconomyTab({
       {/* ── 우측: 학생 계좌 카드 그리드 ── */}
       <div className="lg:col-span-8 xl:col-span-9 flex flex-col bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden h-[calc(100vh-10.5rem)] min-h-[520px]">
         <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-extrabold text-slate-900 text-sm">학생별 계좌</span>
-            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-              총 {students.length}명
-            </span>
-            <label className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900 font-semibold cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-lg transition-colors">
-              <input
-                type="checkbox"
-                checked={students.length > 0 && checkedNames.length === students.length}
-                onChange={(e) => toggleAll(e.target.checked)}
-                className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5"
-              />
-              전체 선택
-            </label>
+          <div className="flex items-center gap-2.5">
+            <span className="font-extrabold text-slate-900 text-sm shrink-0">학생별 계좌</span>
+            <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200/80 px-2.5 py-1 rounded-xl shrink-0">
+              <span className="text-xs font-black text-indigo-700">
+                총 {students.length}명
+              </span>
+              <span className="text-indigo-200 text-xs select-none">|</span>
+              <label className="inline-flex items-center gap-1.5 text-xs text-slate-800 hover:text-indigo-700 font-bold cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={students.length > 0 && checkedNames.length === students.length}
+                  onChange={(e) => toggleAll(e.target.checked)}
+                  className="rounded text-indigo-600 cursor-pointer w-4 h-4 accent-indigo-600"
+                />
+                <span>전체 선택</span>
+              </label>
+            </div>
             {checkedNames.length > 0 && (
-              <div className="flex items-center gap-1.5">
+              <div className="inline-flex items-center gap-1.5 shrink-0">
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
                   {checkedNames.length}명 선택
                 </span>
                 <button
                   type="button"
                   onClick={handleDepositSelected}
-                  className="px-2 py-0.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-2xs"
                 >
                   선택 입금/차감
                 </button>
