@@ -111,9 +111,7 @@ export default function EconomyTab({
 
   const payoutLabel = taxConfig.salaryPayoutMode === "AUTO_ON_CONFIRM" ? "즉시 자동" : "담임 승인제";
   const taxMethodLabel =
-    taxConfig.taxMethod === "TAX_FREE" ? "면세"
-    : taxConfig.taxMethod === "ADDITION" ? "추가 부과"
-    : "원천징수";
+    taxConfig.taxMethod === "TAX_FREE" ? "세금없음" : "원천징수";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start text-sm">
@@ -185,7 +183,9 @@ export default function EconomyTab({
             </div>
             <div>
               <dt className="text-slate-400 font-semibold">반올림</dt>
-              <dd className="font-bold text-slate-700">{taxConfig.taxRoundingUnit || 1}단위</dd>
+              <dd className="font-bold text-slate-700">
+                {Math.max(0, Math.round(Math.log10(taxConfig.taxRoundingUnit || 1)))}째 자리
+              </dd>
             </div>
             <div className="col-span-3">
               <dt className="text-slate-400 font-semibold">벌금 처리</dt>

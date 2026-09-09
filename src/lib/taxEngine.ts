@@ -6,6 +6,7 @@ export function calculateTax(
   config: TaxConfig
 ): number {
   if (amount <= 0 && type !== "penalty") return 0;
+  if (config.taxMethod === "TAX_FREE" && type !== "penalty") return 0;
   let tax = 0;
 
   if (type === "transaction") {

@@ -27,9 +27,9 @@ export interface TaxConfig {
   otherTaxType: "rate" | "fixed";
   otherTaxValue: number;
   penaltyDisposition: "treasury" | "void"; // "treasury": 국고 세수 귀속, "void": 화폐 소각(소멸)
-  taxRoundingUnit?: 1 | 10 | 100; // 세금 반올림 단위: 1단위, 10단위, 100단위
+  taxRoundingUnit?: number; // 세금 반올림 단위 (1단위, 10단위, 100단위 등)
   salaryPayoutMode?: "MANUAL_APPROVAL" | "AUTO_ON_CONFIRM";
-  taxMethod?: "WITHHOLDING" | "ADDITION" | "TAX_FREE";
+  taxMethod?: "WITHHOLDING" | "TAX_FREE";
   penaltyType?: "rate" | "fixed";
   penaltyValue?: number;
 }

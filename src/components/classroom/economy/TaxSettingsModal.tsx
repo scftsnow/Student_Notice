@@ -112,33 +112,73 @@ export default function TaxSettingsModal({
             <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-100/60">
               <div>
                 <div className="font-bold text-slate-800">세금 부과 체계</div>
-                <div className="text-xs text-slate-500">지급 시 공제(원천징수) 또는 별도 납부</div>
+                <div className="text-xs text-slate-500">원천징수 또는 세금 없음</div>
               </div>
               <select
-                value={formData.taxMethod || "WITHHOLDING"}
-                onChange={(e) => setFormData({ ...formData, taxMethod: e.target.value as "WITHHOLDING" | "ADDITION" | "TAX_FREE" })}
+                value={formData.taxMethod === "TAX_FREE" ? "TAX_FREE" : "WITHHOLDING"}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    taxMethod: e.target.value as "WITHHOLDING" | "TAX_FREE",
+                  })
+                }
                 className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-bold text-indigo-900 focus:outline-none"
               >
-                <option value="WITHHOLDING">원천징수 (자동 공제)</option>
-                <option value="ADDITION">추가 부과</option>
-                <option value="TAX_FREE">면세 (세금 0%)</option>
+                <option value="WITHHOLDING">원천징수</option>
+                <option value="TAX_FREE">세금없음</option>
               </select>
             </div>
 
             <div className="flex items-center justify-between gap-3 pt-2 border-t border-indigo-100/60">
               <div>
-                <div className="font-bold text-slate-800">세금 계산 반올림 단위</div>
-                <div className="text-xs text-slate-500">세액 계산 시 끝수 처리 자리수</div>
+                <div className="font-bold text-slate-800">세금 반올림 자리수</div>
+                <div className="text-xs text-slate-500">세액 계산 시 반올림할 자리수</div>
               </div>
-              <select
-                value={formData.taxRoundingUnit || 1}
-                onChange={(e) => setFormData({ ...formData, taxRoundingUnit: Number(e.target.value) as 1 | 10 | 100 })}
-                className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-white font-bold text-indigo-900 focus:outline-none"
-              >
-                <option value={1}>1단위 (반올림 없음 / 1단위 정산)</option>
-                <option value={10}>10단위 (1의 자리 반올림)</option>
-                <option value={100}>100단위 (10의 자리 반올림)</option>
-              </select>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <div className="inline-flex items-center border border-indigo-200 rounded-lg bg-white overflow-hidden shadow-2xs">
+                  <input
+                    type="number"
+                    min={0}
+                    max={6}
+                    value={Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)))}
+                    onChange={(e) => {
+                      const d = Math.max(0, Math.min(6, parseInt(e.target.value, 10) || 0));
+                      setFormData({ ...formData, taxRoundingUnit: Math.pow(10, d) });
+                    }}
+                    className="w-10 px-2 py-1 text-center font-bold text-slate-800 text-xs focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <div className="flex flex-col border-l border-indigo-100 bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)));
+                        const next = Math.min(6, current + 1);
+                        setFormData({ ...formData, taxRoundingUnit: Math.pow(10, next) });
+                      }}
+                      className="px-1.5 py-0.5 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 text-[9px] leading-none transition-colors cursor-pointer select-none"
+                      title="자리수 올리기"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)));
+                        const next = Math.max(0, current - 1);
+                        setFormData({ ...formData, taxRoundingUnit: Math.pow(10, next) });
+                      }}
+                      className="px-1.5 py-0.5 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 text-[9px] leading-none border-t border-indigo-100 transition-colors cursor-pointer select-none"
+                      title="자리수 내리기"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                </div>
+                <span className="font-bold text-slate-700 text-xs">째 자리</span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  ({Math.pow(10, Math.max(0, Math.round(Math.log10(formData.taxRoundingUnit || 1)))).toLocaleString()} 단위)
+                </span>
+              </div>
             </div>
           </div>
 
