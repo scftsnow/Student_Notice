@@ -5,6 +5,7 @@ import { ClipboardList, FastForward } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
+import CanvasClock from "./CanvasClock";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
@@ -96,7 +97,6 @@ export default function BoardCanvas({
   onCurrentFontSize,
   appliedStyle,
 }: BoardCanvasProps) {
-  const [clockStr, setClockStr] = useState("14:00:00");
   const [liveDateStr, setLiveDateStr] = useState("");
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -235,21 +235,17 @@ export default function BoardCanvas({
     }
   }, [targetElement, layouts, freeCards, fontSize, onCurrentFontSize]);
 
-  // Live clock and date
+  // Live date
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      const h = String(now.getHours()).padStart(2, "0");
-      const m = String(now.getMinutes()).padStart(2, "0");
-      const s = String(now.getSeconds()).padStart(2, "0");
-      setClockStr(`${h}:${m}:${s}`);
       const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
       const mo = now.getMonth() + 1;
       const d = now.getDate();
       setLiveDateStr(`${mo}월 ${d}일 ${days[now.getDay()]}`);
     };
     update();
-    const timer = setInterval(update, 1000);
+    const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
   }, []);
 
@@ -323,52 +319,18 @@ export default function BoardCanvas({
             </span>
           </Rnd>
 
-          {/* 요소 2: 시각 글상자 */}
-          <Rnd
-            bounds="parent"
-            cancel="button"
-            position={{
-              x: (parsePercent(layouts.clockBox.left, 68.0) / 100) * containerSize.width,
-              y: (parsePercent(layouts.clockBox.top, 3.0) / 100) * containerSize.height,
-            }}
-            size={{
-              width: layouts.clockBox.width
-                ? (parsePercent(layouts.clockBox.width, 18) / 100) * containerSize.width
-                : "auto",
-              height: layouts.clockBox.height
-                ? (parsePercent(layouts.clockBox.height, 10) / 100) * containerSize.height
-                : "auto",
-            }}
-            onDragStop={(_e, d) => {
-              const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
-              updateLayouts((p) => ({ ...p, clockBox: { ...p.clockBox, left, top } }));
-            }}
-            onResizeStop={(_e, _dir, ref, _delta, position) => {
-              const width = `${((parseFloat(ref.style.width) / containerSize.width) * 100).toFixed(1)}%`;
-              const height = `${((parseFloat(ref.style.height) / containerSize.height) * 100).toFixed(1)}%`;
-              const left = `${((position.x / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
-              updateLayouts((p) => ({ ...p, clockBox: { ...p.clockBox, width, height, left, top } }));
-            }}
-            enableResizing={RESIZE_ENABLE}
-            resizeHandleComponent={RESIZE_HANDLES}
-            onClick={() => onSelectElement?.("clockBox")}
-            className={`z-10 group rounded-xl border transition-all font-mono font-black tracking-wider whitespace-nowrap opacity-90 cursor-grab active:cursor-grabbing ${
-              targetElement === "clockBox"
-                ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
-                : "border-transparent hover:border-white/30 bg-transparent"
-            }`}
-            style={{
-              fontSize: `${scaleFont(layouts.clockBox.fontSize || fontPx)}px`,
-              color: layouts.clockBox.color || "inherit",
-              textAlign: layouts.clockBox.align || "right",
-            }}
-          >
-            <span id="canvas-clock-text">
-              {clockStr}
-            </span>
-          </Rnd>
+          {/* 요소 2: 시각 글상자 (우클릭 모양/표시제 토글 지원) */}
+          <CanvasClock
+            layout={layouts.clockBox}
+            containerSize={containerSize}
+            targetElement={targetElement}
+            onSelectElement={onSelectElement}
+            onUpdateLayout={(updater) =>
+              updateLayouts((p) => ({ ...p, clockBox: updater(p.clockBox) }))
+            }
+            scaleFont={scaleFont}
+            fontPx={fontPx}
+          />
 
           {/* 요소 3: 알림장 본문 — 자유 글상자(FreeCardItem) 컴포넌트로 완전 일원화 */}
           <FreeCardItem
@@ -408,7 +370,7 @@ export default function BoardCanvas({
           {/* 요소 4: 루틴 당번 목록 글상자 */}
           <Rnd
             bounds="parent"
-            cancel="button, select, input, [role='dialog']"
+            cancel="button, select, input, [contenteditable='true'], [role='dialog']"
             position={{
               x: (parsePercent(layouts.routineBox.left, 2.5) / 100) * containerSize.width,
               y: (parsePercent(layouts.routineBox.top, 82.0) / 100) * containerSize.height,

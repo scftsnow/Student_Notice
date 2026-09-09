@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { EyeOff, RefreshCw, X, Coins, ArrowRight, Pencil, CheckSquare, User } from "lucide-react";
+import { createPortal } from "react-dom";
+import { EyeOff, RefreshCw, X, Coins, ArrowRight, CheckSquare, User, ChevronRight } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
@@ -29,14 +30,14 @@ export default function RoutineElementInCanvas({
   onAdvanceRoutine,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
-  const [isFormatEditing, setIsFormatEditing] = useState(false);
-  const [formatInput, setFormatInput] = useState(routine.displayFormat || "");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [pinchSubmenuOpen, setPinchSubmenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setFormatInput(routine.displayFormat || "");
-  }, [routine.displayFormat]);
+    setMounted(true);
+  }, []);
 
   const workerColor =
     theme === "white"
@@ -54,39 +55,26 @@ export default function RoutineElementInCanvas({
       ? "text-slate-200"
       : "text-white/90";
 
-  // Close popup on outside click
+  // Close worker popup on outside click
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setActivePopupIndex(null);
-        setIsFormatEditing(false);
       }
     };
-    if (activePopupIndex !== null || isFormatEditing) {
+    if (activePopupIndex !== null) {
       document.addEventListener("mousedown", handleOutsideClick);
       return () => document.removeEventListener("mousedown", handleOutsideClick);
     }
-  }, [activePopupIndex, isFormatEditing]);
-
-  // Close context menu on any outside click or context menu elsewhere
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    window.addEventListener("click", close);
-    window.addEventListener("contextmenu", close);
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("contextmenu", close);
-    };
-  }, [contextMenu]);
+  }, [activePopupIndex]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setActivePopupIndex(null);
-    setIsFormatEditing(false);
+    setPinchSubmenuOpen(false);
     const menuWidth = 240;
-    const menuHeight = 180;
+    const menuHeight = 280;
     const x = Math.max(10, Math.min(e.clientX, window.innerWidth - menuWidth - 10));
     const y = Math.max(10, Math.min(e.clientY, window.innerHeight - menuHeight - 10));
     setContextMenu({ x, y });
@@ -111,9 +99,10 @@ export default function RoutineElementInCanvas({
 
   const handlePinchChange = (val: string) => {
     if (onUpdateRoutine) {
-      onUpdateRoutine(routine.id, { pinchHitterStudent: val });
+      onUpdateRoutine(routine.id, { pinchHitterStudent: val === "none" ? undefined : val });
     }
     setActivePopupIndex(null);
+    setPinchSubmenuOpen(false);
   };
 
   const handlePayWorker = (workerName: string) => {
@@ -135,6 +124,15 @@ export default function RoutineElementInCanvas({
     routine.icon
   );
 
+  // 텍스트 세그먼트를 직접 편집할 때 포맷 템플릿 재생성
+  const handleTextSegmentChange = (sIdx: number, newText: string) => {
+    if (!onUpdateRoutine) return;
+    const newTemplate = segments
+      .map((s, i) => (s.type === "worker" ? "?" : i === sIdx ? newText : s.text))
+      .join("");
+    onUpdateRoutine(routine.id, { displayFormat: newTemplate });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -147,8 +145,26 @@ export default function RoutineElementInCanvas({
           return (
             <span
               key={`seg-text-${sIdx}`}
-              className={`opacity-80 whitespace-pre ${customColor ? "" : routineTextColor}`}
+              contentEditable
+              suppressContentEditableWarning
+              onMouseDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  (e.target as HTMLElement).blur();
+                }
+              }}
+              onBlur={(e) => {
+                const newText = (e.target as HTMLElement).innerText ?? "";
+                if (newText !== seg.text) {
+                  handleTextSegmentChange(sIdx, newText);
+                }
+              }}
+              className={`outline-none hover:bg-white/10 focus:bg-white/20 focus:ring-1 focus:ring-indigo-300/50 rounded px-0.5 transition-all cursor-text whitespace-pre select-text ${
+                customColor ? "" : routineTextColor
+              }`}
               style={customColor ? { color: customColor } : undefined}
+              title="클릭하여 글쓰듯 내용 직접 편집"
             >
               {seg.text}
             </span>
@@ -162,13 +178,16 @@ export default function RoutineElementInCanvas({
         const isPopupOpen = activePopupIndex === workerIdx;
 
         return (
-          <div key={`seg-worker-${workerIdx}-${sIdx}`} className="relative inline-flex items-center">
+          <div key={`worker-wrapper-${workerIdx}-${sIdx}`} className="relative inline-block">
+            {/* 당번 학생 이름 배지 */}
             <button
               type="button"
               onClick={() => setActivePopupIndex(isPopupOpen ? null : workerIdx)}
-              className={`font-black ${workerColor} drop-shadow-xs hover:underline cursor-pointer select-none inline-flex items-center bg-transparent border-none p-0 outline-none`}
-              style={{ fontSize: "inherit" }}
-              title={`${currentWorker || "당번"} 클릭 시 급여 지급 및 대타 변경 메뉴`}
+              className={`font-black underline decoration-2 cursor-pointer hover:opacity-100 transition-all select-none ${
+                isSubstituted ? "text-amber-400 decoration-amber-400" : (customColor ? "" : workerColor)
+              }`}
+              style={customColor && !isSubstituted ? { color: customColor } : undefined}
+              title={`${currentWorker || "당번"} 클릭 시 급여 지급 및 대타 메뉴`}
             >
               <span className="whitespace-nowrap">
                 {seg.text}
@@ -177,7 +196,10 @@ export default function RoutineElementInCanvas({
 
             {/* 이름 클릭 시 뜨는 지급 / 대타 액션 팝오버 */}
             {isPopupOpen && (
-              <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[210px] bg-slate-900/95 border border-white/20 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-2.5 text-white">
+              <div
+                className="absolute bottom-full left-0 mb-2 z-50 min-w-[220px] bg-slate-900/95 border border-white/20 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-2.5 text-white"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
                   <span className="font-extrabold text-white flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
@@ -194,54 +216,45 @@ export default function RoutineElementInCanvas({
                   </button>
                 </div>
 
-                {/* 1. 대타 지정 및 변경 (상단 배치: 이름 배지 선택) */}
+                {/* 대타 지정 및 변경 */}
                 {onUpdateRoutine && students.length > 0 && (
                   <div className="space-y-1.5 pb-2 border-b border-white/10">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-white/80 flex items-center gap-1">
+                      <span className="text-[11px] text-slate-300 font-bold flex items-center gap-1">
                         <RefreshCw className="w-3 h-3" />
-                        <span>대타 지정</span>
-                      </label>
+                        <span>{isSubstituted ? "대타 변경" : "대타 지정"}</span>
+                      </span>
                       {isSubstituted && (
                         <button
                           type="button"
-                          onClick={() => handlePinchChange("")}
-                          className="text-[10px] text-rose-300 hover:text-rose-200 underline font-semibold transition-colors flex items-center gap-0.5"
-                          title="대타 해제"
+                          onClick={() => handlePinchChange("none")}
+                          className="text-[10px] text-rose-300 hover:text-rose-200 underline font-bold flex items-center gap-0.5"
                         >
                           <X className="w-2.5 h-2.5" />
-                          <span>대타 해제</span>
+                          <span>대타 취소</span>
                         </button>
                       )}
                     </div>
-
-                    {/* 이름 배지 칩 목록 */}
-                    <div
-                      className="flex flex-wrap gap-1 max-h-32 overflow-y-auto p-0.5"
-                      aria-label={`${routine.name} 대타 지정`}
-                    >
-                      {students.map((s) => {
-                        const isSelected = isSubstituted && pinchHitter === s.name;
-                        return (
-                          <button
-                            key={s.name}
-                            type="button"
-                            onClick={() => handlePinchChange(isSelected ? "" : s.name)}
-                            className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-                              isSelected
-                                ? "bg-amber-400 text-slate-950 shadow-xs"
-                                : "bg-white/10 hover:bg-white/20 text-white"
-                            }`}
-                          >
-                            {s.name}
-                          </button>
-                        );
-                      })}
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {students.map((s) => (
+                        <button
+                          key={s.name}
+                          type="button"
+                          onClick={() => handlePinchChange(s.name)}
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${
+                            currentWorker === s.name
+                              ? "bg-amber-400 text-slate-900 shadow-xs"
+                              : "bg-white/10 hover:bg-white/20 text-white/90"
+                          }`}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {/* 2. 업무 순서 순환 넘기기 */}
+                {/* 다음 순서로 넘기기 */}
                 {onAdvanceRoutine && (
                   <div className="pt-0.5 pb-1 border-b border-white/10">
                     <button
@@ -252,13 +265,13 @@ export default function RoutineElementInCanvas({
                       }}
                       className="w-full py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
                     >
-                      <span>⏭️</span>
-                      <span>다음 순번으로 넘기기</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>다음 순서로</span>
                     </button>
                   </div>
                 )}
 
-                {/* 3. 즉시 급여 지급 버튼 (하단 배치) */}
+                {/* 즉시 급여 지급 버튼 */}
                 <div className="pt-0.5">
                   <button
                     type="button"
@@ -276,196 +289,207 @@ export default function RoutineElementInCanvas({
         );
       })}
 
-      {/* 알림장 요소에 작게 노출되는 건너뛰기 버튼 */}
-      {onAdvanceRoutine && rawWorkers.length > 0 && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAdvanceRoutine(routine.id);
-          }}
-          className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 active:scale-95 text-white hover:text-white transition-all font-bold select-none border border-white/20 ml-1 leading-tight shrink-0 cursor-pointer shadow-2xs inline-flex items-center gap-0.5"
-          title="이 업무의 다음 당번 순번으로 넘기기"
-        >
-          <span>넘기기</span>
-          <ArrowRight className="w-2.5 h-2.5" />
-        </button>
-      )}
-
-      {/* 문구 형식 편집 버튼 */}
-      {onUpdateRoutine && (
-        <div className="relative inline-flex items-center">
-          <button
-            type="button"
+      {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
+      {mounted && contextMenu && createPortal(
+        <>
+          {/* 전체화면 투명 백드롭 (뒤쪽 알림장 및 글상자 클릭 차단) */}
+          <div
+            className="fixed inset-0 z-[99998]"
             onClick={(e) => {
               e.stopPropagation();
-              setFormatInput(routine.displayFormat || "");
-              setIsFormatEditing(!isFormatEditing);
+              setContextMenu(null);
+              setPinchSubmenuOpen(false);
             }}
-            className="opacity-30 hover:opacity-100 hover:scale-110 p-0.5 text-xs transition-all cursor-pointer inline-flex items-center leading-none ml-0.5"
-            title="학생 업무 문구 서식 편집 (? 기호로 당번 배치)"
-          >
-            <Pencil className="w-3 h-3 text-white/80" />
-          </button>
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenu(null);
+              setPinchSubmenuOpen(false);
+            }}
+          />
 
-          {/* 문구 형식 편집 팝오버 */}
-          {isFormatEditing && (
-            <div
-              className="absolute bottom-full left-0 mb-2 z-50 min-w-[300px] sm:min-w-[360px] bg-slate-900/95 border border-white/20 rounded-2xl p-3.5 shadow-2xl backdrop-blur-md text-xs space-y-3 text-white"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-                <span className="font-extrabold text-white flex items-center gap-1.5 text-xs">
-                  <Pencil className="w-3.5 h-3.5 text-indigo-300" />
-                  <span>학생 업무 표시 문구 서식 편집</span>
-                </span>
+          {/* 컨텍스트 메뉴 창 */}
+          <div
+            className="fixed z-[99999] bg-slate-900/96 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs overflow-hidden select-none"
+            style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 210 }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            {/* 헤더 */}
+            <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
+              <CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />
+              <span className="font-bold text-white/90 truncate">{routine.name}</span>
+            </div>
+
+            <div className="p-1.5 space-y-0.5">
+              {/* 이 업무 급여 지급 */}
+              {onPayRoutineToday && (
                 <button
                   type="button"
-                  onClick={() => setIsFormatEditing(false)}
-                  className="text-white/40 hover:text-white p-0.5 leading-none"
-                  title="닫기"
+                  disabled={routine.pay <= 0 || rawWorkers.length === 0}
+                  onClick={() => {
+                    onPayRoutineToday(routine.id);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <Coins className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="font-semibold">이 업무 급여 지급</span>
+                  {routine.pay > 0 && (
+                    <span className="ml-auto text-amber-300 font-bold">
+                      {routine.pay.toLocaleString()}{currencyName}
+                    </span>
+                  )}
                 </button>
-              </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] text-slate-300 block font-semibold">
-                  표시 문구 서식 (? 기호 자리에 당번 학생 이름 자동 배치):
-                </label>
-                <input
-                  type="text"
-                  value={formatInput}
-                  onChange={(e) => setFormatInput(e.target.value)}
-                  placeholder="비워둘 경우 기본 형식(업무명: 당번 이름들)으로 표시"
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white font-semibold focus:outline-none focus:border-indigo-400 text-xs"
-                />
-                <p className="text-[10px] text-slate-400">
-                  각 당번 학생 이름이 들어갈 자리에 <strong className="text-amber-300">?</strong> 기호를 입력하세요.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-1 border-t border-white/10">
+              {/* 전체 업무 급여 일괄 지급 */}
+              {onPayAllRoutinesToday && (
                 <button
                   type="button"
                   onClick={() => {
-                    setFormatInput("");
-                    onUpdateRoutine(routine.id, { displayFormat: "" });
-                    setIsFormatEditing(false);
+                    onPayAllRoutinesToday();
+                    setContextMenu(null);
                   }}
-                  className="text-[11px] text-slate-400 hover:text-rose-300 underline font-medium"
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 transition-colors text-left font-bold"
                 >
-                  기본 형식 복원
+                  <Coins className="w-3.5 h-3.5" />
+                  <span>전체 업무 급여 일괄 지급</span>
                 </button>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setIsFormatEditing(false)}
-                    className="px-2.5 py-1 rounded-md text-slate-300 hover:bg-white/10 font-bold"
-                  >
-                    취소
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onUpdateRoutine(routine.id, { displayFormat: formatInput.trim() });
-                      setIsFormatEditing(false);
-                    }}
-                    className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xs"
-                  >
-                    저장
-                  </button>
-                </div>
-              </div>
+              )}
+
+              <div className="h-px bg-white/10 my-0.5" />
+
+              {/* 다음 순서로 */}
+              {onAdvanceRoutine && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAdvanceRoutine(routine.id);
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
+                >
+                  <ArrowRight className="w-3.5 h-3.5 text-indigo-300" />
+                  <span className="font-semibold">다음 순서로</span>
+                </button>
+              )}
+
+              {/* 대타 지정 / 대타 취소 / 대타 변경 */}
+              {onUpdateRoutine && students.length > 0 && (
+                <>
+                  {pinchHitter ? (
+                    <>
+                      {/* 대타 취소 */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handlePinchChange("none");
+                          setContextMenu(null);
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 transition-colors text-left font-medium"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span className="font-semibold">대타 취소 ({pinchHitter})</span>
+                      </button>
+
+                      {/* 대타 변경 */}
+                      <div className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => setPinchSubmenuOpen(!pinchSubmenuOpen)}
+                          className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
+                        >
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="w-3.5 h-3.5 text-amber-300" />
+                            <span className="font-semibold">대타 변경</span>
+                          </div>
+                          <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${pinchSubmenuOpen ? "rotate-90" : ""}`} />
+                        </button>
+                        {pinchSubmenuOpen && (
+                          <div className="p-1.5 rounded-xl bg-slate-800/95 border border-white/10 flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                            {students.map((s) => (
+                              <button
+                                key={s.name}
+                                type="button"
+                                onClick={() => {
+                                  handlePinchChange(s.name);
+                                  setContextMenu(null);
+                                  setPinchSubmenuOpen(false);
+                                }}
+                                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                                  pinchHitter === s.name
+                                    ? "bg-amber-400 text-slate-900"
+                                    : "bg-white/10 hover:bg-white/20 text-white"
+                                }`}
+                              >
+                                {s.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    /* 대타 지정 */
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setPinchSubmenuOpen(!pinchSubmenuOpen)}
+                        className="w-full flex items-center justify-between px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 text-amber-300" />
+                          <span className="font-semibold">대타 지정</span>
+                        </div>
+                        <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${pinchSubmenuOpen ? "rotate-90" : ""}`} />
+                      </button>
+                      {pinchSubmenuOpen && (
+                        <div className="p-1.5 rounded-xl bg-slate-800/95 border border-white/10 flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                          {students.map((s) => (
+                            <button
+                              key={s.name}
+                              type="button"
+                              onClick={() => {
+                                handlePinchChange(s.name);
+                                setContextMenu(null);
+                                setPinchSubmenuOpen(false);
+                              }}
+                              className="px-2 py-1 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-white transition-all"
+                            >
+                              {s.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="h-px bg-white/10 my-0.5" />
+
+              {/* 알림장에서 숨기기 */}
+              {onUpdateRoutine && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateRoutine(routine.id, { visibleInNotice: false });
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-slate-300 hover:text-white"
+                >
+                  <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="font-semibold">알림장에서 숨기기</span>
+                </button>
+              )}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* 우클릭 컨텍스트 메뉴 */}
-      {contextMenu && (
-        <div
-          className="fixed z-[9999] bg-slate-900/96 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs overflow-hidden"
-          style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 200 }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          {/* 헤더 */}
-          <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
-            <CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />
-            <span className="font-bold text-white/90 truncate">{routine.name}</span>
           </div>
-
-          <div className="p-1.5 space-y-0.5">
-            {/* 이 업무 급여 지급 */}
-            {onPayRoutineToday && (
-              <button
-                type="button"
-                disabled={routine.pay <= 0 || rawWorkers.length === 0}
-                onClick={() => {
-                  onPayRoutineToday(routine.id);
-                  setContextMenu(null);
-                }}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
-              >
-                <Coins className="w-3.5 h-3.5" />
-                <span className="font-semibold">이 업무 급여 지급</span>
-                {routine.pay > 0 && (
-                  <span className="ml-auto text-amber-300 font-bold">
-                    {routine.pay.toLocaleString()}{currencyName}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* 전체 업무 급여 일괄 지급 */}
-            {onPayAllRoutinesToday && (
-              <button
-                type="button"
-                onClick={() => {
-                  onPayAllRoutinesToday();
-                  setContextMenu(null);
-                }}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 transition-colors text-left font-bold"
-              >
-                <Coins className="w-3.5 h-3.5" />
-                <span>전체 업무 급여 일괄 지급</span>
-              </button>
-            )}
-
-            <div className="h-px bg-white/10 my-0.5" />
-
-            {/* 다음 순번 넘기기 */}
-            {onAdvanceRoutine && (
-              <button
-                type="button"
-                onClick={() => {
-                  onAdvanceRoutine(routine.id);
-                  setContextMenu(null);
-                }}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left"
-              >
-                <ArrowRight className="w-3.5 h-3.5" />
-                <span className="font-semibold">이 업무 다음 순번 넘기기</span>
-              </button>
-            )}
-
-            {/* 알림장에서 숨기기 */}
-            {onUpdateRoutine && (
-              <button
-                type="button"
-                onClick={() => {
-                  onUpdateRoutine(routine.id, { visibleInNotice: false });
-                  setContextMenu(null);
-                }}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-slate-300 hover:text-white"
-              >
-                <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                <span className="font-semibold">알림장에서 숨기기</span>
-              </button>
-            )}
-          </div>
-        </div>
+        </>,
+        document.body
       )}
     </div>
   );

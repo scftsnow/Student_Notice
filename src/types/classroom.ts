@@ -86,6 +86,8 @@ export interface ElementLayout {
   fontSize?: number;
   color?: string;
   align?: "left" | "center" | "right";
+  clockType?: "digital" | "analog";
+  clockFormat?: "12h" | "24h";
 }
 
 export interface BoardElementLayouts {

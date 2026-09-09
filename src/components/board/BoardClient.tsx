@@ -5,6 +5,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
+import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 
 interface BoardClientProps {
   initialDateStr: string;
@@ -186,15 +187,35 @@ export default function BoardClient({
           color: layouts.clockBox.color || "inherit",
         }}
       >
-        <div
-          className="font-mono font-black tracking-wider opacity-90 whitespace-nowrap"
-          style={{
-            fontSize: `${layouts.clockBox.fontSize || fontSize || 42}px`,
-            color: layouts.clockBox.color || "inherit",
-          }}
-        >
-          {currentTime || "--:--:--"}
-        </div>
+        {layouts.clockBox.clockType === "analog" ? (
+          <div
+            className="flex items-center justify-center p-1"
+            style={{
+              width: `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
+              height: `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
+            }}
+          >
+            <AnalogClock color={layouts.clockBox.color || "currentColor"} size="100%" />
+          </div>
+        ) : (
+          <div
+            className="font-mono font-black tracking-wider opacity-90 whitespace-nowrap"
+            style={{
+              fontSize: `${layouts.clockBox.fontSize || fontSize || 42}px`,
+              color: layouts.clockBox.color || "inherit",
+            }}
+          >
+            {layouts.clockBox.clockFormat === "12h" && currentTime
+              ? (() => {
+                  const parts = currentTime.split(":");
+                  const hourNum = parseInt(parts[0], 10);
+                  const period = hourNum < 12 ? "오전" : "오후";
+                  const h12 = hourNum % 12 === 0 ? 12 : hourNum % 12;
+                  return `${period} ${h12}:${parts[1]}:${parts[2]}`;
+                })()
+              : (currentTime || "--:--:--")}
+          </div>
+        )}
         <button
           type="button"
           onClick={toggleFullscreen}

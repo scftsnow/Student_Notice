@@ -127,14 +127,11 @@ export default function RoutineTab({
                   </div>
                 </div>
 
-                {/* 카드 중단: 순환 순번만 남기고 오늘 담당만 볼드 + 색상 강조 */}
+                {/* 카드 중단: 순서 (오늘 담당: 볼드) */}
                 <div className="py-2.5 border-y border-slate-100 text-xs">
                   <div className="bg-slate-50/80 border border-slate-200/70 p-3 rounded-xl space-y-1.5">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400 font-bold">순환 순번</span>
-                      <span className="text-indigo-600 font-bold text-[10px] bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                        오늘 담당: 색상 강조
-                      </span>
+                      <span className="text-slate-400 font-bold">순서</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-y-1.5 text-xs leading-relaxed">
                       {r.order.length === 0 ? (
@@ -150,8 +147,8 @@ export default function RoutineTab({
                               <span
                                 className={
                                   isTodayWorker
-                                    ? "font-extrabold text-indigo-700 bg-indigo-100/90 px-2 py-0.5 rounded-lg border border-indigo-200 shadow-2xs"
-                                    : "font-medium text-slate-600 px-1 py-0.5"
+                                    ? "font-black text-slate-900 px-1 py-0.5"
+                                    : "font-medium text-slate-500 px-1 py-0.5"
                                 }
                               >
                                 {name}
