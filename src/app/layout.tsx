@@ -4,7 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
-  title: "학급 관리 OS (Classroom Manager)",
+  title: "Teacher Helper-학급 운영",
   description: "학생 명단, 업무 루틴, 알림장, 학급 화폐 통합 관리 솔루션",
 };
 

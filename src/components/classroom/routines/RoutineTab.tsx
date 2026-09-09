@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 import AddRoutineModal from "./AddRoutineModal";
-import RoutineOrderModal from "./RoutineOrderModal";
 
 interface RoutineTabProps {
   routines: ClassroomRoutine[];
@@ -112,7 +111,15 @@ export default function RoutineTab({
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setEditingRoutine(r)}
+                        className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-lg transition-colors font-bold text-xs shrink-0"
+                        title="업무 설정"
+                      >
+                        ⚙️
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -197,33 +204,19 @@ export default function RoutineTab({
                 </div>
 
                 {/* 카드 하단 액션 버튼들 */}
-                <div className="flex items-center gap-1.5 pt-1">
+                <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setEditingRoutine(r)}
-                    className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors text-center"
+                    className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors text-center flex items-center justify-center gap-1.5 shadow-2xs"
                   >
-                    순번 편집
+                    <span>⚙️</span>
+                    <span>설정</span>
                   </button>
-                  {r.pay > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const actualPaid = currentPinchHitter && currentPinchHitter !== "none"
-                          ? [currentPinchHitter, ...rawWorkers.slice(1)]
-                          : rawWorkers;
-                        onPayRoutineToday(r.id, actualPaid);
-                      }}
-                      className="flex-1 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 transition-colors text-center"
-                      title="오늘 담당자에게 급여 지급"
-                    >
-                      급여 지급
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => onAdvanceRoutine(r.id)}
-                    className="flex-1 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 transition-colors text-center"
+                    className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 transition-colors text-center shadow-2xs"
                     title="다음 순번으로 1회 진행"
                   >
                     다음 순번 →
@@ -235,7 +228,7 @@ export default function RoutineTab({
         </div>
       )}
 
-      {/* 모달 렌더링 */}
+      {/* 업무 신규 등록 모달 */}
       <AddRoutineModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
@@ -244,12 +237,14 @@ export default function RoutineTab({
         onSave={onAddRoutine}
       />
 
-      <RoutineOrderModal
-        routine={editingRoutine}
-        students={students}
+      {/* 업무 설정(수정) 모달 - 등록 모달과 동일한 화면 */}
+      <AddRoutineModal
         isOpen={Boolean(editingRoutine)}
         onClose={() => setEditingRoutine(null)}
-        onSave={onUpdateRoutineOrder}
+        students={students}
+        currencyName={currencyName}
+        initialRoutine={editingRoutine}
+        onUpdateRoutine={onUpdateRoutine}
       />
     </div>
   );

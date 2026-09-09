@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 interface AddRoutineModalProps {
@@ -8,7 +8,9 @@ interface AddRoutineModalProps {
   onClose: () => void;
   students: ClassroomStudent[];
   currencyName?: string;
-  onSave: (routine: Omit<ClassroomRoutine, "id" | "currentIdx">) => void;
+  onSave?: (routine: Omit<ClassroomRoutine, "id" | "currentIdx">) => void;
+  initialRoutine?: ClassroomRoutine | null;
+  onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
 }
 
 export default function AddRoutineModal({
@@ -17,6 +19,8 @@ export default function AddRoutineModal({
   students,
   currencyName = "원",
   onSave,
+  initialRoutine,
+  onUpdateRoutine,
 }: AddRoutineModalProps) {
   const [name, setName] = useState("");
   const [slots, setSlots] = useState(1);
@@ -28,6 +32,29 @@ export default function AddRoutineModal({
   const dragOver = useRef<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isOpen && initialRoutine) {
+      setName(initialRoutine.name || "");
+      setSlots(initialRoutine.slots || 1);
+      const cycle = initialRoutine.payCycle;
+      setPayCycle(
+        cycle === "일당" || cycle === "주당" || cycle === "월당" || cycle === "건당"
+          ? cycle
+          : "건당"
+      );
+      setPay(initialRoutine.pay ?? 200);
+      setMemo(initialRoutine.memo || "");
+      setOrderList([...initialRoutine.order]);
+    } else if (isOpen && !initialRoutine) {
+      setName("");
+      setSlots(1);
+      setPayCycle("건당");
+      setPay(200);
+      setMemo("");
+      setOrderList([]);
+    }
+  }, [isOpen, initialRoutine]);
 
   if (!isOpen) return null;
 
@@ -78,17 +105,28 @@ export default function AddRoutineModal({
       alert("업무 이름을 입력하세요.");
       return;
     }
-    onSave({
-      icon: "📌",
-      name: name.trim(),
-      slots: Math.max(1, slots),
-      pay: Math.max(0, pay),
-      payCycle,
-      memo: memo.trim(),
-      order: orderList,
-      absenceMode: "next",
-      visibleInNotice: true,
-    });
+    if (initialRoutine && onUpdateRoutine) {
+      onUpdateRoutine(initialRoutine.id, {
+        name: name.trim(),
+        slots: Math.max(1, slots),
+        pay: Math.max(0, pay),
+        payCycle,
+        memo: memo.trim(),
+        order: orderList,
+      });
+    } else if (onSave) {
+      onSave({
+        icon: "📌",
+        name: name.trim(),
+        slots: Math.max(1, slots),
+        pay: Math.max(0, pay),
+        payCycle,
+        memo: memo.trim(),
+        order: orderList,
+        absenceMode: "next",
+        visibleInNotice: true,
+      });
+    }
     setName("");
     setOrderList([]);
     onClose();
@@ -101,7 +139,9 @@ export default function AddRoutineModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <h2 className="font-extrabold text-slate-800 text-lg">새 학생 업무 등록</h2>
+          <h2 className="font-extrabold text-slate-800 text-lg">
+            {initialRoutine ? `${initialRoutine.name} — 업무 설정` : "새 학생 업무 등록"}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -275,7 +315,7 @@ export default function AddRoutineModal({
             onClick={handleSave}
             className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-xs"
           >
-            등록 완료
+            {initialRoutine ? "설정 저장" : "등록 완료"}
           </button>
         </div>
       </div>
