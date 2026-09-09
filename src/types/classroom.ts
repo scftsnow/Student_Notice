@@ -1,5 +1,5 @@
 export interface ClassroomStudent {
-  no: number;
+  no?: number;
   name: string;
   balance: number;
 }

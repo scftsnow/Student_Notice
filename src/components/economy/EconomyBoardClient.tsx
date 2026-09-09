@@ -21,7 +21,7 @@ export default function EconomyBoardClient({
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<"number" | "balance_desc">("number");
+  const [sortBy, setSortBy] = useState<"name" | "balance_desc">("name");
 
   // 실시간 시계 및 날짜
   useEffect(() => {
@@ -87,12 +87,12 @@ export default function EconomyBoardClient({
     }
   };
 
-  // 정렬된 학생 목록
+  // 정렬된 학생 목록 (이름순 / 잔액순)
   const sortedStudents = [...students].sort((a, b) => {
     if (sortBy === "balance_desc") {
-      return b.balance - a.balance || a.no - b.no;
+      return b.balance - a.balance || a.name.localeCompare(b.name, "ko");
     }
-    return a.no - b.no;
+    return a.name.localeCompare(b.name, "ko");
   });
 
   const totalCirculation = students.reduce((acc, s) => acc + s.balance, 0);
@@ -182,12 +182,12 @@ export default function EconomyBoardClient({
           <div className="inline-flex p-0.5 rounded-lg bg-black/20 text-xs font-bold">
             <button
               type="button"
-              onClick={() => setSortBy("number")}
+              onClick={() => setSortBy("name")}
               className={`px-2.5 py-1 rounded-md transition-all ${
-                sortBy === "number" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+                sortBy === "name" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
               }`}
             >
-              번호순
+              이름순
             </button>
             <button
               type="button"
@@ -223,17 +223,13 @@ export default function EconomyBoardClient({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
             {sortedStudents.map((s) => (
               <div
-                key={s.no}
+                key={s.name}
                 className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${style.cardBg}`}
               >
-                {/* 상단: 번호 및 이름 */}
-                <div className="flex items-center justify-between gap-1.5 mb-2">
-                  <span
-                    className={`px-2 py-0.5 rounded-md font-mono text-xs font-black border ${style.badgeBg}`}
-                  >
-                    {String(s.no).padStart(2, "0")}
-                  </span>
-                  <span className="font-extrabold text-base sm:text-lg tracking-tight truncate flex-1 text-right">
+                {/* 상단: 이름 */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="text-sm">👤</span>
+                  <span className="font-extrabold text-base sm:text-lg tracking-tight truncate flex-1">
                     {s.name}
                   </span>
                 </div>

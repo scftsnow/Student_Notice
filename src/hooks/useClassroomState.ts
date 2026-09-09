@@ -237,7 +237,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const skipped: string[] = [];
 
       setStudents((prev) => {
-        let maxNo = prev.length > 0 ? Math.max(...prev.map((s) => s.no)) : 0;
+        let maxNo = prev.length > 0 ? Math.max(...prev.map((s) => s.no || 0)) : 0;
         const nextList = [...prev];
 
         for (const name of names) {
@@ -265,12 +265,12 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   );
 
   const deleteStudent = useCallback(
-    (no: number) => {
+    (identifier: string | number) => {
       setStudents((prev) => {
-        const target = prev.find((s) => s.no === no);
+        const target = prev.find((s) => s.name === identifier || s.no === identifier);
         if (!target) return prev;
         showToast(`'${target.name}' 학생이 명단에서 삭제되었습니다.`);
-        return prev.filter((s) => s.no !== no);
+        return prev.filter((s) => s.name !== target.name && s.no !== target.no);
       });
     },
     [showToast]

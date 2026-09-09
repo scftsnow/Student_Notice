@@ -101,6 +101,14 @@ export default function BoardClient({
     };
   }, []);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
@@ -304,6 +312,26 @@ export default function BoardClient({
           dangerouslySetInnerHTML={{ __html: card.html }}
         />
       ))}
+
+      {/* 전체화면 / 창화면 전환 플로팅 버튼 (우측 하단) */}
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        className="fixed bottom-4 right-4 z-50 p-2.5 rounded-2xl bg-black/40 hover:bg-black/60 active:scale-95 text-white/70 hover:text-white backdrop-blur-md border border-white/20 transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold select-none cursor-pointer"
+        title={isFullscreen ? "창 화면으로 복귀 (Esc)" : "전체화면 전환 (F11)"}
+      >
+        {isFullscreen ? (
+          <>
+            <Minimize2 className="w-4 h-4" />
+            <span className="opacity-90">창화면</span>
+          </>
+        ) : (
+          <>
+            <Maximize2 className="w-4 h-4" />
+            <span className="opacity-90">전체화면</span>
+          </>
+        )}
+      </button>
     </div>
   );
 }

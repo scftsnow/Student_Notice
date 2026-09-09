@@ -381,7 +381,7 @@ export default function EconomyTab({
                 const isChecked = checkedNames.includes(s.name);
                 return (
                   <div
-                    key={s.no}
+                    key={s.name}
                     onClick={() => toggleCheck(s.name)}
                     className={`relative p-2 rounded-lg border cursor-pointer transition-all select-none ${
                       isChecked
@@ -389,12 +389,10 @@ export default function EconomyTab({
                         : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
                     }`}
                   >
-                    {/* 상단: 번호 + 이름 + 체크박스 */}
+                    {/* 상단: 이름 + 체크박스 */}
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 font-mono shrink-0">
-                          {String(s.no).padStart(2, "0")}
-                        </span>
+                        <span className="text-xs shrink-0">👤</span>
                         <span className="font-extrabold text-slate-800 text-xs truncate">
                           {s.name}
                         </span>

@@ -280,7 +280,7 @@ export default function CreateBundleModal({
                             const isSelected = action.specificTargets.includes(s.name);
                             return (
                               <button
-                                key={s.no}
+                                key={s.name}
                                 type="button"
                                 onClick={() => toggleSpecificStudent(idx, s.name)}
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${

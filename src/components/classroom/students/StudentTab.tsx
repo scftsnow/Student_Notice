@@ -6,7 +6,7 @@ import { ClassroomStudent } from "@/types/classroom";
 interface StudentTabProps {
   students: ClassroomStudent[];
   onAddStudents: (names: string[]) => void;
-  onDeleteStudent: (no: number) => void;
+  onDeleteStudent: (name: string) => void;
 }
 
 export default function StudentTab({
@@ -63,7 +63,7 @@ export default function StudentTab({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="학생 이름 입력 (예: 강민준 후 Enter / 또는 '민준 서연 도윤 지우' 연속 입력 후 Enter)"
+              placeholder="학생 이름 입력 (Enter / 연속 입력 시 띄어쓰기로 구분 후 Enter)"
               autoComplete="off"
               className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-sm font-bold text-slate-800 transition-all placeholder:font-normal placeholder:text-slate-400"
             />
@@ -93,20 +93,18 @@ export default function StudentTab({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {students.map((s) => (
             <div
-              key={s.no}
+              key={s.name}
               className="group p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-xs flex items-center justify-between gap-2 transition-all"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-indigo-50 group-hover:text-indigo-600 text-slate-600 font-bold flex items-center justify-center text-xs shrink-0 font-mono transition-colors">
-                  {s.no}
-                </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm shrink-0">👤</span>
                 <span className="font-bold text-slate-800 text-sm truncate">{s.name}</span>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   if (confirm(`${s.name} 학생을 명단에서 삭제하시겠습니까?`)) {
-                    onDeleteStudent(s.no);
+                    onDeleteStudent(s.name);
                   }
                 }}
                 className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors shrink-0 font-bold text-sm"

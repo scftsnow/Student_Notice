@@ -222,7 +222,7 @@ export default function RoutineElementInCanvas({
                         const isSelected = isSubstituted && pinchHitter === s.name;
                         return (
                           <button
-                            key={s.no}
+                            key={s.name}
                             type="button"
                             onClick={() => handlePinchChange(isSelected ? "" : s.name)}
                             className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${

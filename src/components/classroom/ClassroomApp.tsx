@@ -264,8 +264,7 @@ export default function ClassroomApp() {
               </div>
             </div>
             <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-56 overflow-y-auto">
-              <div className="p-2 font-bold text-slate-500 bg-slate-100 grid grid-cols-3 text-center">
-                <span>번호</span>
+              <div className="p-2 font-bold text-slate-500 bg-slate-100 grid grid-cols-2 text-center">
                 <span>이름</span>
                 <span className="text-right">잔액</span>
               </div>
@@ -273,10 +272,9 @@ export default function ClassroomApp() {
                 <div className="p-4 text-center text-slate-400">등록된 학생이 없습니다.</div>
               ) : (
                 state.students.map((s) => (
-                  <div key={s.no} className="p-2 grid grid-cols-3 text-center items-center">
-                    <span className="text-slate-400 font-bold">{s.no}</span>
-                    <span className="font-bold text-slate-800">{s.name}</span>
-                    <span className="text-right font-mono font-bold text-indigo-600">
+                  <div key={s.name} className="p-2 grid grid-cols-2 text-center items-center">
+                    <span className="font-bold text-slate-800 text-left pl-4">{s.name}</span>
+                    <span className="text-right font-mono font-bold text-indigo-600 pr-2">
                       {s.balance.toLocaleString()} {state.currencyName || "화폐"}
                     </span>
                   </div>

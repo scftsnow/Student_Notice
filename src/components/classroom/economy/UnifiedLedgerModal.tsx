@@ -94,8 +94,8 @@ export default function UnifiedLedgerModal({
               <option value="all">🌟 전체 학생 및 국고 통합</option>
               <option value="treasury">🏛️ 학급 국고 (잔고: {treasuryBalance.toLocaleString()} {currencyName})</option>
               {students.map((s) => (
-                <option key={s.no} value={s.name}>
-                  👤 {s.no}번 {s.name} ({s.balance.toLocaleString()} {currencyName})
+                <option key={s.name} value={s.name}>
+                  👤 {s.name} ({s.balance.toLocaleString()} {currencyName})
                 </option>
               ))}
             </select>

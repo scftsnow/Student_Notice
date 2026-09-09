@@ -109,7 +109,7 @@ export default function DepositModal({
                 const isSelected = selectedNames.includes(s.name);
                 return (
                   <button
-                    key={s.no}
+                    key={s.name}
                     type="button"
                     onClick={() => toggleStudent(s.name)}
                     className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
@@ -118,7 +118,7 @@ export default function DepositModal({
                         : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
-                    {s.no}. {s.name}
+                    {s.name}
                   </button>
                 );
               })}

@@ -123,8 +123,8 @@ export default function DirectTaxModal({
                     className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none"
                   >
                     {students.map((s) => (
-                      <option key={s.no} value={s.name}>
-                        {s.no}번 {s.name}
+                      <option key={s.name} value={s.name}>
+                        {s.name}
                       </option>
                     ))}
                   </select>

@@ -108,7 +108,7 @@ export default function RoutineOrderModal({
                 const count = orderList.filter((n) => n === s.name).length;
                 return (
                   <button
-                    key={s.no}
+                    key={s.name}
                     type="button"
                     onClick={() => toggleStudent(s.name)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
@@ -117,7 +117,6 @@ export default function RoutineOrderModal({
                         : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
                     }`}
                   >
-                    <span className="opacity-60 text-[10px]">{s.no}</span>
                     <span>{s.name}</span>
                     {isInOrder && count > 0 && (
                       <span className="ml-0.5 bg-white/20 text-white rounded-full px-1 text-[10px] font-extrabold">

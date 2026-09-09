@@ -76,8 +76,8 @@ export default function TransactionModal({
               >
                 <option value="treasury">🏛️ 학급 국고 ({treasuryBalance.toLocaleString()} {currencyName})</option>
                 {students.map((s) => (
-                  <option key={s.no} value={s.name}>
-                    {s.no}번 {s.name} ({s.balance.toLocaleString()} {currencyName})
+                  <option key={s.name} value={s.name}>
+                    {s.name} ({s.balance.toLocaleString()} {currencyName})
                   </option>
                 ))}
               </select>
@@ -92,8 +92,8 @@ export default function TransactionModal({
               >
                 <option value="treasury">🏛️ 학급 국고</option>
                 {students.map((s) => (
-                  <option key={s.no} value={s.name}>
-                    {s.no}번 {s.name} ({s.balance.toLocaleString()} {currencyName})
+                  <option key={s.name} value={s.name}>
+                    {s.name} ({s.balance.toLocaleString()} {currencyName})
                   </option>
                 ))}
               </select>
