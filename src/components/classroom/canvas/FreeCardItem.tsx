@@ -147,7 +147,11 @@ export default function FreeCardItem({
             fontSize: `${card.fontSize || 42}px`,
             textAlign: card.align || "left",
             color: card.color || "inherit",
-            lineHeight: "1.6",
+            lineHeight: card.lineHeight
+              ? typeof card.lineHeight === "number"
+                ? card.lineHeight > 10 ? `${card.lineHeight / 100}` : `${card.lineHeight}`
+                : card.lineHeight
+              : "1.4",
             letterSpacing: "-0.02em",
           }}
           data-placeholder={placeholder}

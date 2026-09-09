@@ -6,6 +6,7 @@ import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
 import CanvasClock from "./CanvasClock";
+import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
@@ -36,42 +37,23 @@ interface BoardCanvasProps {
   targetElement?: import("@/types/classroom").BoardTargetElement;
   onSelectElement?: (target: import("@/types/classroom").BoardTargetElement) => void;
   onCurrentFontSize?: (size: number) => void;
+  onCurrentLineHeight?: (lineHeight: number) => void;
+  showEconomyShortcut?: boolean;
   appliedStyle?: {
     target: import("@/types/classroom").BoardTargetElement;
     color?: string;
     fontSize?: number;
     align?: "left" | "center" | "right";
+    lineHeight?: number;
     timestamp: number;
   } | null;
 }
 
 const DEFAULT_LAYOUTS: BoardElementLayouts = {
-  dateBox: { left: "2.5%", top: "3.0%", fontSize: 42 },
-  clockBox: { left: "81.0%", top: "3.0%", fontSize: 32 },
-  noticeBox: { left: "2.5%", top: "15.0%", width: "95%", height: "64%", fontSize: 42 },
-  routineBox: { left: "2.5%", top: "82.0%", width: "95%", height: "12%", fontSize: 34 },
-};
-
-const RESIZE_ENABLE = {
-  top: true,
-  right: true,
-  bottom: true,
-  left: true,
-  topLeft: true,
-  topRight: true,
-  bottomLeft: true,
-  bottomRight: true,
-};
-
-const RESIZE_HANDLES = {
-  top: <div title="크기 조절 핸들" data-handle="top" className="w-full h-full" />,
-  right: <div title="크기 조절 핸들" data-handle="right" className="w-full h-full" />,
-  bottom: <div title="크기 조절 핸들" data-handle="bottom" className="w-full h-full" />,
-  left: <div title="크기 조절 핸들" data-handle="left" className="w-full h-full" />,
-  topLeft: <div title="크기 조절 핸들" data-handle="topLeft" className="w-full h-full" />,
-  topRight: <div title="크기 조절 핸들" data-handle="topRight" className="w-full h-full" />,
-  bottomLeft: <div title="크기 조절 핸들" data-handle="bottomLeft" className="w-full h-full" />,
-  bottomRight: <div title="크기 조절 핸들" data-handle="bottomRight" className="w-full h-full" />,
+  dateBox: { left: "2.5%", top: "3.0%", fontSize: 42, lineHeight: 1.4 },
+  clockBox: { left: "81.0%", top: "3.0%", fontSize: 32, lineHeight: 1.4 },
+  noticeBox: { left: "2.5%", top: "15.0%", width: "95%", height: "64%", fontSize: 42, lineHeight: 1.4 },
+  routineBox: { left: "2.5%", top: "82.0%", width: "95%", height: "12%", fontSize: 34, lineHeight: 1.4 },
 };
 
 export default function BoardCanvas({
@@ -95,6 +77,8 @@ export default function BoardCanvas({
   targetElement = "noticeBox",
   onSelectElement,
   onCurrentFontSize,
+  onCurrentLineHeight,
+  showEconomyShortcut = false,
   appliedStyle,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
@@ -158,17 +142,41 @@ export default function BoardCanvas({
     });
   }, []);
 
-  // 외부 툴바 스타일(크기, 색상, 정렬) 변경 적용
+  // 외부 툴바 스타일(크기, 색상, 정렬, 줄간격) 변경 적용
   useEffect(() => {
     if (!appliedStyle?.timestamp) return;
-    const { target, color, fontSize: styleFontSize, align } = appliedStyle;
+    const { target, color, fontSize: styleFontSize, align, lineHeight } = appliedStyle;
+    const parsedLh =
+      lineHeight !== undefined ? (lineHeight > 10 ? lineHeight / 100 : lineHeight) : undefined;
+
     updateLayouts((prev) => {
       if (target === "all") {
         return {
-          dateBox: { ...prev.dateBox, ...(color && { color }), ...(styleFontSize && { fontSize: styleFontSize }) },
-          clockBox: { ...prev.clockBox, ...(color && { color }), ...(styleFontSize && { fontSize: styleFontSize }) },
-          noticeBox: { ...prev.noticeBox, ...(color && { color }), ...(styleFontSize && { fontSize: styleFontSize }), ...(align && { align }) },
-          routineBox: { ...prev.routineBox, ...(color && { color }), ...(styleFontSize && { fontSize: styleFontSize }) },
+          dateBox: {
+            ...prev.dateBox,
+            ...(color && { color }),
+            ...(styleFontSize && { fontSize: styleFontSize }),
+            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
+          },
+          clockBox: {
+            ...prev.clockBox,
+            ...(color && { color }),
+            ...(styleFontSize && { fontSize: styleFontSize }),
+            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
+          },
+          noticeBox: {
+            ...prev.noticeBox,
+            ...(color && { color }),
+            ...(styleFontSize && { fontSize: styleFontSize }),
+            ...(align && { align }),
+            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
+          },
+          routineBox: {
+            ...prev.routineBox,
+            ...(color && { color }),
+            ...(styleFontSize && { fontSize: styleFontSize }),
+            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
+          },
         };
       }
       if (target === "noticeBox" || target === "dateBox" || target === "clockBox" || target === "routineBox") {
@@ -180,6 +188,7 @@ export default function BoardCanvas({
             ...(color && { color }),
             ...(styleFontSize && { fontSize: styleFontSize }),
             ...(align && { align }),
+            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
           },
         };
       }
@@ -192,6 +201,7 @@ export default function BoardCanvas({
           ...(color && { color }),
           ...(styleFontSize && { fontSize: styleFontSize }),
           ...(align && { align }),
+          ...(parsedLh !== undefined && { lineHeight: parsedLh }),
         });
       });
     } else {
@@ -201,6 +211,7 @@ export default function BoardCanvas({
           ...(color && { color }),
           ...(styleFontSize && { fontSize: styleFontSize }),
           ...(align && { align }),
+          ...(parsedLh !== undefined && { lineHeight: parsedLh }),
         });
       }
     }
@@ -217,23 +228,41 @@ export default function BoardCanvas({
     }
   }, [fontSize, updateLayouts]);
 
-  // 선택 요소 변경 시 해당 요소의 실제 fontSize를 부모 툴바로 전달
+  // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   useEffect(() => {
-    if (!onCurrentFontSize) return;
     const fontPxCurrent = Number(fontSize) || 42;
-    if (targetElement === "noticeBox") {
-      onCurrentFontSize(layouts.noticeBox.fontSize || fontPxCurrent);
-    } else if (targetElement === "dateBox") {
-      onCurrentFontSize(layouts.dateBox.fontSize || fontPxCurrent);
-    } else if (targetElement === "clockBox") {
-      onCurrentFontSize(layouts.clockBox.fontSize || fontPxCurrent);
-    } else if (targetElement === "routineBox") {
-      onCurrentFontSize(layouts.routineBox.fontSize || fontPxCurrent);
-    } else if (targetElement && targetElement.startsWith("free-")) {
-      const card = freeCards.find((c) => c.id === targetElement);
-      onCurrentFontSize(card?.fontSize || fontPxCurrent);
+    if (onCurrentFontSize) {
+      if (targetElement === "noticeBox") {
+        onCurrentFontSize(layouts.noticeBox.fontSize || fontPxCurrent);
+      } else if (targetElement === "dateBox") {
+        onCurrentFontSize(layouts.dateBox.fontSize || fontPxCurrent);
+      } else if (targetElement === "clockBox") {
+        onCurrentFontSize(layouts.clockBox.fontSize || fontPxCurrent);
+      } else if (targetElement === "routineBox") {
+        onCurrentFontSize(layouts.routineBox.fontSize || fontPxCurrent);
+      } else if (targetElement && targetElement.startsWith("free-")) {
+        const card = freeCards.find((c) => c.id === targetElement);
+        onCurrentFontSize(card?.fontSize || fontPxCurrent);
+      }
     }
-  }, [targetElement, layouts, freeCards, fontSize, onCurrentFontSize]);
+
+    if (onCurrentLineHeight) {
+      const getLh = (lh: number | string | undefined) => {
+        if (!lh) return 140;
+        const n = typeof lh === "number" ? lh : parseFloat(lh);
+        if (isNaN(n)) return 140;
+        return n < 10 ? Math.round(n * 100) : Math.round(n);
+      };
+      if (targetElement === "noticeBox") onCurrentLineHeight(getLh(layouts.noticeBox.lineHeight));
+      else if (targetElement === "routineBox") onCurrentLineHeight(getLh(layouts.routineBox.lineHeight));
+      else if (targetElement && targetElement.startsWith("free-")) {
+        const card = freeCards.find((c) => c.id === targetElement);
+        onCurrentLineHeight(getLh(card?.lineHeight));
+      } else {
+        onCurrentLineHeight(140);
+      }
+    }
+  }, [targetElement, layouts, freeCards, fontSize, onCurrentFontSize, onCurrentLineHeight]);
 
   // Live date
   useEffect(() => {
@@ -405,6 +434,7 @@ export default function BoardCanvas({
               fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
               color: layouts.routineBox.color || "inherit",
               textAlign: layouts.routineBox.align || "left",
+              lineHeight: layouts.routineBox.lineHeight ? `${layouts.routineBox.lineHeight}` : "1.4",
             }}
           >
             <div
@@ -447,6 +477,7 @@ export default function BoardCanvas({
                       onPayAllRoutinesToday={onPayAllRoutinesToday}
                       onUpdateRoutine={onUpdateRoutine}
                       onAdvanceRoutine={onAdvanceRoutine}
+                      showEconomyShortcut={showEconomyShortcut}
                     />
                   ))}
                   <div className="flex items-center gap-1.5 ml-auto shrink-0">

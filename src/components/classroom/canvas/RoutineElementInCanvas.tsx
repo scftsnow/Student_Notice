@@ -16,6 +16,7 @@ interface RoutineElementInCanvasProps {
   onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
+  showEconomyShortcut?: boolean;
 }
 
 export default function RoutineElementInCanvas({
@@ -28,6 +29,7 @@ export default function RoutineElementInCanvas({
   onPayAllRoutinesToday,
   onUpdateRoutine,
   onAdvanceRoutine,
+  showEconomyShortcut = false,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -288,6 +290,30 @@ export default function RoutineElementInCanvas({
           </div>
         );
       })}
+
+      {/* 학생 계좌 창(화폐 전광판) 새로 띄우기 바로가기 아이콘 */}
+      {showEconomyShortcut && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            const width = 1280;
+            const height = 720;
+            const left = window.screen.width ? (window.screen.width - width) / 2 : 100;
+            const top = window.screen.height ? (window.screen.height - height) / 2 : 100;
+            window.open(
+              "/economy/board",
+              "StudentEconomyBoardWindow",
+              `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`
+            );
+          }}
+          className="ml-1 p-0.5 px-1.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/35 active:scale-95 text-amber-300 hover:text-amber-200 transition-all inline-flex items-center gap-1 text-[11px] font-bold shadow-2xs cursor-pointer border border-amber-400/30 shrink-0"
+          title="학생 계좌(화폐 전광판) 창 새로 띄우기"
+        >
+          <Coins className="w-3.5 h-3.5" />
+          <span className="text-[10px]">계좌</span>
+        </button>
+      )}
 
       {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
       {mounted && contextMenu && createPortal(

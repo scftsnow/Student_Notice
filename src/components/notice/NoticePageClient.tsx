@@ -11,11 +11,28 @@ export default function NoticePageClient() {
   const state = useClassroomState();
   const [targetElement, setTargetElement] = useState<BoardTargetElement>("noticeBox");
   const [currentFontSize, setCurrentFontSize] = useState<number>(42);
+  const [currentLineHeight, setCurrentLineHeight] = useState<number>(140);
+  const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("classroom_show_economy_shortcut") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleEconomyShortcut = (show: boolean) => {
+    setShowEconomyShortcut(show);
+    try {
+      localStorage.setItem("classroom_show_economy_shortcut", String(show));
+    } catch {}
+  };
+
   const [appliedStyle, setAppliedStyle] = useState<{
     target: BoardTargetElement;
     color?: string;
     fontSize?: number;
     align?: "left" | "center" | "right";
+    lineHeight?: number;
     timestamp: number;
   } | null>(null);
 
@@ -98,6 +115,13 @@ export default function NoticePageClient() {
           targetElement={targetElement}
           onTargetElementChange={setTargetElement}
           currentFontSize={currentFontSize}
+          lineHeight={currentLineHeight}
+          onApplyLineHeight={(lh) => {
+            setCurrentLineHeight(lh);
+            setAppliedStyle({ target: targetElement, lineHeight: lh, timestamp: Date.now() });
+          }}
+          showEconomyShortcut={showEconomyShortcut}
+          onToggleEconomyShortcut={handleToggleEconomyShortcut}
           onApplyColor={(color) =>
             setAppliedStyle({ target: targetElement, color, timestamp: Date.now() })
           }
@@ -128,6 +152,8 @@ export default function NoticePageClient() {
           targetElement={targetElement}
           onSelectElement={setTargetElement}
           onCurrentFontSize={setCurrentFontSize}
+          onCurrentLineHeight={setCurrentLineHeight}
+          showEconomyShortcut={showEconomyShortcut}
           appliedStyle={appliedStyle}
         />
       </div>

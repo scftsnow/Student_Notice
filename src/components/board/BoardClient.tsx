@@ -243,7 +243,11 @@ export default function BoardClient({
             fontSize: `${layouts.noticeBox.fontSize || fontSize || 42}px`,
             color: layouts.noticeBox.color || "inherit",
             textAlign: layouts.noticeBox.align || "left",
-            lineHeight: "1.6",
+            lineHeight: layouts.noticeBox.lineHeight
+              ? typeof layouts.noticeBox.lineHeight === "number"
+                ? layouts.noticeBox.lineHeight > 10 ? `${layouts.noticeBox.lineHeight / 100}` : `${layouts.noticeBox.lineHeight}`
+                : layouts.noticeBox.lineHeight
+              : "1.4",
             letterSpacing: "-0.02em",
           }}
           dangerouslySetInnerHTML={{
@@ -262,6 +266,11 @@ export default function BoardClient({
           height: layouts.routineBox.height,
           fontSize: `${layouts.routineBox.fontSize || fontSize || 42}px`,
           color: layouts.routineBox.color || "inherit",
+          lineHeight: layouts.routineBox.lineHeight
+            ? typeof layouts.routineBox.lineHeight === "number"
+              ? layouts.routineBox.lineHeight > 10 ? `${layouts.routineBox.lineHeight / 100}` : `${layouts.routineBox.lineHeight}`
+              : layouts.routineBox.lineHeight
+            : "1.4",
         }}
       >
         {routines.filter((r) => r.visibleInNotice !== false).map((r) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
-import { AlignLeft, AlignCenter, AlignRight, ClipboardList } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
 
 const TEXT_COLORS = [
@@ -26,6 +26,10 @@ interface NoticeTabProps {
   onApplyFontSize?: (size: number) => void;
   onApplyAlign?: (align: "left" | "center" | "right") => void;
   currentFontSize?: number;
+  lineHeight?: number;
+  onApplyLineHeight?: (lineHeight: number) => void;
+  showEconomyShortcut?: boolean;
+  onToggleEconomyShortcut?: (show: boolean) => void;
   onOpenRoutineNoticeSettings?: () => void;
 }
 
@@ -40,6 +44,10 @@ export default function NoticeTab({
   onApplyFontSize,
   onApplyAlign,
   currentFontSize,
+  lineHeight = 140,
+  onApplyLineHeight,
+  showEconomyShortcut = false,
+  onToggleEconomyShortcut,
   onOpenRoutineNoticeSettings,
 }: NoticeTabProps) {
   const lastRangeRef = useRef<Range | null>(null);
@@ -247,6 +255,27 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
+          {/* 줄간격 (디폴트 140%) */}
+          <div className="flex items-center gap-1">
+            <span className="text-slate-400 font-semibold">줄간격:</span>
+            <select
+              value={lineHeight ?? 140}
+              onChange={(e) => onApplyLineHeight?.(Number(e.target.value))}
+              className="rounded border border-slate-200 px-2 py-1 bg-white text-xs font-semibold focus:outline-none"
+            >
+              <option value="110">110%</option>
+              <option value="120">120%</option>
+              <option value="130">130%</option>
+              <option value="140">140% (기본)</option>
+              <option value="150">150%</option>
+              <option value="160">160%</option>
+              <option value="180">180%</option>
+              <option value="200">200%</option>
+            </select>
+          </div>
+
+          <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
+
           {/* 칠판 테마 */}
           <div className="flex items-center gap-1">
             <span className="text-slate-400 font-semibold">테마:</span>
@@ -263,18 +292,34 @@ export default function NoticeTab({
           </div>
         </div>
 
-        {/* 칠판 표시 업무 설정 버튼 */}
-        {onOpenRoutineNoticeSettings && (
-          <button
-            type="button"
-            onClick={onOpenRoutineNoticeSettings}
-            className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 shadow-2xs"
-            title="알림장 칠판에 노출할 학생 업무 및 문구 서식을 설정합니다"
-          >
-            <ClipboardList className="w-3.5 h-3.5" />
-            <span>칠판 표시 업무 설정</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          {/* 학생 계좌 창 새로 띄우기 아이콘 토글 체크박스 */}
+          {onToggleEconomyShortcut && (
+            <label className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold cursor-pointer select-none px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs">
+              <input
+                type="checkbox"
+                checked={Boolean(showEconomyShortcut)}
+                onChange={(e) => onToggleEconomyShortcut(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+              />
+              <Coins className="w-3.5 h-3.5 text-amber-500" />
+              <span>학생 계좌 아이콘</span>
+            </label>
+          )}
+
+          {/* 칠판 표시 업무 설정 버튼 */}
+          {onOpenRoutineNoticeSettings && (
+            <button
+              type="button"
+              onClick={onOpenRoutineNoticeSettings}
+              className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs"
+              title="알림장 칠판에 노출할 학생 업무 및 문구 서식을 설정합니다"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>칠판 표시 업무 설정</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
