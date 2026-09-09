@@ -8,6 +8,7 @@ import NoticeTab from "./notice/NoticeTab";
 import StudentTab from "./students/StudentTab";
 import RoutineTab from "./routines/RoutineTab";
 import EconomyTab from "./economy/EconomyTab";
+import RoutineNoticeSettingsModal from "./canvas/RoutineNoticeSettingsModal";
 import { BoardTargetElement } from "@/types/classroom";
 
 type ActiveTab = "notice" | "students" | "routines" | "economy";
@@ -15,6 +16,7 @@ type ActiveTab = "notice" | "students" | "routines" | "economy";
 export default function ClassroomApp() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("notice");
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+  const [isRoutineNoticeSettingsOpen, setIsRoutineNoticeSettingsOpen] = useState(false);
   const [targetElement, setTargetElement] = useState<BoardTargetElement>("noticeBox");
   const [currentFontSize, setCurrentFontSize] = useState<number>(42);
   const [appliedStyle, setAppliedStyle] = useState<{
@@ -151,6 +153,7 @@ export default function ClassroomApp() {
               onApplyAlign={(align) =>
                 setAppliedStyle({ target: targetElement, align, timestamp: Date.now() })
               }
+              onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
             />
             <BoardCanvas
               theme={state.theme}
@@ -173,6 +176,7 @@ export default function ClassroomApp() {
               onSelectElement={setTargetElement}
               onCurrentFontSize={setCurrentFontSize}
               appliedStyle={appliedStyle}
+              onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
             />
           </div>
         )}
@@ -285,6 +289,14 @@ export default function ClassroomApp() {
           </div>
         </div>
       )}
+
+      {/* 칠판 표시 학생 업무 설정 모달 */}
+      <RoutineNoticeSettingsModal
+        isOpen={isRoutineNoticeSettingsOpen}
+        onClose={() => setIsRoutineNoticeSettingsOpen(false)}
+        routines={state.routines}
+        onUpdateRoutine={state.updateRoutine}
+      />
     </div>
   );
 }

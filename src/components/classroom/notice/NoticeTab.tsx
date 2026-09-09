@@ -26,6 +26,7 @@ interface NoticeTabProps {
   onApplyFontSize?: (size: number) => void;
   onApplyAlign?: (align: "left" | "center" | "right") => void;
   currentFontSize?: number;
+  onOpenRoutineNoticeSettings?: () => void;
 }
 
 export default function NoticeTab({
@@ -39,6 +40,7 @@ export default function NoticeTab({
   onApplyFontSize,
   onApplyAlign,
   currentFontSize,
+  onOpenRoutineNoticeSettings,
 }: NoticeTabProps) {
   const lastRangeRef = useRef<Range | null>(null);
 
@@ -260,6 +262,18 @@ export default function NoticeTab({
             </select>
           </div>
         </div>
+
+        {/* 칠판 표시 업무 설정 버튼 */}
+        {onOpenRoutineNoticeSettings && (
+          <button
+            type="button"
+            onClick={onOpenRoutineNoticeSettings}
+            className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 shadow-2xs"
+            title="알림장 칠판에 노출할 학생 업무 및 문구 서식을 설정합니다"
+          >
+            📋 칠판 표시 업무 설정
+          </button>
+        )}
       </div>
     </div>
   );

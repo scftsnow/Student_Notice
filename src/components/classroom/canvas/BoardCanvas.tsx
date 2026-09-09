@@ -34,6 +34,7 @@ interface BoardCanvasProps {
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
   onAdvanceAllRoutines?: () => void;
+  onOpenRoutineNoticeSettings?: () => void;
   targetElement?: import("@/types/classroom").BoardTargetElement;
   onSelectElement?: (target: import("@/types/classroom").BoardTargetElement) => void;
   onCurrentFontSize?: (size: number) => void;
@@ -48,9 +49,9 @@ interface BoardCanvasProps {
 
 const DEFAULT_LAYOUTS: BoardElementLayouts = {
   dateBox: { left: "2.5%", top: "3.0%", fontSize: 42 },
-  clockBox: { left: "68.0%", top: "3.0%", fontSize: 42 },
-  noticeBox: { left: "2.5%", top: "16.0%", width: "95.0%", height: "62.0%" },
-  routineBox: { left: "2.5%", top: "82.0%", width: "95.0%", fontSize: 42 },
+  clockBox: { left: "81.0%", top: "3.0%", fontSize: 32 },
+  noticeBox: { left: "2.5%", top: "15.0%", width: "95%", height: "64%", fontSize: 42 },
+  routineBox: { left: "2.5%", top: "82.0%", width: "95%", height: "12%", fontSize: 34 },
 };
 
 const RESIZE_ENABLE = {
@@ -92,6 +93,7 @@ export default function BoardCanvas({
   onUpdateRoutine,
   onAdvanceRoutine,
   onAdvanceAllRoutines,
+  onOpenRoutineNoticeSettings,
   targetElement = "noticeBox",
   onSelectElement,
   onCurrentFontSize,
@@ -452,9 +454,23 @@ export default function BoardCanvas({
               style={{ fontSize: "inherit" }}
             >
               {routines.filter((r) => r.visibleInNotice !== false).length === 0 ? (
-                <span className="opacity-50 italic text-xs">
-                  {routines.length === 0 ? "등록된 학생 업무가 없습니다." : "알림장에 표시할 학생 업무가 없습니다."}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="opacity-50 italic text-xs">
+                    {routines.length === 0 ? "등록된 학생 업무가 없습니다." : "알림장에 표시 중인 학생 업무가 없습니다."}
+                  </span>
+                  {routines.length > 0 && onOpenRoutineNoticeSettings && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenRoutineNoticeSettings();
+                      }}
+                      className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold border border-white/25 cursor-pointer transition-all shadow-2xs"
+                    >
+                      📋 칠판 표시 업무 선택
+                    </button>
+                  )}
+                </div>
               ) : (
                 <>
                   {routines
@@ -473,19 +489,34 @@ export default function BoardCanvas({
                       onAdvanceRoutine={onAdvanceRoutine}
                     />
                   ))}
-                  {onAdvanceAllRoutines && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAdvanceAllRoutines();
-                      }}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 ml-auto leading-tight shrink-0 shadow-xs cursor-pointer"
-                      title="모든 학생 업무의 순번을 다음으로 일괄 넘기기"
-                    >
-                      전체 넘기기 ⏩
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                    {onAdvanceAllRoutines && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdvanceAllRoutines();
+                        }}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shrink-0 shadow-xs cursor-pointer"
+                        title="모든 학생 업무의 순번을 다음으로 일괄 넘기기"
+                      >
+                        전체 넘기기 ⏩
+                      </button>
+                    )}
+                    {onOpenRoutineNoticeSettings && routines.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenRoutineNoticeSettings();
+                        }}
+                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shadow-xs cursor-pointer"
+                        title="알림장 칠판에 노출할 학생 업무 및 표시 문구 서식 설정"
+                      >
+                        📋 칠판 표시 업무
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
             </div>

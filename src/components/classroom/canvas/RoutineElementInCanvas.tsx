@@ -299,7 +299,7 @@ export default function RoutineElementInCanvas({
               setFormatInput(routine.displayFormat || "");
               setIsFormatEditing(!isFormatEditing);
             }}
-            className="opacity-0 group-hover:opacity-60 hover:opacity-100 p-0.5 text-xs transition-opacity cursor-pointer inline-flex items-center leading-none ml-0.5"
+            className="opacity-30 hover:opacity-100 hover:scale-110 p-0.5 text-xs transition-all cursor-pointer inline-flex items-center leading-none ml-0.5"
             title="학생 업무 문구 서식 편집 (? 기호로 당번 배치)"
           >
             ✏️

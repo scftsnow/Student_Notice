@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 import AddRoutineModal from "./AddRoutineModal";
 import RoutineOrderModal from "./RoutineOrderModal";
@@ -35,30 +34,11 @@ export default function RoutineTab({
   // 로컬 대타 지정 상태: { [routineId]: pinchHitterStudentName }
   const [pinchHitters, setPinchHitters] = useState<Record<string, string>>({});
 
-  // displayFormat 인라인 편집 상태: { [routineId]: { open: boolean, value: string } }
-  const [formatEdits, setFormatEdits] = useState<Record<string, { open: boolean; value: string }>>({});
-
   const handlePinchHitterChange = (routineId: string, studentName: string) => {
     setPinchHitters((prev) => ({ ...prev, [routineId]: studentName }));
     if (onUpdateRoutine) {
       onUpdateRoutine(routineId, { pinchHitterStudent: studentName });
     }
-  };
-
-  const openFormatEdit = (r: ClassroomRoutine) => {
-    setFormatEdits((prev) => ({ ...prev, [r.id]: { open: true, value: r.displayFormat ?? "" } }));
-  };
-
-  const closeFormatEdit = (routineId: string) => {
-    setFormatEdits((prev) => ({ ...prev, [routineId]: { ...prev[routineId], open: false } }));
-  };
-
-  const saveFormatEdit = (routineId: string) => {
-    const val = formatEdits[routineId]?.value ?? "";
-    if (onUpdateRoutine) {
-      onUpdateRoutine(routineId, { displayFormat: val.trim() || undefined });
-    }
-    closeFormatEdit(routineId);
   };
 
   return (
@@ -122,16 +102,9 @@ export default function RoutineTab({
                     <div className="flex items-center gap-2">
                       <span className="text-2xl shrink-0">{r.icon || "📋"}</span>
                       <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="font-extrabold text-base text-slate-900 leading-tight">
-                            {r.name}
-                          </h4>
-                          {r.visibleInNotice === false && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/80 text-slate-600 font-bold">
-                              알림장 숨김
-                            </span>
-                          )}
-                        </div>
+                        <h4 className="font-extrabold text-base text-slate-900 leading-tight">
+                          {r.name}
+                        </h4>
                         {r.memo && (
                           <p className="text-xs text-slate-400 font-medium line-clamp-1 mt-0.5">
                             {r.memo}
@@ -140,31 +113,6 @@ export default function RoutineTab({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const isVisible = r.visibleInNotice !== false;
-                          onUpdateRoutine?.(r.id, { visibleInNotice: !isVisible });
-                        }}
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-bold transition-all ${
-                          r.visibleInNotice !== false
-                            ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
-                            : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
-                        }`}
-                        title={r.visibleInNotice !== false ? "알림장에서 숨기기" : "알림장에 표시하기"}
-                      >
-                        {r.visibleInNotice !== false ? (
-                          <>
-                            <Eye className="w-3.5 h-3.5" />
-                            <span className="text-[11px]">알림장 표시</span>
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-[11px]">알림장 숨김</span>
-                          </>
-                        )}
-                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -245,70 +193,6 @@ export default function RoutineTab({
                   <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg leading-relaxed">
                     <span className="text-slate-400 font-medium block mb-0.5">순환 순서</span>
                     <span className="font-medium text-slate-700 break-all">{orderPreview}</span>
-                  </div>
-
-                  {/* 알림장 표시 문구 서식 */}
-                  <div className="text-[11px]">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-slate-400 font-medium">알림장 표시 문구</span>
-                      {onUpdateRoutine && !formatEdits[r.id]?.open && (
-                        <button
-                          type="button"
-                          onClick={() => openFormatEdit(r)}
-                          className="text-indigo-500 hover:text-indigo-700 font-bold text-[11px] underline"
-                        >
-                          {r.displayFormat ? "서식 수정" : "서식 설정"}
-                        </button>
-                      )}
-                    </div>
-                    {formatEdits[r.id]?.open ? (
-                      <div className="space-y-1.5">
-                        <input
-                          type="text"
-                          value={formatEdits[r.id]?.value ?? ""}
-                          onChange={(e) =>
-                            setFormatEdits((prev) => ({
-                              ...prev,
-                              [r.id]: { ...prev[r.id], value: e.target.value },
-                            }))
-                          }
-                          placeholder="비워둘 경우 기본 형식(업무명: 당번 이름들)으로 표시"
-                          className="w-full px-2 py-1 border border-indigo-300 rounded-lg text-[11px] font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
-                        />
-                        <p className="text-[10px] text-slate-400">
-                          당번 이름 자리에 <span className="font-bold text-indigo-500">?</span> 기호를 입력하세요.
-                        </p>
-                        <div className="flex items-center gap-1.5 justify-end">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormatEdits((prev) => ({ ...prev, [r.id]: { open: true, value: "" } }))
-                            }
-                            className="text-[10px] text-slate-400 hover:text-rose-500 underline"
-                          >
-                            기본 형식 복원
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => closeFormatEdit(r.id)}
-                            className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-bold text-[10px]"
-                          >
-                            취소
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => saveFormatEdit(r.id)}
-                            className="px-2 py-0.5 rounded bg-indigo-600 text-white font-bold text-[10px]"
-                          >
-                            저장
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className={`font-medium ${r.displayFormat ? "text-indigo-700" : "text-slate-400 italic"}`}>
-                        {r.displayFormat || "기본 형식 (업무명: 당번 이름들)"}
-                      </span>
-                    )}
                   </div>
                 </div>
 

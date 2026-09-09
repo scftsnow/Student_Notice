@@ -104,23 +104,25 @@ export default function RoutineOrderModal({
           ) : (
             <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-xl bg-slate-50 border border-slate-200">
               {students.map((s) => {
-                const isInOrder = orderList.includes(s.name);
-                const count = orderList.filter((n) => n === s.name).length;
+                const indices = orderList
+                  .map((n, i) => (n === s.name ? i + 1 : null))
+                  .filter((x): x is number => x !== null);
+                const isInOrder = indices.length > 0;
                 return (
                   <button
                     key={s.name}
                     type="button"
                     onClick={() => toggleStudent(s.name)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
                       isInOrder
                         ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
                         : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
                     }`}
                   >
                     <span>{s.name}</span>
-                    {isInOrder && count > 0 && (
-                      <span className="ml-0.5 bg-white/20 text-white rounded-full px-1 text-[10px] font-extrabold">
-                        {count}
+                    {isInOrder && (
+                      <span className="bg-white/25 text-white rounded-full px-1.5 py-0.2 text-[10px] font-extrabold font-mono">
+                        {indices.join(",")}
                       </span>
                     )}
                   </button>
@@ -147,7 +149,7 @@ export default function RoutineOrderModal({
                   onDragEnter={() => handleDragEnter(idx)}
                   onDragEnd={handleDragEnd}
                   onDragOver={(e) => e.preventDefault()}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-grab active:cursor-grabbing select-none ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-grab active:cursor-grabbing select-none ${
                     dragIndex === idx
                       ? "opacity-40 bg-indigo-100 border-indigo-300 ring-2 ring-indigo-400"
                       : dropIndex === idx && dragIndex !== null && dragIndex !== idx
@@ -155,11 +157,18 @@ export default function RoutineOrderModal({
                       : "bg-indigo-600 text-white border-indigo-700 shadow-sm"
                   }`}
                 >
+                  <span className="bg-white/20 text-white rounded-md px-1.5 py-0.2 text-[10px] font-extrabold font-mono">
+                    {idx + 1}
+                  </span>
                   <span className="font-bold">{name}</span>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); handleRemoveAt(idx); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveAt(idx);
+                    }}
                     className="ml-0.5 text-white/60 hover:text-white font-bold leading-none transition-colors"
+                    title="순번에서 제거"
                   >
                     ✕
                   </button>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Eye, EyeOff } from "lucide-react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 interface AddRoutineModalProps {
@@ -24,8 +23,6 @@ export default function AddRoutineModal({
   const [payCycle, setPayCycle] = useState<"건당" | "일당" | "주당" | "월당">("건당");
   const [pay, setPay] = useState(200);
   const [memo, setMemo] = useState("");
-  const [displayFormat, setDisplayFormat] = useState("");
-  const [visibleInNotice, setVisibleInNotice] = useState(true);
   const [orderList, setOrderList] = useState<string[]>([]);
   const dragItem = useRef<number | null>(null);
   const dragOver = useRef<number | null>(null);
@@ -90,13 +87,10 @@ export default function AddRoutineModal({
       memo: memo.trim(),
       order: orderList,
       absenceMode: "next",
-      displayFormat: displayFormat.trim() || undefined,
-      visibleInNotice,
+      visibleInNotice: true,
     });
     setName("");
     setOrderList([]);
-    setDisplayFormat("");
-    setVisibleInNotice(true);
     onClose();
   };
 
@@ -178,23 +172,25 @@ export default function AddRoutineModal({
             ) : (
               <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-xl bg-slate-50 border border-slate-200">
                 {students.map((s) => {
-                  const isInOrder = orderList.includes(s.name);
-                  const count = orderList.filter((n) => n === s.name).length;
+                  const indices = orderList
+                    .map((n, i) => (n === s.name ? i + 1 : null))
+                    .filter((x): x is number => x !== null);
+                  const isInOrder = indices.length > 0;
                   return (
                     <button
                       key={s.name}
                       type="button"
                       onClick={() => toggleStudent(s.name)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all select-none ${
                         isInOrder
                           ? "bg-indigo-600 text-white border-indigo-700 shadow-sm"
                           : "bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
                       }`}
                     >
                       <span>{s.name}</span>
-                      {isInOrder && count > 0 && (
-                        <span className="ml-0.5 bg-white/20 text-white rounded-full px-1 text-[10px] font-extrabold">
-                          {count}
+                      {isInOrder && (
+                        <span className="bg-white/25 text-white rounded-full px-1.5 py-0.2 text-[10px] font-extrabold font-mono">
+                          {indices.join(",")}
                         </span>
                       )}
                     </button>
@@ -221,7 +217,7 @@ export default function AddRoutineModal({
                     onDragEnter={() => handleDragEnter(idx)}
                     onDragEnd={handleDragEnd}
                     onDragOver={(e) => e.preventDefault()}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-grab active:cursor-grabbing select-none ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-grab active:cursor-grabbing select-none ${
                       dragIndex === idx
                         ? "opacity-40 bg-indigo-100 border-indigo-300 ring-2 ring-indigo-400"
                         : dropIndex === idx && dragIndex !== null && dragIndex !== idx
@@ -229,11 +225,18 @@ export default function AddRoutineModal({
                         : "bg-indigo-600 text-white border-indigo-700 shadow-sm"
                     }`}
                   >
+                    <span className="bg-white/20 text-white rounded-md px-1.5 py-0.2 text-[10px] font-extrabold font-mono">
+                      {idx + 1}
+                    </span>
                     <span className="font-bold">{sName}</span>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); handleRemoveAt(idx); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveAt(idx);
+                      }}
                       className="ml-0.5 text-white/60 hover:text-white font-bold leading-none transition-colors"
+                      title="순번에서 제거"
                     >
                       ✕
                     </button>
@@ -243,25 +246,6 @@ export default function AddRoutineModal({
             </div>
             <p className="text-[11px] text-slate-400">
               같은 학생을 여러 번 추가하려면 카드를 다시 클릭하세요.
-            </p>
-          </div>
-
-          {/* 알림장 표시 문구 서식 (선택) */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="font-bold text-slate-700">알림장 표시 문구 서식 (선택)</label>
-              <span className="text-[11px] text-slate-400">미입력 시 기본 형식 적용</span>
-            </div>
-            <input
-              type="text"
-              value={displayFormat}
-              onChange={(e) => setDisplayFormat(e.target.value)}
-              placeholder="비워둘 경우 기본 형식(업무명: 당번 이름들)으로 표시"
-              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none text-xs"
-            />
-            <p className="text-[11px] text-slate-500">
-              각 당번 학생 이름이 들어갈 자리에{" "}
-              <span className="font-bold text-indigo-600">?</span> 기호를 입력하세요.
             </p>
           </div>
 
@@ -275,42 +259,6 @@ export default function AddRoutineModal({
               placeholder="예: 매일 하교 전 점검, 급식 전 배부"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-slate-800 focus:border-indigo-500 focus:outline-none"
             />
-          </div>
-
-          {/* 알림장(칠판) 표시 여부 */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="flex items-center gap-2.5">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                visibleInNotice ? "bg-indigo-100 text-indigo-700" : "bg-slate-200 text-slate-500"
-              }`}>
-                {visibleInNotice ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </div>
-              <div>
-                <span className="font-bold text-slate-800 text-xs block">알림장(칠판) 표시</span>
-                <span className="text-[11px] text-slate-500">알림장 칠판 및 학생 전광판에 노출</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setVisibleInNotice((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                visibleInNotice
-                  ? "bg-indigo-600 text-white border-indigo-700 shadow-xs hover:bg-indigo-700"
-                  : "bg-white text-slate-600 border-slate-300 hover:bg-slate-100"
-              }`}
-            >
-              {visibleInNotice ? (
-                <>
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>표시함</span>
-                </>
-              ) : (
-                <>
-                  <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                  <span>숨김</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
 
