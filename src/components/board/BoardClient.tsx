@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
-import { resolveStudentName } from "@/lib/routineUtils";
+import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
 interface BoardClientProps {
   initialDateStr: string;
@@ -247,21 +247,41 @@ export default function BoardClient({
             r.pinchHitterStudent && r.pinchHitterStudent !== "none"
               ? resolveStudentName(r.pinchHitterStudent, students)
               : "";
-          const displayWorkers = pinchHitter
-            ? `${pinchHitter} (대타)${rawWorkers.length > 1 ? `, ${rawWorkers.slice(1).join(", ")}` : ""}`
-            : rawWorkers.join(", ") || "배정 없음";
+          const workerList = rawWorkers.map((originalName, idx) => {
+            const isSubstituted = Boolean(pinchHitter && idx === 0);
+            return isSubstituted ? `${pinchHitter} (대타)` : originalName;
+          });
+
+          const segments = parseRoutineFormat(
+            r.displayFormat,
+            r.name,
+            workerList,
+            r.icon
+          );
 
           return (
-            <div key={r.id} className="flex items-center gap-2">
-              <span
-                className={`opacity-80 ${layouts.routineBox.color ? "" : themeStyle.routineText}`}
-                style={layouts.routineBox.color ? { color: layouts.routineBox.color } : undefined}
-              >
-                {r.icon} {r.name}:
-              </span>
-              <span className={`font-black drop-shadow-xs ${themeStyle.routineWorker}`}>
-                {displayWorkers}
-              </span>
+            <div key={r.id} className="flex items-center gap-1 flex-wrap leading-snug">
+              {segments.map((seg, sIdx) => {
+                if (seg.type === "text") {
+                  return (
+                    <span
+                      key={`b-text-${sIdx}`}
+                      className={`opacity-80 whitespace-pre ${layouts.routineBox.color ? "" : themeStyle.routineText}`}
+                      style={layouts.routineBox.color ? { color: layouts.routineBox.color } : undefined}
+                    >
+                      {seg.text}
+                    </span>
+                  );
+                }
+                return (
+                  <span
+                    key={`b-worker-${sIdx}`}
+                    className={`font-black drop-shadow-xs ${themeStyle.routineWorker}`}
+                  >
+                    {seg.text}
+                  </span>
+                );
+              })}
             </div>
           );
         })}

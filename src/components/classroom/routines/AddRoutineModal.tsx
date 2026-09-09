@@ -23,6 +23,7 @@ export default function AddRoutineModal({
   const [payCycle, setPayCycle] = useState<"건당" | "일당" | "주당" | "월당">("건당");
   const [pay, setPay] = useState(200);
   const [memo, setMemo] = useState("");
+  const [displayFormat, setDisplayFormat] = useState("");
   const [orderList, setOrderList] = useState<string[]>([]);
   const [selectedStudent, setSelectedStudent] = useState(students[0]?.name || "");
 
@@ -51,9 +52,11 @@ export default function AddRoutineModal({
       memo: memo.trim(),
       order: orderList,
       absenceMode: "next",
+      displayFormat: displayFormat.trim() || undefined,
     });
     setName("");
     setOrderList([]);
+    setDisplayFormat("");
     onClose();
   };
 
@@ -162,6 +165,24 @@ export default function AddRoutineModal({
                 ))
               )}
             </div>
+          </div>
+
+          {/* 알림장 표시 문구 서식 (선택) */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="font-bold text-slate-700">알림장 표시 문구 서식 (선택)</label>
+              <span className="text-[11px] text-slate-400">미입력 시 기본 형식 적용</span>
+            </div>
+            <input
+              type="text"
+              value={displayFormat}
+              onChange={(e) => setDisplayFormat(e.target.value)}
+              placeholder="비워둘 경우 기본 형식(업무명: 당번 이름들)으로 표시"
+              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl font-medium text-slate-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 focus:outline-none text-xs"
+            />
+            <p className="text-[11px] text-slate-500">
+              각 당번 학생 이름이 들어갈 자리에 <span className="font-bold text-indigo-600">?</span> 기호를 입력하세요.
+            </p>
           </div>
 
           {/* 메모 */}

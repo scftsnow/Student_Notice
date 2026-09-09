@@ -32,3 +32,83 @@ export function resolveStudentName(worker: string | number, students: ClassroomS
 
   return rawStr;
 }
+
+export interface RoutineFormatSegment {
+  type: "text" | "worker";
+  text: string;
+  workerIndex?: number;
+}
+
+/**
+ * 루틴의 사용자 정의 표시 형식(? 플레이스홀더 기반)을 파싱하여
+ * 텍스트 세그먼트와 학생 이름 세그먼트의 배열로 변환합니다.
+ * 템플릿이 없거나 빈 문자열인 경우 기본 형식(아이콘 + 이름: 당번1, 당번2...)을 반환합니다.
+ */
+export function parseRoutineFormat(
+  template: string | undefined | null,
+  routineName: string,
+  workers: string[],
+  routineIcon?: string
+): RoutineFormatSegment[] {
+  const trimmed = template?.trim();
+
+  // 사용자 정의 템플릿이 없는 경우 기본 레이아웃 적용
+  if (!trimmed) {
+    const segments: RoutineFormatSegment[] = [];
+    const prefix = `${routineIcon ? routineIcon + " " : ""}${routineName}: `;
+    segments.push({ type: "text", text: prefix });
+
+    if (workers.length === 0) {
+      segments.push({ type: "text", text: "배정 없음" });
+    } else {
+      workers.forEach((w, idx) => {
+        if (idx > 0) {
+          segments.push({ type: "text", text: ", " });
+        }
+        segments.push({ type: "worker", text: w, workerIndex: idx });
+      });
+    }
+    return segments;
+  }
+
+  // '?' 기호 기준으로 파싱
+  const parts = trimmed.split("?");
+  const segments: RoutineFormatSegment[] = [];
+
+  let workerIdx = 0;
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i]) {
+      segments.push({ type: "text", text: parts[i] });
+    }
+
+    // 마지막 조각 전에는 항상 '?'가 존재함
+    if (i < parts.length - 1) {
+      if (workerIdx < workers.length && workers[workerIdx]) {
+        segments.push({
+          type: "worker",
+          text: workers[workerIdx],
+          workerIndex: workerIdx,
+        });
+      } else {
+        segments.push({
+          type: "worker",
+          text: "(미배정)",
+          workerIndex: workerIdx,
+        });
+      }
+      workerIdx++;
+    }
+  }
+
+  // 템플릿의 '?' 개수보다 실제 당번 수가 더 많은 경우 잔여 인원 부가 표시
+  if (workerIdx < workers.length) {
+    segments.push({ type: "text", text: " (" });
+    for (let j = workerIdx; j < workers.length; j++) {
+      if (j > workerIdx) segments.push({ type: "text", text: ", " });
+      segments.push({ type: "worker", text: workers[j], workerIndex: j });
+    }
+    segments.push({ type: "text", text: ")" });
+  }
+
+  return segments;
+}

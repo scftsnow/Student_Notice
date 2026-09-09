@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
-import { resolveStudentName } from "@/lib/routineUtils";
+import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
 interface RoutineElementInCanvasProps {
   routine: ClassroomRoutine;
@@ -26,7 +26,13 @@ export default function RoutineElementInCanvas({
   onAdvanceRoutine,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
+  const [isFormatEditing, setIsFormatEditing] = useState(false);
+  const [formatInput, setFormatInput] = useState(routine.displayFormat || "");
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setFormatInput(routine.displayFormat || "");
+  }, [routine.displayFormat]);
 
   const workerColor =
     theme === "white"
@@ -49,13 +55,14 @@ export default function RoutineElementInCanvas({
     const handleOutsideClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setActivePopupIndex(null);
+        setIsFormatEditing(false);
       }
     };
-    if (activePopupIndex !== null) {
+    if (activePopupIndex !== null || isFormatEditing) {
       document.addEventListener("mousedown", handleOutsideClick);
       return () => document.removeEventListener("mousedown", handleOutsideClick);
     }
-  }, [activePopupIndex]);
+  }, [activePopupIndex, isFormatEditing]);
 
   // 원본 루틴 배정자 (번호일 경우 학생 이름으로 자동 변환)
   const rawWorkers =
@@ -88,161 +95,260 @@ export default function RoutineElementInCanvas({
     setActivePopupIndex(null);
   };
 
+  const workerList = rawWorkers.map((originalName, idx) => {
+    const isSubstituted = Boolean(pinchHitter && idx === 0);
+    return isSubstituted ? `${pinchHitter} (대타)` : originalName;
+  });
+
+  const segments = parseRoutineFormat(
+    routine.displayFormat,
+    routine.name,
+    workerList,
+    routine.icon
+  );
+
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center gap-2 leading-snug"
+      className="relative inline-flex items-center gap-1 leading-snug flex-wrap group"
       style={{ fontSize: "inherit" }}
     >
-      {/* 루틴 아이콘 및 이름 */}
-      <span
-        className={`opacity-80 whitespace-nowrap ${customColor ? "" : routineTextColor}`}
-        style={customColor ? { color: customColor } : undefined}
-      >
-        {routine.icon} {routine.name}:
-      </span>
+      {segments.map((seg, sIdx) => {
+        if (seg.type === "text") {
+          return (
+            <span
+              key={`seg-text-${sIdx}`}
+              className={`opacity-80 whitespace-pre ${customColor ? "" : routineTextColor}`}
+              style={customColor ? { color: customColor } : undefined}
+            >
+              {seg.text}
+            </span>
+          );
+        }
 
-      {/* 루틴 당번 표시: 클릭 시 지급 및 대타 팝오버 노출 */}
-      <div className="flex items-center gap-2 font-black">
-        {rawWorkers.length === 0 ? (
-          <span className="opacity-40 italic">배정 없음</span>
-        ) : (
-          rawWorkers.map((originalName, idx) => {
-            const isSubstituted = Boolean(pinchHitter && idx === 0);
-            const currentWorker = isSubstituted ? pinchHitter : originalName;
-            const isPopupOpen = activePopupIndex === idx;
+        const workerIdx = seg.workerIndex ?? 0;
+        const originalName = rawWorkers[workerIdx] || "";
+        const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
+        const currentWorker = isSubstituted ? pinchHitter : originalName;
+        const isPopupOpen = activePopupIndex === workerIdx;
 
-            return (
-              <div key={`${originalName}-${idx}`} className="relative inline-flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setActivePopupIndex(isPopupOpen ? null : idx)}
-                  className={`font-black ${workerColor} drop-shadow-xs hover:underline cursor-pointer select-none inline-flex items-center bg-transparent border-none p-0 outline-none`}
-                  style={{ fontSize: "inherit" }}
-                  title={`${currentWorker} 클릭 시 급여 지급 및 대타 변경 메뉴`}
-                >
-                  <span className="whitespace-nowrap">
-                    {isSubstituted ? `${pinchHitter} (대타)` : currentWorker}
+        return (
+          <div key={`seg-worker-${workerIdx}-${sIdx}`} className="relative inline-flex items-center">
+            <button
+              type="button"
+              onClick={() => setActivePopupIndex(isPopupOpen ? null : workerIdx)}
+              className={`font-black ${workerColor} drop-shadow-xs hover:underline cursor-pointer select-none inline-flex items-center bg-transparent border-none p-0 outline-none`}
+              style={{ fontSize: "inherit" }}
+              title={`${currentWorker || "당번"} 클릭 시 급여 지급 및 대타 변경 메뉴`}
+            >
+              <span className="whitespace-nowrap">
+                {seg.text}
+              </span>
+            </button>
+
+            {/* 이름 클릭 시 뜨는 지급 / 대타 액션 팝오버 */}
+            {isPopupOpen && (
+              <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[210px] bg-slate-900/95 border border-white/20 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-2.5 text-white">
+                <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                  <span className="font-extrabold text-white flex items-center gap-1">
+                    <span>👤</span>
+                    <span className="text-amber-300">{currentWorker}</span>
+                    {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">(대타)</span>}
                   </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivePopupIndex(null)}
+                    className="text-white/40 hover:text-white font-bold p-0.5 leading-none"
+                    title="닫기"
+                  >
+                    ✕
+                  </button>
+                </div>
 
-                {/* 이름 클릭 시 뜨는 지급 / 대타 액션 팝오버 */}
-                {isPopupOpen && (
-                  <div className="absolute bottom-full left-0 mb-2 z-50 min-w-[210px] bg-slate-900/95 border border-white/20 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-2.5 text-white">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-                      <span className="font-extrabold text-white flex items-center gap-1">
-                        <span>👤</span>
-                        <span className="text-amber-300">{currentWorker}</span>
-                        {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">(대타)</span>}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setActivePopupIndex(null)}
-                        className="text-white/40 hover:text-white font-bold p-0.5 leading-none"
-                        title="닫기"
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    {/* 1. 대타 지정 및 변경 (상단 배치: 이름 배지 선택) */}
-                    {onUpdateRoutine && students.length > 0 && (
-                      <div className="space-y-1.5 pb-2 border-b border-white/10">
-                        <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-white/80 block">
-                            🔄 대타 지정
-                          </label>
-                          {isSubstituted && (
-                            <button
-                              type="button"
-                              onClick={() => handlePinchChange("")}
-                              className="text-[10px] text-rose-300 hover:text-rose-200 underline font-semibold transition-colors"
-                              title="대타 해제"
-                            >
-                              ✕ 대타 해제
-                            </button>
-                          )}
-                        </div>
-
-                        {/* 이름 배지 칩 목록 */}
-                        <div
-                          className="flex flex-wrap gap-1 max-h-32 overflow-y-auto p-0.5"
-                          aria-label={`${routine.name} 대타 지정`}
-                        >
-                          {students.map((s) => {
-                            const isSelected = isSubstituted && pinchHitter === s.name;
-                            return (
-                              <button
-                                key={s.no}
-                                type="button"
-                                onClick={() => handlePinchChange(isSelected ? "" : s.name)}
-                                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-                                  isSelected
-                                    ? "bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-xs"
-                                    : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
-                                }`}
-                                title={`${s.name} 대타 지정`}
-                              >
-                                {s.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 2. 대타 대신 건너뛰기 선택 버튼 */}
-                    {onAdvanceRoutine && (
-                      <div className="pt-0.5 border-t border-white/10">
+                {/* 1. 대타 지정 및 변경 (상단 배치: 이름 배지 선택) */}
+                {onUpdateRoutine && students.length > 0 && (
+                  <div className="space-y-1.5 pb-2 border-b border-white/10">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-white/80 block">
+                        🔄 대타 지정
+                      </label>
+                      {isSubstituted && (
                         <button
                           type="button"
-                          onClick={() => {
-                            onAdvanceRoutine(routine.id);
-                            setActivePopupIndex(null);
-                          }}
-                          className="w-full py-1.5 px-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white font-bold text-xs flex items-center justify-center gap-1 transition-all border border-white/10"
-                          title="이 차례를 건너뛰고 다음 학생 순번으로 넘깁니다"
+                          onClick={() => handlePinchChange("")}
+                          className="text-[10px] text-rose-300 hover:text-rose-200 underline font-semibold transition-colors"
+                          title="대타 해제"
                         >
-                          <span>⏭️</span>
-                          <span>순번 건너뛰기</span>
+                          ✕ 대타 해제
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    {/* 3. 즉시 급여 지급 버튼 (하단 배치) */}
-                    <div className="pt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => handlePayWorker(currentWorker)}
-                        disabled={routine.pay <= 0 || !onPayRoutineToday}
-                        className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
-                      >
-                        <span>💰</span>
-                        <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
-                      </button>
+                    {/* 이름 배지 칩 목록 */}
+                    <div
+                      className="flex flex-wrap gap-1 max-h-32 overflow-y-auto p-0.5"
+                      aria-label={`${routine.name} 대타 지정`}
+                    >
+                      {students.map((s) => {
+                        const isSelected = isSubstituted && pinchHitter === s.name;
+                        return (
+                          <button
+                            key={s.no}
+                            type="button"
+                            onClick={() => handlePinchChange(isSelected ? "" : s.name)}
+                            className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                              isSelected
+                                ? "bg-amber-400 text-slate-950 shadow-xs"
+                                : "bg-white/10 hover:bg-white/20 text-white"
+                            }`}
+                          >
+                            {s.name}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
-              </div>
-            );
-          })
-        )}
 
-        {/* 알림장 요소에 작게 노출되는 건너뛰기 버튼 */}
-        {onAdvanceRoutine && rawWorkers.length > 0 && (
+                {/* 2. 업무 순서 순환 넘기기 */}
+                {onAdvanceRoutine && (
+                  <div className="pt-0.5 pb-1 border-b border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAdvanceRoutine(routine.id);
+                        setActivePopupIndex(null);
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <span>⏭️</span>
+                      <span>다음 순번으로 넘기기</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 3. 즉시 급여 지급 버튼 (하단 배치) */}
+                <div className="pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handlePayWorker(currentWorker)}
+                    disabled={routine.pay <= 0 || !onPayRoutineToday}
+                    className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
+                  >
+                    <span>💰</span>
+                    <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* 알림장 요소에 작게 노출되는 건너뛰기 버튼 */}
+      {onAdvanceRoutine && rawWorkers.length > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdvanceRoutine(routine.id);
+          }}
+          className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white transition-all font-semibold select-none border border-white/10 ml-0.5 leading-tight shrink-0"
+          title="다음 순번으로 건너뛰기"
+        >
+          건너뛰기
+        </button>
+      )}
+
+      {/* 문구 형식 편집 버튼 */}
+      {onUpdateRoutine && (
+        <div className="relative inline-flex items-center">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onAdvanceRoutine(routine.id);
+              setFormatInput(routine.displayFormat || "");
+              setIsFormatEditing(!isFormatEditing);
             }}
-            className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white transition-all font-semibold select-none border border-white/10 ml-0.5 leading-tight shrink-0"
-            title="다음 순번으로 건너뛰기"
+            className="opacity-0 group-hover:opacity-60 hover:opacity-100 p-0.5 text-xs transition-opacity cursor-pointer inline-flex items-center leading-none"
+            title="루틴 문구 서식 편집 (? 기호로 당번 배치)"
           >
-            건너뛰기
+            ✏️
           </button>
-        )}
-      </div>
+
+          {/* 문구 형식 편집 팝오버 */}
+          {isFormatEditing && (
+            <div
+              className="absolute bottom-full left-0 mb-2 z-50 min-w-[300px] sm:min-w-[360px] bg-slate-900/95 border border-white/20 rounded-2xl p-3.5 shadow-2xl backdrop-blur-md text-xs space-y-3 text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                <span className="font-extrabold text-white flex items-center gap-1.5 text-xs">
+                  <span>✏️</span>
+                  <span>루틴 표시 문구 서식 편집</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsFormatEditing(false)}
+                  className="text-white/40 hover:text-white font-bold p-0.5 leading-none"
+                  title="닫기"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-slate-300 block font-semibold">
+                  표시 문구 서식 (? 기호 자리에 당번 학생 이름 자동 배치):
+                </label>
+                <input
+                  type="text"
+                  value={formatInput}
+                  onChange={(e) => setFormatInput(e.target.value)}
+                  placeholder="비워둘 경우 기본 형식(업무명: 당번 이름들)으로 표시"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-white font-semibold focus:outline-none focus:border-indigo-400 text-xs"
+                />
+                <p className="text-[10px] text-slate-400">
+                  각 당번 학생 이름이 들어갈 자리에 <strong className="text-amber-300">?</strong> 기호를 입력하세요.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormatInput("");
+                    onUpdateRoutine(routine.id, { displayFormat: "" });
+                    setIsFormatEditing(false);
+                  }}
+                  className="text-[11px] text-slate-400 hover:text-rose-300 underline font-medium"
+                >
+                  기본 형식 복원
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormatEditing(false)}
+                    className="px-2.5 py-1 rounded-md text-slate-300 hover:bg-white/10 font-bold"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateRoutine(routine.id, { displayFormat: formatInput.trim() });
+                      setIsFormatEditing(false);
+                    }}
+                    className="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xs"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
