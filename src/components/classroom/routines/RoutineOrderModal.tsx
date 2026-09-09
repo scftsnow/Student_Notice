@@ -133,9 +133,9 @@ export default function RoutineOrderModal({
         {/* 순환 순서 드래그 영역 */}
         <div className="space-y-1.5">
           <p className="text-xs font-bold text-slate-500">순환 순서 (⠿ 드래그로 순서 이동)</p>
-          <div className="min-h-[60px] p-2 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+          <div className="min-h-[60px] p-2 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap gap-1.5 content-start">
             {orderList.length === 0 ? (
-              <span className="text-slate-400 text-[11px] italic block text-center py-3">
+              <span className="text-slate-400 text-[11px] italic block text-center w-full py-3">
                 위에서 학생을 선택하면 여기에 표시됩니다.
               </span>
             ) : (
@@ -147,21 +147,19 @@ export default function RoutineOrderModal({
                   onDragEnter={() => handleDragEnter(idx)}
                   onDragEnd={handleDragEnd}
                   onDragOver={(e) => e.preventDefault()}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-grab active:cursor-grabbing ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-grab active:cursor-grabbing select-none ${
                     dragIndex === idx
-                      ? "opacity-50 bg-indigo-50 border-indigo-300 ring-2 ring-indigo-400"
+                      ? "opacity-40 bg-indigo-100 border-indigo-300 ring-2 ring-indigo-400"
                       : dropIndex === idx && dragIndex !== null && dragIndex !== idx
-                      ? "border-indigo-400 bg-indigo-50 scale-[1.02]"
-                      : "bg-white border-slate-200 hover:border-slate-300"
+                      ? "border-indigo-400 bg-indigo-50 scale-105"
+                      : "bg-indigo-600 text-white border-indigo-700 shadow-sm"
                   }`}
                 >
-                  <span className="text-slate-300 select-none text-base leading-none cursor-grab">⠿</span>
-                  <span className="text-slate-400 font-bold text-[11px] w-5 shrink-0">{idx + 1}.</span>
-                  <span className="flex-1 text-slate-800 font-bold">{name}</span>
+                  <span className="font-bold">{name}</span>
                   <button
                     type="button"
-                    onClick={() => handleRemoveAt(idx)}
-                    className="text-slate-300 hover:text-rose-500 font-bold leading-none transition-colors"
+                    onClick={(e) => { e.stopPropagation(); handleRemoveAt(idx); }}
+                    className="ml-0.5 text-white/60 hover:text-white font-bold leading-none transition-colors"
                   >
                     ✕
                   </button>
