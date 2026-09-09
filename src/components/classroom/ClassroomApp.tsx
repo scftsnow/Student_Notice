@@ -80,6 +80,7 @@ export default function ClassroomApp() {
           onClassNameChange={state.setClassName}
           onOpenQuickView={() => setIsQuickViewOpen(true)}
           onOpenBoardWindow={handleOpenBoardWindow}
+          onAddFreeCard={handleAddFreeCard}
         />
 
         {/* 메인 네비게이션 탭 바 */}

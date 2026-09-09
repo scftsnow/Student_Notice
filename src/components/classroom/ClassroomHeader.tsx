@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Plus, Monitor } from "lucide-react";
 
 interface ClassroomHeaderProps {
   className: string;
   onClassNameChange: (name: string) => void;
   onOpenQuickView: () => void;
   onOpenBoardWindow: () => void;
+  onAddFreeCard: () => void;
 }
 
 export default function ClassroomHeader({
@@ -14,6 +16,7 @@ export default function ClassroomHeader({
   onClassNameChange,
   onOpenQuickView,
   onOpenBoardWindow,
+  onAddFreeCard,
 }: ClassroomHeaderProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
 
@@ -60,12 +63,22 @@ export default function ClassroomHeader({
 
         <button
           type="button"
+          onClick={onAddFreeCard}
+          className="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all border border-indigo-200"
+          title="자유 글상자를 칠판에 추가합니다"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>글상자 추가</span>
+        </button>
+
+        <button
+          type="button"
           onClick={onOpenBoardWindow}
           className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
           title="전자칠판/프로젝터 송출 전용 화면을 별도 창으로 엽니다"
         >
-          <span>↗</span>
-          <span>학생 화면 별도 창 열기</span>
+          <Monitor className="w-3.5 h-3.5" />
+          <span>학생 화면 열기</span>
         </button>
       </div>
     </div>

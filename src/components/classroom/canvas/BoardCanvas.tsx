@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Plus } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
@@ -269,19 +268,6 @@ export default function BoardCanvas({
 
   return (
     <div className="space-y-2">
-      {/* 상단 툴바 안내 */}
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-bold text-slate-700">🖥️ 전자칠판 판서 화면 (학생 화면 대비 75% 축소)</span>
-        <button
-          type="button"
-          onClick={onAddFreeCard}
-          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition-colors border border-indigo-200"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          자유 글상자 추가
-        </button>
-      </div>
-
       {/* 16:9 캔버스 본체 (학생 전체창 대비 75% 비율) */}
       <div className="flex justify-center w-full">
         <div
