@@ -132,7 +132,7 @@ export default function RoutineOrderModal({
 
         {/* 순환 순서 드래그 영역 */}
         <div className="space-y-1.5">
-          <p className="text-xs font-bold text-slate-500">순환 순서 (⠿ 드래그로 순서 이동)</p>
+          <p className="text-xs font-bold text-slate-500">순환 순서 <span className="font-normal text-slate-400 text-xs">(배지 드래그로 순서 이동)</span></p>
           <div className="min-h-[60px] p-2 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap gap-1.5 content-start">
             {orderList.length === 0 ? (
               <span className="text-slate-400 text-[11px] italic block text-center w-full py-3">

@@ -128,15 +128,14 @@ export default function EconomyTab({
           <button
             type="button"
             onClick={() => setLedgerModalStudent("treasury")}
-            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 shrink-0 transition-colors"
+            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition-all shrink-0"
           >
             이력
           </button>
-          <span className="text-slate-200 text-xs">|</span>
           <button
             type="button"
             onClick={() => setIsDirectTaxOpen(true)}
-            className="text-[11px] font-bold text-slate-600 hover:text-slate-900 shrink-0 transition-colors"
+            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 shadow-2xs transition-all shrink-0"
           >
             입·출금
           </button>
@@ -186,7 +185,13 @@ export default function EconomyTab({
                 <div>
                   <dt className="text-slate-400 font-semibold">반올림</dt>
                   <dd className="font-bold text-slate-700">
-                    {Math.max(0, Math.round(Math.log10(taxConfig.taxRoundingUnit || 1)))}째 자리
+                    {(() => {
+                      const u = taxConfig.taxRoundingUnit ?? 1;
+                      if (u >= 1) return "정수 단위";
+                      if (u >= 0.1) return "소수 첫째 자리";
+                      if (u >= 0.01) return "소수 둘째 자리";
+                      return "소수 셋째 자리";
+                    })()}
                   </dd>
                 </div>
                 <div className="col-span-3">
@@ -279,7 +284,38 @@ export default function EconomyTab({
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-slate-800 text-xs truncate">{b.name}</div>
                     {b.desc && <p className="text-[10px] text-slate-400 truncate">{b.desc}</p>}
-                    <p className="text-[10px] text-indigo-500">{b.actions.length}개 액션</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {b.actions.map((act, i) => {
+                        const isTreasury = act.target === "treasury";
+                        const targetLabel = isTreasury
+                          ? "🏛️국고"
+                          : act.target === "all"
+                          ? "전체"
+                          : act.target === "selected"
+                          ? "선택"
+                          : `${act.specificTargets?.length || 0}명`;
+                        const sign = act.type === "deposit" ? "+" : "-";
+                        return (
+                          <span
+                            key={i}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold inline-flex items-center gap-0.5 ${
+                              isTreasury
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : act.type === "deposit"
+                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}
+                          >
+                            <span>{targetLabel}</span>
+                            <span>
+                              {sign}
+                              {act.amount.toLocaleString()}
+                              {currencyName}
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button

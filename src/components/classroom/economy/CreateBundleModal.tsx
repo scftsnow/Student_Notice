@@ -184,6 +184,69 @@ export default function CreateBundleModal({
             />
           </div>
 
+          {/* 빠른 템플릿 (국고 연동 포함) */}
+          <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-1.5 text-[11px]">
+            <span className="font-bold text-indigo-900 block">⚡ 빠른 템플릿 설정:</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftName("국고 지원금 균등 분배");
+                  setDraftDesc("국고 재원에서 전교생에게 균등 지원금 지급");
+                  setDraftActions([
+                    {
+                      type: "deduct",
+                      target: "treasury",
+                      specificTargets: [],
+                      amount: 1000,
+                      desc: "국고 지원금 출금",
+                      applyTax: false,
+                    },
+                    {
+                      type: "deposit",
+                      target: "all",
+                      specificTargets: [],
+                      amount: 100,
+                      desc: "국고 지원금 수령",
+                      applyTax: false,
+                    },
+                  ]);
+                }}
+                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs"
+              >
+                🏛️ 국고 지원금 분배
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftName("학급비 납부 (국고 전입)");
+                  setDraftDesc("학생들에게 학급비를 걷어 국고로 전입");
+                  setDraftActions([
+                    {
+                      type: "deduct",
+                      target: "all",
+                      specificTargets: [],
+                      amount: 100,
+                      desc: "학급비 납부",
+                      applyTax: false,
+                    },
+                    {
+                      type: "deposit",
+                      target: "treasury",
+                      specificTargets: [],
+                      amount: 1000,
+                      desc: "학급비 국고 전입",
+                      applyTax: false,
+                    },
+                  ]);
+                }}
+                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs"
+              >
+                💰 학급비 국고 전입
+              </button>
+            </div>
+          </div>
+
           {/* 액션 목록 */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -226,8 +289,12 @@ export default function CreateBundleModal({
                         }
                         className="px-2 py-1 rounded-md border border-slate-200 bg-white font-semibold focus:outline-none text-[11px]"
                       >
-                        <option value="deposit">입금</option>
-                        <option value="deduct">차감</option>
+                        <option value="deposit">
+                          {action.target === "treasury" ? "국고 전입 (입금)" : "입금"}
+                        </option>
+                        <option value="deduct">
+                          {action.target === "treasury" ? "국고 지출 (출금)" : "차감"}
+                        </option>
                       </select>
 
                       {/* 금액 */}
