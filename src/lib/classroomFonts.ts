@@ -66,6 +66,13 @@ export const CLASSROOM_FONTS: ClassroomFont[] = [
     category: "학교/손글씨",
     desc: "칠판 분필 및 화이트보드 마커 판서 감성",
   },
+  {
+    id: "goyang",
+    name: "고양체",
+    family: "'Goyang', sans-serif",
+    category: "학교/손글씨",
+    desc: "사랑스럽고 친근한 고양시 전용 서체 (공공누리 제1유형 무료)",
+  },
 
   // 3. 둥근 고딕 / 부드러운 가독성
   {

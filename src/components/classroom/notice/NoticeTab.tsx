@@ -1,19 +1,16 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins, Minus, Plus, Type } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins, Minus, Plus } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
+import FontSelectorDropdown from "./FontSelectorDropdown";
 
 const TEXT_COLORS = [
-  { label: "흰색", value: "#ffffff" },
-  { label: "노랑", value: "#fde047" },
-  { label: "연두", value: "#86efac" },
-  { label: "하늘", value: "#7dd3fc" },
-  { label: "분홍", value: "#f9a8d4" },
-  { label: "주황", value: "#fb923c" },
-  { label: "빨강", value: "#f87171" },
-  { label: "검정", value: "#1e293b" },
+  { label: "흰색", value: "#ffffff" }, { label: "노랑", value: "#fde047" },
+  { label: "연두", value: "#86efac" }, { label: "하늘", value: "#7dd3fc" },
+  { label: "분홍", value: "#f9a8d4" }, { label: "주황", value: "#fb923c" },
+  { label: "빨강", value: "#f87171" }, { label: "검정", value: "#1e293b" },
 ];
 
 interface NoticeTabProps {
@@ -56,6 +53,7 @@ export default function NoticeTab({
   onOpenRoutineNoticeSettings,
 }: NoticeTabProps) {
   const lastRangeRef = useRef<Range | null>(null);
+  const lastEditableRef = useRef<HTMLElement | null>(null);
 
   const selectedFontId =
     CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id ||
@@ -85,10 +83,17 @@ export default function NoticeTab({
           const newRange = document.createRange();
           newRange.selectNodeContents(span);
           sel.addRange(newRange);
+          lastRangeRef.current = newRange.cloneRange();
         }
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.getAttribute("contenteditable") === "true" || activeEl.hasAttribute("contenteditable"))) {
-          activeEl.dispatchEvent(new Event("input", { bubbles: true }));
+        const targetEl =
+          (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? (range.commonAncestorContainer as HTMLElement)
+            : range.commonAncestorContainer.parentElement)?.closest<HTMLElement>("[contenteditable='true']") ||
+          lastEditableRef.current ||
+          document.activeElement;
+        if (targetEl instanceof HTMLElement) {
+          targetEl.focus();
+          targetEl.dispatchEvent(new Event("input", { bubbles: true }));
         }
         return;
       } catch {
@@ -154,7 +159,16 @@ export default function NoticeTab({
     const handleSelectionChange = () => {
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-        lastRangeRef.current = sel.getRangeAt(0).cloneRange();
+        const r = sel.getRangeAt(0);
+        lastRangeRef.current = r.cloneRange();
+        const container =
+          r.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? (r.commonAncestorContainer as HTMLElement)
+            : r.commonAncestorContainer.parentElement;
+        const editable = container?.closest<HTMLElement>("[contenteditable='true']");
+        if (editable) {
+          lastEditableRef.current = editable;
+        }
       }
     };
     document.addEventListener("selectionchange", handleSelectionChange);
@@ -173,7 +187,20 @@ export default function NoticeTab({
   };
 
   const execCmd = (cmd: string, value?: string) => {
+    const sel = window.getSelection();
+    if ((!sel || sel.isCollapsed || sel.rangeCount === 0) && lastRangeRef.current) {
+      sel?.removeAllRanges();
+      sel?.addRange(lastRangeRef.current);
+      lastEditableRef.current?.focus();
+    }
     document.execCommand(cmd, false, value ?? "");
+    const targetEl = lastEditableRef.current || document.activeElement;
+    if (
+      targetEl instanceof HTMLElement &&
+      (targetEl.getAttribute("contenteditable") === "true" || targetEl.hasAttribute("contenteditable"))
+    ) {
+      targetEl.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   };
 
   const applyColorToSelectionOrTarget = (color: string) => {
@@ -190,11 +217,15 @@ export default function NoticeTab({
         sel.removeAllRanges();
         sel.addRange(range);
       }
+      lastEditableRef.current?.focus();
       document.execCommand("styleWithCSS", false, "true");
       document.execCommand("foreColor", false, color);
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.getAttribute("contenteditable") === "true" || activeEl.hasAttribute("contenteditable"))) {
-        activeEl.dispatchEvent(new Event("input", { bubbles: true }));
+      const targetEl = lastEditableRef.current || document.activeElement;
+      if (
+        targetEl instanceof HTMLElement &&
+        (targetEl.getAttribute("contenteditable") === "true" || targetEl.hasAttribute("contenteditable"))
+      ) {
+        targetEl.dispatchEvent(new Event("input", { bubbles: true }));
       }
       return;
     }
@@ -223,10 +254,17 @@ export default function NoticeTab({
           const newRange = document.createRange();
           newRange.selectNodeContents(span);
           sel.addRange(newRange);
+          lastRangeRef.current = newRange.cloneRange();
         }
-        const activeEl = document.activeElement;
-        if (activeEl && (activeEl.getAttribute("contenteditable") === "true" || activeEl.hasAttribute("contenteditable"))) {
-          activeEl.dispatchEvent(new Event("input", { bubbles: true }));
+        const targetEl =
+          (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? (range.commonAncestorContainer as HTMLElement)
+            : range.commonAncestorContainer.parentElement)?.closest<HTMLElement>("[contenteditable='true']") ||
+          lastEditableRef.current ||
+          document.activeElement;
+        if (targetEl instanceof HTMLElement) {
+          targetEl.focus();
+          targetEl.dispatchEvent(new Event("input", { bubbles: true }));
         }
         return;
       } catch {
@@ -249,32 +287,11 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 글꼴 드롭다운 */}
-          <div className="flex items-center gap-1">
-            <Type className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <select
-              value={selectedFontId}
-              onChange={(e) => applyFontFamilyToSelectionOrTarget(e.target.value)}
-              className="h-7 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-700 focus:outline-none focus:border-indigo-400 cursor-pointer max-w-[130px] truncate shadow-2xs"
-              title="글꼴 변경 (블록 선택 시 해당 글자, 미선택 시 현재 요소 전체에 적용)"
-            >
-              <optgroup label="고딕 / 본문">
-                {CLASSROOM_FONTS.filter((f) => f.category === "고딕").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </optgroup>
-              <optgroup label="학교 / 판서 (무료)">
-                {CLASSROOM_FONTS.filter((f) => f.category === "학교/손글씨").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </optgroup>
-              <optgroup label="둥근 고딕">
-                {CLASSROOM_FONTS.filter((f) => f.category === "둥근고딕").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </optgroup>
-              <optgroup label="명조">
-                {CLASSROOM_FONTS.filter((f) => f.category === "명조").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </optgroup>
-              <optgroup label="제목 / 디스플레이">
-                {CLASSROOM_FONTS.filter((f) => f.category === "제목").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </optgroup>
-            </select>
-          </div>
+          {/* 글꼴 드롭다운 (분류 없는 단일 리스트 + 서체 이름 SVG 미리보기) */}
+          <FontSelectorDropdown
+            selectedFontId={selectedFontId}
+            onSelectFont={applyFontFamilyToSelectionOrTarget}
+          />
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
@@ -369,7 +386,7 @@ export default function NoticeTab({
             <span className="text-slate-400 font-semibold text-[11px] pl-1">크기</span>
             <button
               type="button"
-              onClick={() => handleStepFontSize(-2)}
+              onMouseDown={(e) => { e.preventDefault(); handleStepFontSize(-2); }}
               title="글자 크기 2px 축소"
               className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
             >
@@ -378,9 +395,7 @@ export default function NoticeTab({
             <input
               type="text"
               value={fontSizeInput}
-              onFocus={() => {
-                isFontSizeFocused.current = true;
-              }}
+              onFocus={() => { isFontSizeFocused.current = true; }}
               onChange={(e) => setFontSizeInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -398,7 +413,7 @@ export default function NoticeTab({
             />
             <button
               type="button"
-              onClick={() => handleStepFontSize(2)}
+              onMouseDown={(e) => { e.preventDefault(); handleStepFontSize(2); }}
               title="글자 크기 2px 확대"
               className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
             >
@@ -406,19 +421,13 @@ export default function NoticeTab({
             </button>
             <select
               value={effectiveFontSize}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                commitFontSize(String(val));
-              }}
+              onChange={(e) => commitFontSize(e.target.value)}
               title="글자 크기 프리셋"
               className="w-4 bg-transparent border-l border-slate-200 text-transparent focus:outline-none cursor-pointer text-xs"
             >
-              <option value="24" className="text-slate-800">24px</option>
-              <option value="34" className="text-slate-800">34px</option>
-              <option value="42" className="text-slate-800">42px</option>
-              <option value="50" className="text-slate-800">50px</option>
-              <option value="58" className="text-slate-800">58px</option>
-              <option value="72" className="text-slate-800">72px</option>
+              {[24, 34, 42, 50, 58, 72].map((sz) => (
+                <option key={sz} value={sz} className="text-slate-800">{sz}px</option>
+              ))}
             </select>
           </div>
 
@@ -429,7 +438,7 @@ export default function NoticeTab({
             <span className="text-slate-400 font-semibold text-[11px] pl-1">행간</span>
             <button
               type="button"
-              onClick={() => handleStepLineHeight(-10)}
+              onMouseDown={(e) => { e.preventDefault(); handleStepLineHeight(-10); }}
               title="줄간격 10% 축소"
               className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
             >
@@ -439,9 +448,7 @@ export default function NoticeTab({
               <input
                 type="text"
                 value={lineHeightInput}
-                onFocus={() => {
-                  isLineHeightFocused.current = true;
-                }}
+                onFocus={() => { isLineHeightFocused.current = true; }}
                 onChange={(e) => setLineHeightInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -461,7 +468,7 @@ export default function NoticeTab({
             </div>
             <button
               type="button"
-              onClick={() => handleStepLineHeight(10)}
+              onMouseDown={(e) => { e.preventDefault(); handleStepLineHeight(10); }}
               title="줄간격 10% 확대"
               className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-slate-600 active:scale-95 transition-all cursor-pointer"
             >
@@ -469,21 +476,13 @@ export default function NoticeTab({
             </button>
             <select
               value={effectiveLineHeight}
-              onChange={(e) => {
-                const val = Number(e.target.value);
-                commitLineHeight(String(val));
-              }}
+              onChange={(e) => commitLineHeight(e.target.value)}
               title="줄간격 프리셋"
               className="w-4 bg-transparent border-l border-slate-200 text-transparent focus:outline-none cursor-pointer text-xs"
             >
-              <option value="110" className="text-slate-800">110%</option>
-              <option value="120" className="text-slate-800">120%</option>
-              <option value="130" className="text-slate-800">130%</option>
-              <option value="140" className="text-slate-800">140% (기본)</option>
-              <option value="150" className="text-slate-800">150%</option>
-              <option value="160" className="text-slate-800">160%</option>
-              <option value="180" className="text-slate-800">180%</option>
-              <option value="200" className="text-slate-800">200%</option>
+              {[110, 120, 130, 140, 150, 160, 180, 200].map((lh) => (
+                <option key={lh} value={lh} className="text-slate-800">{lh}%{lh === 140 ? " (기본)" : ""}</option>
+              ))}
             </select>
           </div>
 

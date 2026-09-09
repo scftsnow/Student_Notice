@@ -49,6 +49,7 @@ export default function FreeCardItem({
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const isFocused = useRef(false);
+  const hasInitialSelectionRef = useRef(false);
 
   const parsePercent = (val: string | undefined, fallback: number) => {
     if (!val) return fallback;
@@ -72,6 +73,30 @@ export default function FreeCardItem({
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+
+    const success = document.execCommand("insertText", false, text);
+    if (!success) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const textNode = document.createTextNode(text);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+    if (editorRef.current) {
+      onUpdate(card.id, editorRef.current.innerHTML);
+    }
   };
 
   const x = (parsePercent(card.left, 20) / 100) * containerSize.width;
@@ -108,12 +133,13 @@ export default function FreeCardItem({
         onSelect?.(card.id);
         if (!isEditing) {
           setIsEditing(true);
-          setTimeout(() => {
-            editorRef.current?.focus();
-            selectAllContent();
-          }, 30);
-        } else {
-          selectAllContent();
+          if (!hasInitialSelectionRef.current) {
+            hasInitialSelectionRef.current = true;
+            setTimeout(() => {
+              editorRef.current?.focus();
+              selectAllContent();
+            }, 30);
+          }
         }
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col bg-transparent ${
@@ -148,12 +174,17 @@ export default function FreeCardItem({
           onFocus={() => {
             isFocused.current = true;
             setIsEditing(true);
-            setTimeout(selectAllContent, 20);
+            if (!hasInitialSelectionRef.current) {
+              hasInitialSelectionRef.current = true;
+              setTimeout(selectAllContent, 20);
+            }
           }}
           onBlur={() => {
             isFocused.current = false;
+            hasInitialSelectionRef.current = false;
             setIsEditing(false);
           }}
+          onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
           className={`w-full h-full outline-none font-bold overflow-y-auto leading-relaxed tracking-tight ${
             isEditing ? "cursor-text select-text" : "select-none"

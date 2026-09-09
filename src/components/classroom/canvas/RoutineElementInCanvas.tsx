@@ -126,8 +126,9 @@ export default function RoutineElementInCanvas({
 
   const editableRef = useRef<HTMLDivElement>(null);
   const isComposing = useRef(false);
+  const hasInitialSelectionRef = useRef(false);
 
-  // 단일 contentEditable div의 내용에서 displayFormat 템플릿 추출
+  // 단일 contentEditable div의 내용에서 displayFormat 템플릿 추출 (\u200B 비가시 문자 정제)
   const extractTemplateFromDOM = (container: HTMLElement): string => {
     let result = "";
     for (const node of Array.from(container.childNodes)) {
@@ -139,7 +140,7 @@ export default function RoutineElementInCanvas({
         result += node.innerText ?? node.textContent ?? "";
       }
     }
-    return result;
+    return result.replace(/\u200B/g, "");
   };
 
   const handleUnifiedBlur = () => {
@@ -165,6 +166,13 @@ export default function RoutineElementInCanvas({
     sel?.addRange(range);
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+    document.execCommand("insertText", false, text);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -186,20 +194,23 @@ export default function RoutineElementInCanvas({
           }
         }}
         onFocus={() => {
-          setTimeout(selectAllRoutineText, 20);
-        }}
-        onClick={(e) => {
-          if (e.target === editableRef.current) {
-            selectAllRoutineText();
+          if (!hasInitialSelectionRef.current) {
+            hasInitialSelectionRef.current = true;
+            setTimeout(selectAllRoutineText, 20);
           }
         }}
-        onBlur={handleUnifiedBlur}
-        className={`outline-none focus:ring-1 focus:ring-indigo-300/40 rounded px-0.5 inline-flex items-center flex-wrap gap-0 ${
+        onBlur={() => {
+          hasInitialSelectionRef.current = false;
+          handleUnifiedBlur();
+        }}
+        onPaste={handlePaste}
+        className={`outline-none focus:ring-1 focus:ring-indigo-300/40 rounded px-1 inline-flex items-center flex-wrap gap-0 ${
           customColor ? "" : routineTextColor
         }`}
         style={customColor ? { color: customColor } : undefined}
         title="클릭하여 직접 편집 (학생 이름은 커서·블록 단위로 처리됨)"
       >
+        {"\u200B"}
         {segments.map((seg, sIdx) => {
           if (seg.type === "text") {
             return seg.text;
@@ -289,6 +300,7 @@ export default function RoutineElementInCanvas({
             </span>
           );
         })}
+        {"\u200B"}
       </div>
 
       {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}

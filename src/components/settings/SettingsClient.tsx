@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, Save, CheckCircle } from "lucide-react";
 import { updateClassSettings } from "@/app/actions";
 import type { ClassSetting } from "@/types";
-import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
+import { CLASSROOM_FONTS, DEFAULT_CLASSROOM_FONT } from "@/lib/classroomFonts";
 import ResetSection from "./ResetSection";
 
 interface SettingsClientProps {
@@ -14,7 +14,7 @@ interface SettingsClientProps {
 export default function SettingsClient({ initialSetting }: SettingsClientProps) {
   const [className, setClassName] = useState(initialSetting.className);
   const [currencyName, setCurrencyName] = useState(initialSetting.currencyName || "원");
-  const [defaultFontFamily, setDefaultFontFamily] = useState("pretendard");
+  const [defaultFontFamily, setDefaultFontFamily] = useState(DEFAULT_CLASSROOM_FONT.family);
   const [defaultTaxRate] = useState(
     Math.round(initialSetting.defaultTaxRate * 100)
   );
@@ -144,34 +144,14 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
             onChange={(e) => setDefaultFontFamily(e.target.value)}
             className="w-full p-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
           >
-            <optgroup label="고딕 / 본문 (가독성)">
-              {CLASSROOM_FONTS.filter((f) => f.category === "고딕").map((f) => (
-                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
-              ))}
-            </optgroup>
-            <optgroup label="학교 / 초등 판서 (출처 표기 불필요)">
-              {CLASSROOM_FONTS.filter((f) => f.category === "학교/손글씨").map((f) => (
-                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
-              ))}
-            </optgroup>
-            <optgroup label="둥근 고딕">
-              {CLASSROOM_FONTS.filter((f) => f.category === "둥근고딕").map((f) => (
-                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
-              ))}
-            </optgroup>
-            <optgroup label="명조">
-              {CLASSROOM_FONTS.filter((f) => f.category === "명조").map((f) => (
-                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
-              ))}
-            </optgroup>
-            <optgroup label="제목 / 디스플레이">
-              {CLASSROOM_FONTS.filter((f) => f.category === "제목").map((f) => (
-                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
-              ))}
-            </optgroup>
+            {CLASSROOM_FONTS.map((f) => (
+              <option key={f.id} value={f.family}>
+                {f.name} — {f.desc}
+              </option>
+            ))}
           </select>
           <p className="text-xs text-slate-400 mt-1">
-            전자칠판 및 알림장 화면 전반에 기본 적용되는 글꼴입니다 (출처 표기 의무 없는 완전 무료 오픈 폰트).
+            전자칠판 및 알림장 화면 전반에 기본 적용되는 글꼴입니다 (완전 무료 오픈 폰트).
           </p>
         </div>
 

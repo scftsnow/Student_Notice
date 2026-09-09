@@ -74,6 +74,15 @@
   font-display: swap;
 }
 
+/* 고양시 고양체 (공공누리 제1유형 무료) */
+@font-face {
+  font-family: 'Goyang';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Goyang.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
