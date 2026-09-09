@@ -46,6 +46,7 @@ interface BoardCanvasProps {
     fontSize?: number;
     align?: "left" | "center" | "right";
     lineHeight?: number;
+    fontFamily?: string;
     timestamp: number;
   } | null;
 }
@@ -84,6 +85,7 @@ export default function BoardCanvas({
   appliedStyle,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
+  const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
@@ -113,9 +115,11 @@ export default function BoardCanvas({
     return isNaN(num) ? fallback : num;
   };
 
-  // Load layout from localStorage
+  // Load layout and default font from localStorage
   useEffect(() => {
     try {
+      const savedFont = localStorage.getItem("classroom_default_font_family");
+      if (savedFont) setDefaultFontFamily(savedFont);
       const saved = localStorage.getItem("classroom_board_layouts");
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -123,6 +127,11 @@ export default function BoardCanvas({
           setLayouts(parsed);
         }
       }
+      const ch = new BroadcastChannel("classroom_os_sync");
+      ch.onmessage = (e) => {
+        if (e.data?.defaultFontFamily) setDefaultFontFamily(e.data.defaultFontFamily);
+      };
+      return () => ch.close();
     } catch {
       // Ignore parse errors
     }
@@ -147,75 +156,37 @@ export default function BoardCanvas({
   // 외부 툴바 스타일(크기, 색상, 정렬, 줄간격) 변경 적용
   useEffect(() => {
     if (!appliedStyle?.timestamp) return;
-    const { target, color, fontSize: styleFontSize, align, lineHeight } = appliedStyle;
-    const parsedLh =
-      lineHeight !== undefined ? (lineHeight > 10 ? lineHeight / 100 : lineHeight) : undefined;
+    const { target, color, fontSize: styleFontSize, align, lineHeight, fontFamily } = appliedStyle;
+    const parsedLh = lineHeight !== undefined ? (lineHeight > 10 ? lineHeight / 100 : lineHeight) : undefined;
+    const stylePatch = {
+      ...(color && { color }),
+      ...(styleFontSize && { fontSize: styleFontSize }),
+      ...(align && { align }),
+      ...(parsedLh !== undefined && { lineHeight: parsedLh }),
+      ...(fontFamily && { fontFamily }),
+    };
 
     updateLayouts((prev) => {
       if (target === "all") {
         return {
-          dateBox: {
-            ...prev.dateBox,
-            ...(color && { color }),
-            ...(styleFontSize && { fontSize: styleFontSize }),
-            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-          },
-          clockBox: {
-            ...prev.clockBox,
-            ...(color && { color }),
-            ...(styleFontSize && { fontSize: styleFontSize }),
-            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-          },
-          noticeBox: {
-            ...prev.noticeBox,
-            ...(color && { color }),
-            ...(styleFontSize && { fontSize: styleFontSize }),
-            ...(align && { align }),
-            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-          },
-          routineBox: {
-            ...prev.routineBox,
-            ...(color && { color }),
-            ...(styleFontSize && { fontSize: styleFontSize }),
-            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-          },
+          dateBox: { ...prev.dateBox, ...stylePatch },
+          clockBox: { ...prev.clockBox, ...stylePatch },
+          noticeBox: { ...prev.noticeBox, ...stylePatch },
+          routineBox: { ...prev.routineBox, ...stylePatch },
         };
       }
       if (target === "noticeBox" || target === "dateBox" || target === "clockBox" || target === "routineBox") {
         const current = prev[target as keyof BoardElementLayouts];
-        return {
-          ...prev,
-          [target]: {
-            ...current,
-            ...(color && { color }),
-            ...(styleFontSize && { fontSize: styleFontSize }),
-            ...(align && { align }),
-            ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-          },
-        };
+        return { ...prev, [target]: { ...current, ...stylePatch } };
       }
       return prev;
     });
 
     if (target === "all" || target === "freeCard") {
-      freeCards.forEach((c) => {
-        onUpdateFreeCard(c.id, c.html, {
-          ...(color && { color }),
-          ...(styleFontSize && { fontSize: styleFontSize }),
-          ...(align && { align }),
-          ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-        });
-      });
+      freeCards.forEach((c) => onUpdateFreeCard(c.id, c.html, stylePatch));
     } else {
       const fc = freeCards.find((c) => c.id === target);
-      if (fc) {
-        onUpdateFreeCard(fc.id, fc.html, {
-          ...(color && { color }),
-          ...(styleFontSize && { fontSize: styleFontSize }),
-          ...(align && { align }),
-          ...(parsedLh !== undefined && { lineHeight: parsedLh }),
-        });
-      }
+      if (fc) onUpdateFreeCard(fc.id, fc.html, stylePatch);
     }
   }, [appliedStyle, updateLayouts, freeCards, onUpdateFreeCard]);
 
@@ -300,7 +271,7 @@ export default function BoardCanvas({
           ref={containerRef}
           id="preview-16-9-wrapper"
           className="relative w-[75%] overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
-          style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
+          style={{ fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
         >
           <div className={`absolute inset-0 ${themeBg}`}>
 
@@ -333,7 +304,17 @@ export default function BoardCanvas({
             }}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
-            onClick={() => onSelectElement?.("dateBox")}
+            onClick={() => {
+              onSelectElement?.("dateBox");
+              const el = document.getElementById("canvas-date-text");
+              if (el) {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                const sel = window.getSelection();
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+              }
+            }}
             className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing ${
               targetElement === "dateBox"
                 ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
@@ -343,6 +324,7 @@ export default function BoardCanvas({
               fontSize: `${scaleFont(layouts.dateBox.fontSize || fontPx)}px`,
               color: layouts.dateBox.color || "inherit",
               textAlign: layouts.dateBox.align || "left",
+              fontFamily: layouts.dateBox.fontFamily || undefined,
             }}
           >
             <span id="canvas-date-text">
@@ -375,6 +357,7 @@ export default function BoardCanvas({
               fontSize: scaleFont(layouts.noticeBox.fontSize || fontPx),
               color: layouts.noticeBox.color,
               align: layouts.noticeBox.align,
+              fontFamily: layouts.noticeBox.fontFamily,
             }}
             containerSize={containerSize}
             isSelected={targetElement === "noticeBox"}
@@ -436,6 +419,7 @@ export default function BoardCanvas({
               fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
               color: layouts.routineBox.color || "inherit",
               textAlign: layouts.routineBox.align || "left",
+              fontFamily: layouts.routineBox.fontFamily || undefined,
               lineHeight: layouts.routineBox.lineHeight ? `${layouts.routineBox.lineHeight}` : "1.4",
             }}
           >

@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins, Minus, Plus } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins, Minus, Plus, Type } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
+import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 
 const TEXT_COLORS = [
   { label: "흰색", value: "#ffffff" },
@@ -26,6 +27,8 @@ interface NoticeTabProps {
   onApplyFontSize?: (size: number) => void;
   onApplyAlign?: (align: "left" | "center" | "right") => void;
   currentFontSize?: number;
+  currentFontFamily?: string;
+  onApplyFontFamily?: (fontFamily: string) => void;
   lineHeight?: number;
   onApplyLineHeight?: (lineHeight: number) => void;
   showEconomyShortcut?: boolean;
@@ -44,6 +47,8 @@ export default function NoticeTab({
   onApplyFontSize,
   onApplyAlign,
   currentFontSize,
+  currentFontFamily,
+  onApplyFontFamily,
   lineHeight = 140,
   onApplyLineHeight,
   showEconomyShortcut = false,
@@ -51,6 +56,47 @@ export default function NoticeTab({
   onOpenRoutineNoticeSettings,
 }: NoticeTabProps) {
   const lastRangeRef = useRef<Range | null>(null);
+
+  const selectedFontId =
+    CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id ||
+    "pretendard";
+
+  const applyFontFamilyToSelectionOrTarget = (fontId: string) => {
+    const fontObj = CLASSROOM_FONTS.find((f) => f.id === fontId);
+    const fontFamily = fontObj ? fontObj.family : "'Pretendard', sans-serif";
+
+    const sel = typeof window !== "undefined" ? window.getSelection() : null;
+    let range: Range | null = null;
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
+      range = sel.getRangeAt(0);
+    } else if (lastRangeRef.current) {
+      range = lastRangeRef.current;
+    }
+
+    if (range) {
+      try {
+        const span = document.createElement("span");
+        span.style.fontFamily = fontFamily;
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+        if (sel) {
+          sel.removeAllRanges();
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          sel.addRange(newRange);
+        }
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.getAttribute("contenteditable") === "true" || activeEl.hasAttribute("contenteditable"))) {
+          activeEl.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        return;
+      } catch {
+        // Fallback to applying on target element
+      }
+    }
+    onApplyFontFamily?.(fontFamily);
+  };
 
   // 구글 독스 스타일 글자 크기 숫자 입력 및 +/- 스테퍼 로직
   const effectiveFontSize = currentFontSize ?? (Number(fontSize) || 42);
@@ -199,6 +245,35 @@ export default function NoticeTab({
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
             <span className="w-2 h-2 rounded-full bg-indigo-600" />
             <span>선택: {getTargetLabel(targetElement)}</span>
+          </div>
+
+          <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
+
+          {/* 글꼴 드롭다운 */}
+          <div className="flex items-center gap-1">
+            <Type className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <select
+              value={selectedFontId}
+              onChange={(e) => applyFontFamilyToSelectionOrTarget(e.target.value)}
+              className="h-7 px-1.5 py-0.5 rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-700 focus:outline-none focus:border-indigo-400 cursor-pointer max-w-[130px] truncate shadow-2xs"
+              title="글꼴 변경 (블록 선택 시 해당 글자, 미선택 시 현재 요소 전체에 적용)"
+            >
+              <optgroup label="고딕 / 본문">
+                {CLASSROOM_FONTS.filter((f) => f.category === "고딕").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+              <optgroup label="학교 / 판서 (무료)">
+                {CLASSROOM_FONTS.filter((f) => f.category === "학교/손글씨").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+              <optgroup label="둥근 고딕">
+                {CLASSROOM_FONTS.filter((f) => f.category === "둥근고딕").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+              <optgroup label="명조">
+                {CLASSROOM_FONTS.filter((f) => f.category === "명조").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+              <optgroup label="제목 / 디스플레이">
+                {CLASSROOM_FONTS.filter((f) => f.category === "제목").map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+            </select>
           </div>
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />

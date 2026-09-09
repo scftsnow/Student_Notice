@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, Save, CheckCircle } from "lucide-react";
 import { updateClassSettings } from "@/app/actions";
 import type { ClassSetting } from "@/types";
+import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import ResetSection from "./ResetSection";
 
 interface SettingsClientProps {
@@ -13,6 +14,7 @@ interface SettingsClientProps {
 export default function SettingsClient({ initialSetting }: SettingsClientProps) {
   const [className, setClassName] = useState(initialSetting.className);
   const [currencyName, setCurrencyName] = useState(initialSetting.currencyName || "원");
+  const [defaultFontFamily, setDefaultFontFamily] = useState("pretendard");
   const [defaultTaxRate] = useState(
     Math.round(initialSetting.defaultTaxRate * 100)
   );
@@ -30,6 +32,8 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
 
   useEffect(() => {
     try {
+      const savedFont = localStorage.getItem("classroom_default_font_family");
+      if (savedFont) setDefaultFontFamily(savedFont);
       const savedRaw =
         localStorage.getItem("classroom_os_state_v3") ||
         localStorage.getItem("classroom_os_state_v2");
@@ -69,8 +73,9 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
           parsed.currencyName = currencyName;
           localStorage.setItem(key, JSON.stringify(parsed));
         }
+        localStorage.setItem("classroom_default_font_family", defaultFontFamily);
         const channel = new BroadcastChannel("classroom_os_sync");
-        channel.postMessage({ className, currencyName });
+        channel.postMessage({ className, currencyName, defaultFontFamily });
         channel.close();
       } catch {
         // Ignore
@@ -95,7 +100,7 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
             학급 기본 정보 설정
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            학급 명칭을 관리합니다 (화폐 단위 명칭 및 세율/급여 정책은 [학급 화폐]에서, 대타 관리는 [학생 업무]에서 설정합니다).
+            학급 명칭 및 칠판 기본 글꼴을 관리합니다 (화폐 및 세율/급여는 [학급 화폐], 대타는 [학생 업무]에서 설정).
           </p>
         </div>
       </div>
@@ -127,6 +132,47 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
             <span className="text-xs text-slate-400 whitespace-nowrap">화폐 기호 (예: 원)</span>
           </div>
           <p className="text-xs text-slate-400 mt-1">학급 경제 전반에서 표시될 화폐 단위 이름입니다.</p>
+        </div>
+
+        {/* Global Default Font Family */}
+        <div>
+          <label className="text-sm font-bold text-slate-700 block mb-1.5">
+            학급 칠판 기본 글꼴 (전역 설정)
+          </label>
+          <select
+            value={defaultFontFamily}
+            onChange={(e) => setDefaultFontFamily(e.target.value)}
+            className="w-full p-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+          >
+            <optgroup label="고딕 / 본문 (가독성)">
+              {CLASSROOM_FONTS.filter((f) => f.category === "고딕").map((f) => (
+                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
+              ))}
+            </optgroup>
+            <optgroup label="학교 / 초등 판서 (출처 표기 불필요)">
+              {CLASSROOM_FONTS.filter((f) => f.category === "학교/손글씨").map((f) => (
+                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
+              ))}
+            </optgroup>
+            <optgroup label="둥근 고딕">
+              {CLASSROOM_FONTS.filter((f) => f.category === "둥근고딕").map((f) => (
+                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
+              ))}
+            </optgroup>
+            <optgroup label="명조">
+              {CLASSROOM_FONTS.filter((f) => f.category === "명조").map((f) => (
+                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
+              ))}
+            </optgroup>
+            <optgroup label="제목 / 디스플레이">
+              {CLASSROOM_FONTS.filter((f) => f.category === "제목").map((f) => (
+                <option key={f.id} value={f.family}>{f.name} — {f.desc}</option>
+              ))}
+            </optgroup>
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            전자칠판 및 알림장 화면 전반에 기본 적용되는 글꼴입니다 (출처 표기 의무 없는 완전 무료 오픈 폰트).
+          </p>
         </div>
 
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">

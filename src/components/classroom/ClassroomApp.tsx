@@ -42,6 +42,7 @@ export default function ClassroomApp() {
     fontSize?: number;
     align?: "left" | "center" | "right";
     lineHeight?: number;
+    fontFamily?: string;
     timestamp: number;
   } | null>(null);
 
@@ -181,6 +182,9 @@ export default function ClassroomApp() {
               }
               onApplyAlign={(align) =>
                 setAppliedStyle({ target: targetElement, align, timestamp: Date.now() })
+              }
+              onApplyFontFamily={(fontFamily) =>
+                setAppliedStyle({ target: targetElement, fontFamily, timestamp: Date.now() })
               }
               onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
             />

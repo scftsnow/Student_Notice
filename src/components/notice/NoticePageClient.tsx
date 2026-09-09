@@ -33,6 +33,7 @@ export default function NoticePageClient() {
     fontSize?: number;
     align?: "left" | "center" | "right";
     lineHeight?: number;
+    fontFamily?: string;
     timestamp: number;
   } | null>(null);
 
@@ -130,6 +131,9 @@ export default function NoticePageClient() {
           }
           onApplyAlign={(align) =>
             setAppliedStyle({ target: targetElement, align, timestamp: Date.now() })
+          }
+          onApplyFontFamily={(fontFamily) =>
+            setAppliedStyle({ target: targetElement, fontFamily, timestamp: Date.now() })
           }
         />
         <BoardCanvas

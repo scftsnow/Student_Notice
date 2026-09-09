@@ -77,6 +77,7 @@ export interface FreeCardData {
   color?: string;
   fontSize?: number;
   lineHeight?: number | string;
+  fontFamily?: string;
 }
 
 export interface ElementLayout {
@@ -88,6 +89,7 @@ export interface ElementLayout {
   color?: string;
   align?: "left" | "center" | "right";
   lineHeight?: number | string;
+  fontFamily?: string;
   clockType?: "digital" | "analog";
   clockFormat?: "12h" | "24h";
 }

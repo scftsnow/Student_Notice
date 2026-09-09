@@ -156,6 +156,15 @@ export default function RoutineElementInCanvas({
     setActivePopupIndex(activePopupIndex === workerIdx ? null : workerIdx);
   };
 
+  const selectAllRoutineText = () => {
+    if (!editableRef.current) return;
+    const range = document.createRange();
+    range.selectNodeContents(editableRef.current);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -174,6 +183,14 @@ export default function RoutineElementInCanvas({
           if (e.key === "Enter" && !isComposing.current) {
             e.preventDefault();
             (e.target as HTMLElement).blur();
+          }
+        }}
+        onFocus={() => {
+          setTimeout(selectAllRoutineText, 20);
+        }}
+        onClick={(e) => {
+          if (e.target === editableRef.current) {
+            selectAllRoutineText();
           }
         }}
         onBlur={handleUnifiedBlur}

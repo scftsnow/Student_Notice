@@ -28,6 +28,7 @@ export default function BoardClient({
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
+  const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [layouts, setLayouts] = useState<BoardElementLayouts>({
     dateBox: { left: "2.5%", top: "3.0%", fontSize: 42 },
@@ -69,6 +70,8 @@ export default function BoardClient({
         if (Array.isArray(parsed.students)) setStudents(parsed.students);
         if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards);
       }
+      const savedFont = localStorage.getItem("classroom_default_font_family");
+      if (savedFont) setDefaultFontFamily(savedFont);
       const savedLayouts = localStorage.getItem("classroom_board_layouts");
       if (savedLayouts) {
         const parsedLayouts = JSON.parse(savedLayouts);
@@ -91,6 +94,7 @@ export default function BoardClient({
 
       if (data.fontSize !== undefined) setFontSize(Number(data.fontSize));
       if (data.theme !== undefined) setTheme(data.theme);
+      if (data.defaultFontFamily) setDefaultFontFamily(data.defaultFontFamily);
       if (Array.isArray(data.routines)) setRoutines(data.routines);
       if (Array.isArray(data.students)) setStudents(data.students);
       if (Array.isArray(data.freeCards)) setFreeCards(data.freeCards);
@@ -153,7 +157,7 @@ export default function BoardClient({
   return (
     <div
       className={`fixed inset-0 z-50 w-screen h-screen select-none overflow-hidden ${themeStyle.bg}`}
-      style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
+      style={{ fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       {/* 
         교사 미리보기(BoardCanvas)와 100% 동일한 절대 좌표 기반 글상자 배치
@@ -171,6 +175,7 @@ export default function BoardClient({
           fontSize: `${layouts.dateBox.fontSize || fontSize || 42}px`,
           color: layouts.dateBox.color || "inherit",
           textAlign: layouts.dateBox.align || "left",
+          fontFamily: layouts.dateBox.fontFamily || undefined,
         }}
       >
         {liveDateStr || `${initialDateStr} (${todayDayOfWeek})`}
@@ -248,6 +253,7 @@ export default function BoardClient({
                 ? layouts.noticeBox.lineHeight > 10 ? `${layouts.noticeBox.lineHeight / 100}` : `${layouts.noticeBox.lineHeight}`
                 : layouts.noticeBox.lineHeight
               : "1.4",
+            fontFamily: layouts.noticeBox.fontFamily || undefined,
             letterSpacing: "-0.02em",
           }}
           dangerouslySetInnerHTML={{
@@ -266,6 +272,7 @@ export default function BoardClient({
           height: layouts.routineBox.height,
           fontSize: `${layouts.routineBox.fontSize || fontSize || 42}px`,
           color: layouts.routineBox.color || "inherit",
+          fontFamily: layouts.routineBox.fontFamily || undefined,
           lineHeight: layouts.routineBox.lineHeight
             ? typeof layouts.routineBox.lineHeight === "number"
               ? layouts.routineBox.lineHeight > 10 ? `${layouts.routineBox.lineHeight / 100}` : `${layouts.routineBox.lineHeight}`
@@ -338,6 +345,7 @@ export default function BoardClient({
             fontSize: `${card.fontSize || fontSize || 42}px`,
             textAlign: card.align || "left",
             color: card.color || "inherit",
+            fontFamily: card.fontFamily || undefined,
           }}
           dangerouslySetInnerHTML={{ __html: card.html }}
         />

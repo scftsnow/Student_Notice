@@ -65,6 +65,15 @@ export default function FreeCardItem({
     }
   }, [card.html]);
 
+  const selectAllContent = () => {
+    if (!editorRef.current) return;
+    const range = document.createRange();
+    range.selectNodeContents(editorRef.current);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  };
+
   const x = (parsePercent(card.left, 20) / 100) * containerSize.width;
   const y = (parsePercent(card.top, 40) / 100) * containerSize.height;
   const width = card.width
@@ -99,7 +108,12 @@ export default function FreeCardItem({
         onSelect?.(card.id);
         if (!isEditing) {
           setIsEditing(true);
-          setTimeout(() => editorRef.current?.focus(), 20);
+          setTimeout(() => {
+            editorRef.current?.focus();
+            selectAllContent();
+          }, 30);
+        } else {
+          selectAllContent();
         }
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col bg-transparent ${
@@ -134,6 +148,7 @@ export default function FreeCardItem({
           onFocus={() => {
             isFocused.current = true;
             setIsEditing(true);
+            setTimeout(selectAllContent, 20);
           }}
           onBlur={() => {
             isFocused.current = false;
@@ -147,6 +162,7 @@ export default function FreeCardItem({
             fontSize: `${card.fontSize || 42}px`,
             textAlign: card.align || "left",
             color: card.color || "inherit",
+            fontFamily: card.fontFamily || undefined,
             lineHeight: card.lineHeight
               ? typeof card.lineHeight === "number"
                 ? card.lineHeight > 10 ? `${card.lineHeight / 100}` : `${card.lineHeight}`
