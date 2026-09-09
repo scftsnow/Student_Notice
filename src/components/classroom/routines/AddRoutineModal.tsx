@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { X } from "lucide-react";
 import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 interface AddRoutineModalProps {
@@ -145,9 +146,9 @@ export default function AddRoutineModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 font-bold text-xl leading-none"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg transition-colors leading-none"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -275,10 +276,10 @@ export default function AddRoutineModal({
                         e.stopPropagation();
                         handleRemoveAt(idx);
                       }}
-                      className="ml-0.5 text-white/60 hover:text-white font-bold leading-none transition-colors"
+                      className="ml-0.5 text-white/70 hover:text-white transition-colors"
                       title="순번에서 제거"
                     >
-                      ✕
+                      <X className="w-3 h-3" />
                     </button>
                   </div>
                 ))
