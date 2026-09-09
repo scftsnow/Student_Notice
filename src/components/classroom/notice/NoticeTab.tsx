@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import { AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
 
@@ -39,14 +40,47 @@ export default function NoticeTab({
   onApplyAlign,
   currentFontSize,
 }: NoticeTabProps) {
+  const lastRangeRef = useRef<Range | null>(null);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
+        lastRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, []);
+
+  const getTargetLabel = (target?: BoardTargetElement) => {
+    if (!target || target === "noticeBox") return "알림장 본문";
+    if (target === "dateBox") return "날짜";
+    if (target === "clockBox") return "시간";
+    if (target === "routineBox") return "학생 업무";
+    if (target.startsWith("free-") || target === "freeCard") return "자유 글상자";
+    if (target === "all") return "전체";
+    return "선택 요소";
+  };
+
   const execCmd = (cmd: string, value?: string) => {
     document.execCommand(cmd, false, value ?? "");
   };
 
   const applyColorToSelectionOrTarget = (color: string) => {
     const sel = typeof window !== "undefined" ? window.getSelection() : null;
-    const hasSelection = Boolean(sel && !sel.isCollapsed && sel.toString().trim().length > 0);
-    if (hasSelection) {
+    let range: Range | null = null;
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
+      range = sel.getRangeAt(0);
+    } else if (lastRangeRef.current) {
+      range = lastRangeRef.current;
+    }
+
+    if (range) {
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
       document.execCommand("styleWithCSS", false, "true");
       document.execCommand("foreColor", false, color);
       const activeEl = document.activeElement;
@@ -61,19 +95,26 @@ export default function NoticeTab({
   const applyFontSizeToSelectionOrTarget = (sz: NoticeFontSize) => {
     onFontSizeChange(sz);
     const sel = typeof window !== "undefined" ? window.getSelection() : null;
-    const hasSelection = Boolean(sel && !sel.isCollapsed && sel.toString().trim().length > 0);
-    if (hasSelection && sel && sel.rangeCount > 0) {
+    let range: Range | null = null;
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
+      range = sel.getRangeAt(0);
+    } else if (lastRangeRef.current) {
+      range = lastRangeRef.current;
+    }
+
+    if (range) {
       try {
-        const range = sel.getRangeAt(0);
         const span = document.createElement("span");
         span.style.fontSize = `${sz}px`;
         const contents = range.extractContents();
         span.appendChild(contents);
         range.insertNode(span);
-        sel.removeAllRanges();
-        const newRange = document.createRange();
-        newRange.selectNodeContents(span);
-        sel.addRange(newRange);
+        if (sel) {
+          sel.removeAllRanges();
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          sel.addRange(newRange);
+        }
         const activeEl = document.activeElement;
         if (activeEl && (activeEl.getAttribute("contenteditable") === "true" || activeEl.hasAttribute("contenteditable"))) {
           activeEl.dispatchEvent(new Event("input", { bubbles: true }));
@@ -91,41 +132,10 @@ export default function NoticeTab({
       {/* 상단 통합 편집 툴바 */}
       <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          {/* 대상 요소 선택 (알림장, 날짜, 시간, 학생 업무, 전체) */}
-          <div className="flex items-center gap-1">
-            <span className="text-slate-400 font-bold">대상:</span>
-            <div className="inline-flex p-0.5 bg-slate-200/80 rounded-lg text-[11px] font-bold">
-              {(
-                [
-                  { id: "noticeBox", label: "알림장" },
-                  { id: "dateBox", label: "날짜" },
-                  { id: "clockBox", label: "시간" },
-                  { id: "routineBox", label: "학생 업무" },
-                  { id: "freeCard", label: "자유글" },
-                  { id: "all", label: "전체" },
-                ] as const
-              ).map((item) => {
-                const isActive =
-                  item.id === "freeCard"
-                    ? targetElement === "freeCard" || Boolean(targetElement?.startsWith("free-"))
-                    : targetElement === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => onTargetElementChange?.(item.id)}
-                    className={`px-2 py-0.5 rounded transition-all ${
-                      isActive
-                        ? "bg-white text-indigo-700 shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
+          {/* 현재 선택된 요소 안내 뱃지 */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
+            <span className="w-2 h-2 rounded-full bg-indigo-600" />
+            <span>선택: {getTargetLabel(targetElement)}</span>
           </div>
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />

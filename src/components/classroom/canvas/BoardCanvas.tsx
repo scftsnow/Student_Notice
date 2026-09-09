@@ -322,10 +322,10 @@ export default function BoardCanvas({
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("dateBox")}
-            className={`z-10 group rounded-xl border transition-colors font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing bg-transparent ${
+            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing ${
               targetElement === "dateBox"
-                ? "border-transparent hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30"
-                : "border-transparent hover:border-white/30"
+                ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
+                : "border-transparent hover:border-white/30 bg-transparent"
             }`}
             style={{
               fontSize: `${scaleFont(layouts.dateBox.fontSize || fontPx)}px`,
@@ -369,10 +369,10 @@ export default function BoardCanvas({
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("clockBox")}
-            className={`z-10 group rounded-xl border transition-colors font-mono font-black tracking-wider whitespace-nowrap opacity-90 cursor-grab active:cursor-grabbing bg-transparent ${
+            className={`z-10 group rounded-xl border transition-all font-mono font-black tracking-wider whitespace-nowrap opacity-90 cursor-grab active:cursor-grabbing ${
               targetElement === "clockBox"
-                ? "border-transparent hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30"
-                : "border-transparent hover:border-white/30"
+                ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
+                : "border-transparent hover:border-white/30 bg-transparent"
             }`}
             style={{
               fontSize: `${scaleFont(layouts.clockBox.fontSize || fontPx)}px`,
@@ -449,10 +449,10 @@ export default function BoardCanvas({
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("routineBox")}
-            className={`z-10 group rounded-xl border transition-colors font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing bg-transparent ${
+            className={`z-10 group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing ${
               targetElement === "routineBox"
-                ? "border-transparent hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30"
-                : "border-transparent hover:border-white/30"
+                ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
+                : "border-transparent hover:border-white/30 bg-transparent"
             }`}
             style={{
               fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
