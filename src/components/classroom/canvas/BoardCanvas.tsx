@@ -424,10 +424,10 @@ export default function BoardCanvas({
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("routineBox")}
-            className={`z-10 group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing ${
+            className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing ${
               targetElement === "routineBox"
-                ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
-                : "border-transparent hover:border-white/30 bg-transparent"
+                ? "z-30 border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
+                : "z-10 border-transparent hover:border-white/30 bg-transparent"
             }`}
             style={{
               fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
