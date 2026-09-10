@@ -48,8 +48,10 @@ export default function FreeCardItem({
 }: FreeCardItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  // isFocused: tracks whether the contentEditable div currently has browser focus
+  // true  = consecutive click  -> let browser place cursor naturally
+  // false = non-consecutive click -> select all on first entry
   const isFocused = useRef(false);
-  const hasInitialSelectionRef = useRef(false);
 
   const parsePercent = (val: string | undefined, fallback: number) => {
     if (!val) return fallback;
@@ -66,12 +68,12 @@ export default function FreeCardItem({
     }
   }, [card.html]);
 
-  // Reset selection state when card loses edit focus or is deselected
+  // Exit edit mode when card is deselected from outside
   useEffect(() => {
-    if (!isSelected || !isEditing) {
-      hasInitialSelectionRef.current = false;
+    if (!isSelected) {
+      setIsEditing(false);
     }
-  }, [isSelected, isEditing]);
+  }, [isSelected]);
 
   const selectAllContent = () => {
     if (!editorRef.current) return;
@@ -136,17 +138,20 @@ export default function FreeCardItem({
         const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
         onUpdate(card.id, card.html, { width: w, height: h, left, top });
       }}
-      onClick={() => {
+      onClick={(e: React.MouseEvent) => {
         onSelect?.(card.id);
-        if (!isEditing) {
+        // Non-consecutive click: editor not yet focused -> enter edit mode + select all
+        // Consecutive click: already focused -> do nothing, let browser handle cursor placement
+        if (!isFocused.current) {
+          e.preventDefault();
           setIsEditing(true);
-          if (!hasInitialSelectionRef.current) {
-            hasInitialSelectionRef.current = true;
-            setTimeout(() => {
-              editorRef.current?.focus();
-              selectAllContent();
-            }, 30);
-          }
+          setTimeout(() => {
+            editorRef.current?.focus();
+            selectAllContent();
+          }, 30);
+        } else if (!isEditing) {
+          // Fallback: focused but isEditing flag not yet set
+          setIsEditing(true);
         }
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col bg-transparent ${
