@@ -173,6 +173,7 @@ export default function NoticePageClient() {
           previewScale={previewScale}
           onPreviewScaleChange={handlePreviewScaleChange}
           routines={state.routines}
+          onUpdateRoutine={state.updateRoutine}
         />
         <BoardCanvas
           theme={state.theme}

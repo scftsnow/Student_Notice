@@ -43,6 +43,12 @@ export default function EconomyBoardClient({
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.title = `${className ? `${className} ` : ""}${currencyName} 현황판`;
+    }
+  }, [className, currencyName]);
+
   // localStorage 하이드레이션 및 BroadcastChannel 실시간 수신
   useEffect(() => {
     try {
@@ -157,7 +163,7 @@ export default function EconomyBoardClient({
           <div className="flex items-center gap-2">
             <Coins className="w-7 h-7" />
             <h1 className="font-extrabold text-xl sm:text-2xl tracking-tight">
-              {className} 학급 화폐 현황판
+              {className ? `${className} ` : ""}{currencyName} 현황판
             </h1>
           </div>
 

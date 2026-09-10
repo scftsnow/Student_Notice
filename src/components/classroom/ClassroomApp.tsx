@@ -222,6 +222,7 @@ export default function ClassroomApp() {
               previewScale={previewScale}
               onPreviewScaleChange={handlePreviewScaleChange}
               routines={state.routines}
+              onUpdateRoutine={state.updateRoutine}
             />
             <BoardCanvas
               theme={state.theme}

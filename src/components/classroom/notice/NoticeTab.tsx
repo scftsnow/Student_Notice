@@ -42,6 +42,7 @@ interface NoticeTabProps {
   previewScale?: number;
   onPreviewScaleChange?: (scale: number) => void;
   routines?: ClassroomRoutine[];
+  onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
 }
 
 export default function NoticeTab({
@@ -71,6 +72,7 @@ export default function NoticeTab({
   previewScale = 75,
   onPreviewScaleChange,
   routines,
+  onUpdateRoutine,
 }: NoticeTabProps) {
   const {
     getEffectiveRange,
@@ -325,10 +327,7 @@ export default function NoticeTab({
               <button
                 key={c.value}
                 type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  applyColorToSelectionOrTarget(c.value);
-                }}
+                onMouseDown={(e) => { e.preventDefault(); applyColorToSelectionOrTarget(c.value); }}
                 title={c.label}
                 className="w-5 h-5 rounded-full border-2 border-white ring-1 ring-slate-300 hover:ring-indigo-400 hover:scale-110 transition-all shrink-0"
                 style={{ backgroundColor: c.value }}
@@ -534,9 +533,10 @@ export default function NoticeTab({
           onToggleFreeCardVisibility={onToggleFreeCardVisibility}
           onUpdateFreeCard={onUpdateFreeCard}
           onAddFreeCard={onAddFreeCard}
+          routines={routines}
+          onUpdateRoutine={onUpdateRoutine}
         />
       )}
     </div>
   );
 }
-

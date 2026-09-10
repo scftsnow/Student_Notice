@@ -6,7 +6,6 @@ import {
   Calendar,
   Clock,
   FileText,
-  CheckSquare,
   Coins,
   SquarePen,
   Plus,
@@ -15,7 +14,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { BoardElementLayouts, FreeCardData } from "@/types/classroom";
+import { BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
 import { formatVisibleDays } from "@/lib/boardDefaults";
 
 interface NoticeBoxVisibilityBarProps {
@@ -27,18 +26,15 @@ interface NoticeBoxVisibilityBarProps {
   onToggleFreeCardVisibility?: (id: string, visible: boolean) => void;
   onUpdateFreeCard?: (id: string, html: string, updates?: Partial<FreeCardData>) => void;
   onAddFreeCard?: () => void;
+  routines?: ClassroomRoutine[];
+  onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
 }
 
-type StandardBoxKey = "dateBox" | "clockBox" | "noticeBox" | "routineBox";
+type StandardBoxKey = "dateBox" | "clockBox" | "noticeBox";
 
 const DAYS_BUTTONS = [
-  { day: 1, label: "월" },
-  { day: 2, label: "화" },
-  { day: 3, label: "수" },
-  { day: 4, label: "목" },
-  { day: 5, label: "금" },
-  { day: 6, label: "토" },
-  { day: 0, label: "일" },
+  { day: 1, label: "월" }, { day: 2, label: "화" }, { day: 3, label: "수" },
+  { day: 4, label: "목" }, { day: 5, label: "금" }, { day: 6, label: "토" }, { day: 0, label: "일" },
 ];
 
 export default function NoticeBoxVisibilityBar({
@@ -50,6 +46,8 @@ export default function NoticeBoxVisibilityBar({
   onToggleFreeCardVisibility,
   onUpdateFreeCard,
   onAddFreeCard,
+  routines = [],
+  onUpdateRoutine,
 }: NoticeBoxVisibilityBarProps) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>("");
@@ -57,7 +55,7 @@ export default function NoticeBoxVisibilityBar({
   const [scheduleTarget, setScheduleTarget] = useState<{
     id: string;
     name: string;
-    isFreeCard: boolean;
+    type: "standard" | "freeCard" | "routine";
     visibleDays?: number[];
   } | null>(null);
   const [tempDays, setTempDays] = useState<number[]>([]);
@@ -73,6 +71,16 @@ export default function NoticeBoxVisibilityBar({
           visible: nextVisible,
         },
       };
+    });
+  };
+
+  const toggleRoutine = (r: ClassroomRoutine, nextVisible: boolean) => {
+    onUpdateRoutine?.(r.id, {
+      visibleInNotice: nextVisible,
+      layout: {
+        ...r.layout,
+        visible: nextVisible,
+      },
     });
   };
 
@@ -105,8 +113,21 @@ export default function NoticeBoxVisibilityBar({
     setEditingKey(null);
   };
 
-  const openScheduleModal = (id: string, name: string, isFreeCard: boolean, visibleDays?: number[]) => {
-    setScheduleTarget({ id, name, isFreeCard, visibleDays });
+  const finishRenameRoutine = (r: ClassroomRoutine) => {
+    const trimmed = editingText.trim();
+    if (trimmed && onUpdateRoutine) {
+      onUpdateRoutine(r.id, { name: trimmed });
+    }
+    setEditingKey(null);
+  };
+
+  const openScheduleModal = (
+    id: string,
+    name: string,
+    type: "standard" | "freeCard" | "routine",
+    visibleDays?: number[]
+  ) => {
+    setScheduleTarget({ id, name, type, visibleDays });
     setTempDays(visibleDays ? [...visibleDays] : []);
   };
 
@@ -120,10 +141,20 @@ export default function NoticeBoxVisibilityBar({
     if (!scheduleTarget) return;
     const finalDays = tempDays.length === 0 || tempDays.length === 7 ? undefined : tempDays;
 
-    if (scheduleTarget.isFreeCard) {
+    if (scheduleTarget.type === "freeCard") {
       const card = freeCards.find((c) => c.id === scheduleTarget.id);
       if (card && onUpdateFreeCard) {
         onUpdateFreeCard(card.id, card.html, { visibleDays: finalDays });
+      }
+    } else if (scheduleTarget.type === "routine") {
+      const r = routines.find((item) => item.id === scheduleTarget.id);
+      if (r && onUpdateRoutine) {
+        onUpdateRoutine(r.id, {
+          layout: {
+            ...r.layout,
+            visibleDays: finalDays,
+          },
+        });
       }
     } else {
       const boxKey = scheduleTarget.id as StandardBoxKey;
@@ -152,7 +183,6 @@ export default function NoticeBoxVisibilityBar({
     { key: "dateBox", defaultName: "날짜", icon: Calendar, colorClass: "text-indigo-500" },
     { key: "clockBox", defaultName: "시각", icon: Clock, colorClass: "text-blue-500" },
     { key: "noticeBox", defaultName: "알림장 본문", icon: FileText, colorClass: "text-emerald-500" },
-    { key: "routineBox", defaultName: "학생 업무", icon: CheckSquare, colorClass: "text-amber-500" },
   ];
 
   return (
@@ -223,7 +253,81 @@ export default function NoticeBoxVisibilityBar({
               {/* 요일 자동 표시 버튼 & 뱃지 */}
               <button
                 type="button"
-                onClick={() => openScheduleModal(key, displayName, false, box?.visibleDays)}
+                onClick={() => openScheduleModal(key, displayName, "standard", box?.visibleDays)}
+                className={`p-0.5 rounded transition-colors flex items-center gap-0.5 ${
+                  scheduleText
+                    ? "text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 border border-indigo-200 font-bold text-[10px]"
+                    : "text-slate-400 hover:text-slate-700"
+                }`}
+                title={scheduleText ? `표시 요일: ${scheduleText}` : "요일별 자동 표시 설정"}
+              >
+                <CalendarDays className="w-3 h-3 shrink-0" />
+                {scheduleText && <span>{scheduleText}</span>}
+              </button>
+            </div>
+          );
+        })}
+
+        {/* 4. 업무 루틴 개별 관리 항목들 */}
+        {routines.map((r) => {
+          const isVisible = r.layout?.visible !== undefined ? r.layout.visible : (r.visibleInNotice !== false);
+          const displayName = r.name;
+          const isEditing = editingKey === r.id;
+          const scheduleText = formatVisibleDays(r.layout?.visibleDays);
+
+          return (
+            <div
+              key={r.id}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-2xs ${
+                isVisible
+                  ? "bg-white border-slate-200 text-slate-700"
+                  : "bg-slate-100 border-slate-200 text-slate-400"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={isVisible}
+                onChange={(e) => toggleRoutine(r, e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                title={`${displayName} 칠판 표시/숨김 토글`}
+              />
+              <span className="text-xs shrink-0 select-none">{r.icon || "📌"}</span>
+
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editingText}
+                  autoFocus
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onBlur={() => finishRenameRoutine(r)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") finishRenameRoutine(r);
+                    if (e.key === "Escape") setEditingKey(null);
+                  }}
+                  className="w-20 px-1 py-0.5 border border-indigo-300 rounded text-xs bg-white text-slate-800 font-bold focus:outline-none"
+                />
+              ) : (
+                <span
+                  onDoubleClick={() => startRename(r.id, displayName)}
+                  className="cursor-pointer hover:underline flex items-center gap-1 select-none max-w-[120px] truncate"
+                  title="더블클릭하여 업무 이름 변경"
+                >
+                  <span className="truncate">{displayName}</span>
+                  <button
+                    type="button"
+                    onClick={() => startRename(r.id, displayName)}
+                    className="p-0.5 hover:text-indigo-600 text-slate-300 transition-colors"
+                    title="이름 수정"
+                  >
+                    <Pencil className="w-2.5 h-2.5" />
+                  </button>
+                </span>
+              )}
+
+              {/* 요일 자동 표시 버튼 & 뱃지 */}
+              <button
+                type="button"
+                onClick={() => openScheduleModal(r.id, displayName, "routine", r.layout?.visibleDays)}
                 className={`p-0.5 rounded transition-colors flex items-center gap-0.5 ${
                   scheduleText
                     ? "text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 border border-indigo-200 font-bold text-[10px]"
@@ -313,7 +417,7 @@ export default function NoticeBoxVisibilityBar({
               {/* 요일 자동 표시 버튼 & 뱃지 */}
               <button
                 type="button"
-                onClick={() => openScheduleModal(card.id, displayName, true, card.visibleDays)}
+                onClick={() => openScheduleModal(card.id, displayName, "freeCard", card.visibleDays)}
                 className={`p-0.5 rounded transition-colors flex items-center gap-0.5 ${
                   scheduleText
                     ? "text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 border border-indigo-200 font-bold text-[10px]"
@@ -395,38 +499,21 @@ export default function NoticeBoxVisibilityBar({
 
             {/* 빠른 프리셋 버튼 */}
             <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setTempDays([1, 2, 3, 4, 5])}
-                className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors"
-              >
+              <button type="button" onClick={() => setTempDays([1, 2, 3, 4, 5])} className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors">
                 평일 (월~금)
               </button>
-              <button
-                type="button"
-                onClick={() => setTempDays([])}
-                className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors"
-              >
+              <button type="button" onClick={() => setTempDays([])} className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors">
                 매일 (항상 표시)
               </button>
             </div>
 
             {/* 하단 제어 버튼 */}
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setScheduleTarget(null)}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
-              >
+              <button type="button" onClick={() => setScheduleTarget(null)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors">
                 취소
               </button>
-              <button
-                type="button"
-                onClick={saveSchedule}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>저장 완료</span>
+              <button type="button" onClick={saveSchedule} className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors">
+                <Check className="w-3.5 h-3.5" /><span>저장 완료</span>
               </button>
             </div>
           </div>
