@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff, RefreshCw, X, Coins, ArrowRight, CheckSquare, User, ChevronRight } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
@@ -41,21 +41,8 @@ export default function RoutineElementInCanvas({
     setMounted(true);
   }, []);
 
-  const workerColor =
-    theme === "white"
-      ? "text-indigo-700"
-      : theme === "warm"
-      ? "text-rose-700"
-      : "text-amber-300";
-
-  const routineTextColor =
-    theme === "white"
-      ? "text-slate-900"
-      : theme === "warm"
-      ? "text-amber-950"
-      : theme === "navy"
-      ? "text-slate-200"
-      : "text-white/90";
+  const workerColor = theme === "white" ? "text-indigo-700" : theme === "warm" ? "text-rose-700" : "text-amber-300";
+  const routineTextColor = theme === "white" ? "text-slate-900" : theme === "warm" ? "text-amber-950" : theme === "navy" ? "text-slate-200" : "text-white/90";
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -116,6 +103,119 @@ export default function RoutineElementInCanvas({
     routine.icon
   );
 
+  const isFocusedRef = useRef(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const editableRef = useRef<HTMLDivElement>(null);
+
+  const escapeHtml = (str: string): string => {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  const routineHtml = useMemo(() => {
+    return segments
+      .map((seg) => {
+        if (seg.type === "text") {
+          return `<span class="whitespace-pre">${escapeHtml(seg.text)}</span>`;
+        }
+        const workerIdx = seg.workerIndex ?? 0;
+        const originalName = rawWorkers[workerIdx] || "";
+        const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
+        const currentWorker = isSubstituted ? pinchHitter : originalName;
+        const colorCls = isSubstituted
+          ? "text-amber-400 decoration-amber-400"
+          : customColor
+          ? ""
+          : workerColor;
+        const style = customColor && !isSubstituted ? `style="color:${customColor};"` : "";
+        return `<span data-worker-index="${workerIdx}" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
+          currentWorker || "당번"
+        )} — 클릭: 급여·대타 메뉴">${escapeHtml(seg.text)}</span>`;
+      })
+      .join("");
+  }, [segments, rawWorkers, pinchHitter, customColor, workerColor]);
+
+  // 포커스 해제 상태일 때만 DOM innerHTML 동기화 (React 가상 DOM 충돌 방지)
+  useEffect(() => {
+    if (editableRef.current && !isFocusedRef.current) {
+      editableRef.current.innerHTML = routineHtml;
+    }
+  }, [routineHtml]);
+
+  const extractTemplateFromDOM = (container: HTMLElement): string => {
+    let result = "";
+    for (const node of Array.from(container.childNodes)) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        result += node.textContent ?? "";
+      } else if (node instanceof HTMLElement && node.dataset.workerIndex !== undefined) {
+        result += "?";
+      } else if (node instanceof HTMLElement) {
+        if (node.querySelector("[data-worker-index]")) {
+          result += "?";
+        } else {
+          result += node.innerText ?? node.textContent ?? "";
+        }
+      }
+    }
+    return result.replace(/\u200B/g, "").trim();
+  };
+
+  const handleBlur = () => {
+    isFocusedRef.current = false;
+    setIsEditing(false);
+    if (!editableRef.current || !onUpdateRoutine) return;
+    const newTemplate = extractTemplateFromDOM(editableRef.current);
+    if (newTemplate && newTemplate !== (routine.displayFormat ?? "")) {
+      onUpdateRoutine(routine.id, { displayFormat: newTemplate });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      editableRef.current?.blur();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    if (!text) return;
+    document.execCommand("insertText", false, text);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const workerSpan = target.closest("[data-worker-index]") as HTMLElement | null;
+    if (workerSpan) {
+      e.stopPropagation();
+      const workerIdx = parseInt(workerSpan.dataset.workerIndex || "0", 10);
+      handleWorkerSpanClick(e, workerIdx);
+      return;
+    }
+
+    // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
+    if (!isFocusedRef.current) {
+      setIsEditing(true);
+      isFocusedRef.current = true;
+      setTimeout(() => {
+        if (editableRef.current) {
+          editableRef.current.focus();
+          const range = document.createRange();
+          range.selectNodeContents(editableRef.current);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+        }
+      }, 30);
+    }
+    // 연속 클릭: 이미 포커스된 상태에서는 브라우저 기본 커서 이동
+  };
+
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
   const handleWorkerSpanClick = (e: React.MouseEvent, workerIdx: number) => {
     e.stopPropagation();
@@ -144,45 +244,25 @@ export default function RoutineElementInCanvas({
       style={{ fontSize: "inherit" }}
     >
       <div
-        className={`outline-none rounded px-1 inline-flex items-center flex-wrap gap-0 select-none ${
-          customColor ? "" : routineTextColor
-        }`}
+        ref={editableRef}
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        onFocus={() => {
+          isFocusedRef.current = true;
+          setIsEditing(true);
+        }}
+        onBlur={handleBlur}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        className={`outline-none rounded px-1 inline-flex items-center flex-wrap gap-0 transition-all ${
+          isEditing
+            ? "cursor-text select-text ring-1 ring-indigo-400/50 bg-black/10"
+            : "cursor-pointer select-none"
+        } ${customColor ? "" : routineTextColor}`}
         style={customColor ? { color: customColor } : undefined}
-      >
-        {segments.map((seg, sIdx) => {
-          if (seg.type === "text") {
-            return (
-              <span key={`text-${sIdx}`} className="whitespace-pre">
-                {seg.text}
-              </span>
-            );
-          }
-
-          const workerIdx = seg.workerIndex ?? 0;
-          const originalName = rawWorkers[workerIdx] || "";
-          const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
-          const currentWorker = isSubstituted ? pinchHitter : originalName;
-
-          return (
-            <span
-              key={`worker-${workerIdx}-${sIdx}`}
-              data-worker-index={workerIdx}
-              onClick={(e) => handleWorkerSpanClick(e, workerIdx)}
-              className={`font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${
-                isSubstituted
-                  ? "text-amber-400 decoration-amber-400"
-                  : customColor
-                  ? ""
-                  : workerColor
-              }`}
-              style={customColor && !isSubstituted ? { color: customColor } : undefined}
-              title={`${currentWorker || "당번"} — 클릭: 급여·대타 메뉴`}
-            >
-              {seg.text}
-            </span>
-          );
-        })}
-      </div>
+        title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 전체 선택 / 당번 클릭: 급여·대타 메뉴"}
+      />
 
       {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
       {mounted && contextMenu && createPortal(
@@ -190,17 +270,8 @@ export default function RoutineElementInCanvas({
           {/* 전체화면 투명 백드롭 (뒤쪽 알림장 및 글상자 클릭 차단) */}
           <div
             className="fixed inset-0 z-[99998]"
-            onClick={(e) => {
-              e.stopPropagation();
-              setContextMenu(null);
-              setPinchSubmenuOpen(false);
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setContextMenu(null);
-              setPinchSubmenuOpen(false);
-            }}
+            onClick={(e) => { e.stopPropagation(); setContextMenu(null); setPinchSubmenuOpen(false); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu(null); setPinchSubmenuOpen(false); }}
           />
 
           {/* 컨텍스트 메뉴 창 */}
@@ -208,10 +279,7 @@ export default function RoutineElementInCanvas({
             className="fixed z-[99999] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl text-white text-xs overflow-hidden select-none"
             style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 210 }}
             onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
             {/* 헤더 */}
             <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
@@ -225,19 +293,12 @@ export default function RoutineElementInCanvas({
                 <button
                   type="button"
                   disabled={routine.pay <= 0 || rawWorkers.length === 0}
-                  onClick={() => {
-                    onPayRoutineToday(routine.id, undefined, false);
-                    setContextMenu(null);
-                  }}
+                  onClick={() => { onPayRoutineToday(routine.id, undefined, false); setContextMenu(null); }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
                 >
                   <Coins className="w-3.5 h-3.5 text-amber-400" />
                   <span className="font-semibold">이 업무 급여 지급</span>
-                  {routine.pay > 0 && (
-                    <span className="ml-auto text-amber-300 font-bold">
-                      {routine.pay.toLocaleString()}{currencyName}
-                    </span>
-                  )}
+                  {routine.pay > 0 && <span className="ml-auto text-amber-300 font-bold">{routine.pay.toLocaleString()}{currencyName}</span>}
                 </button>
               )}
 
@@ -358,17 +419,8 @@ export default function RoutineElementInCanvas({
               {/* 전체화면 투명 백드롭 (외부 클릭 시 팝업 닫기) */}
               <div
                 className="fixed inset-0 z-[99998]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActivePopupIndex(null);
-                  setWorkerPopupPos(null);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setActivePopupIndex(null);
-                  setWorkerPopupPos(null);
-                }}
+                onClick={(e) => { e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }}
               />
 
               {/* 당번 급여 및 대타 팝오버 창 */}
@@ -376,10 +428,7 @@ export default function RoutineElementInCanvas({
                 className="fixed z-[99999] min-w-[220px] max-w-[280px] bg-slate-900 border border-slate-700 rounded-2xl p-3 shadow-2xl text-xs space-y-2.5 text-white select-none"
                 style={{ left: workerPopupPos.x, top: workerPopupPos.y }}
                 onClick={(e) => e.stopPropagation()}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
               >
                 <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
                   <span className="font-extrabold text-white flex items-center gap-1">

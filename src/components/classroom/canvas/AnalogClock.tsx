@@ -30,11 +30,11 @@ export default function AnalogClock({
   const minuteAngle = (minutes + seconds / 60) * 6;
   const hourAngle = ((hours % 12) + minutes / 60 + seconds / 3600) * 30;
 
-  // 12시간 눈금 좌표 계산
+  // 12개 시간 눈금 (바깥쪽 테두리 부근에 짧게 배치)
   const ticks = Array.from({ length: 12 }, (_, i) => {
     const angle = i * 30 * (Math.PI / 180);
     const isMajor = i % 3 === 0;
-    const innerRadius = isMajor ? 36 : 40;
+    const innerRadius = isMajor ? 41 : 42.5;
     const outerRadius = 45;
     const x1 = 50 + innerRadius * Math.sin(angle);
     const y1 = 50 - innerRadius * Math.cos(angle);
@@ -43,13 +43,15 @@ export default function AnalogClock({
     return { x1, y1, x2, y2, isMajor, key: i };
   });
 
-  // 4대 숫자 위치 (12시=북, 3시=동, 6시=남, 9시=서)
-  const numberLabels = [
-    { label: "12", cx: 50, cy: 11 },
-    { label: "3",  cx: 90, cy: 52 },
-    { label: "6",  cx: 50, cy: 92 },
-    { label: "9",  cx: 10, cy: 52 },
-  ];
+  // 1~12 숫자 레이블 (눈금과 겹치지 않게 안쪽에 배치)
+  const numbers = Array.from({ length: 12 }, (_, i) => {
+    const num = i + 1;
+    const angle = num * 30 * (Math.PI / 180);
+    const radius = 33;
+    const x = 50 + radius * Math.sin(angle);
+    const y = 50 - radius * Math.cos(angle);
+    return { num, x, y };
+  });
 
   return (
     <svg
@@ -66,7 +68,7 @@ export default function AnalogClock({
         r="47"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeOpacity="0.85"
       />
 
@@ -79,27 +81,27 @@ export default function AnalogClock({
           x2={t.x2}
           y2={t.y2}
           stroke="currentColor"
-          strokeWidth={t.isMajor ? 2.5 : 1.2}
+          strokeWidth={t.isMajor ? 1.8 : 1}
           strokeLinecap="round"
-          strokeOpacity={t.isMajor ? 0.95 : 0.6}
+          strokeOpacity={t.isMajor ? 0.9 : 0.55}
         />
       ))}
 
-      {/* 4대 숫자 */}
-      {numberLabels.map(({ label, cx, cy }) => (
+      {/* 1~12 전체 숫자 */}
+      {numbers.map(({ num, x, y }) => (
         <text
-          key={label}
-          x={cx}
-          y={cy}
+          key={num}
+          x={x}
+          y={y}
           textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize="11"
+          dominantBaseline="central"
+          fontSize="7.5"
           fontWeight="bold"
           fill="currentColor"
-          fillOpacity={0.85}
-          style={{ fontFamily: "system-ui, sans-serif", userSelect: "none" }}
+          fillOpacity={0.88}
+          style={{ fontFamily: "system-ui, -apple-system, sans-serif", userSelect: "none" }}
         >
-          {label}
+          {num}
         </text>
       ))}
 
@@ -108,9 +110,9 @@ export default function AnalogClock({
         x1="50"
         y1="50"
         x2="50"
-        y2="27"
+        y2="30"
         stroke="currentColor"
-        strokeWidth="3.2"
+        strokeWidth="3"
         strokeLinecap="round"
         transform={`rotate(${hourAngle} 50 50)`}
       />
@@ -120,9 +122,9 @@ export default function AnalogClock({
         x1="50"
         y1="50"
         x2="50"
-        y2="16"
+        y2="18"
         stroke="currentColor"
-        strokeWidth="2.2"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeOpacity="0.9"
         transform={`rotate(${minuteAngle} 50 50)`}
@@ -133,7 +135,7 @@ export default function AnalogClock({
         x1="50"
         y1="55"
         x2="50"
-        y2="13"
+        y2="14"
         stroke="#f43f5e"
         strokeWidth="1.2"
         strokeLinecap="round"
@@ -141,8 +143,8 @@ export default function AnalogClock({
       />
 
       {/* 중심 핀 */}
-      <circle cx="50" cy="50" r="2.5" fill="#f43f5e" />
-      <circle cx="50" cy="50" r="1.2" fill="#ffffff" />
+      <circle cx="50" cy="50" r="2.2" fill="#f43f5e" />
+      <circle cx="50" cy="50" r="1" fill="#ffffff" />
     </svg>
   );
 }

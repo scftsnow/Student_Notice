@@ -94,7 +94,6 @@ export default function CanvasClock({
   return (
     <>
       <Rnd
-        bounds="parent"
         cancel="button"
         position={{
           x: (parsePercent(layout.left, 68.0) / 100) * containerSize.width,
@@ -109,8 +108,12 @@ export default function CanvasClock({
             : "auto",
         }}
         onDragStop={(_e, d) => {
-          const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
-          const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
+          const clockW = isAnalog ? 80 : 120;
+          const clockH = isAnalog ? 80 : 40;
+          const clampedX = Math.max(-clockW + 40, Math.min(d.x, containerSize.width - 40));
+          const clampedY = Math.max(-clockH + 40, Math.min(d.y, containerSize.height - 40));
+          const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
+          const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
           onUpdateLayout((p) => ({ ...p, left, top }));
         }}
         onResizeStop={(_e, _dir, ref, _delta, position) => {

@@ -64,7 +64,6 @@ export default function CanvasAccountIcon({
 
   return (
     <Rnd
-      bounds="parent"
       position={{
         x: (leftPct / 100) * containerSize.width,
         y: (topPct / 100) * containerSize.height,
@@ -83,8 +82,10 @@ export default function CanvasAccountIcon({
         isDragging.current = true;
       }}
       onDragStop={(_e, d) => {
-        const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
-        const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
+        const clampedX = Math.max(-widthPx + 28, Math.min(d.x, containerSize.width - 28));
+        const clampedY = Math.max(-heightPx + 28, Math.min(d.y, containerSize.height - 28));
+        const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
+        const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
         onUpdateLayout((prev) => ({
           ...prev,
           left,

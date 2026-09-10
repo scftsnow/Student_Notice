@@ -120,7 +120,6 @@ export default function FreeCardItem({
 
   return (
     <Rnd
-      bounds="parent"
       position={{ x, y }}
       size={{ width, height }}
       minWidth={120}
@@ -134,8 +133,12 @@ export default function FreeCardItem({
         setTimeout(() => {
           isDraggingRef.current = false;
         }, 150);
-        const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
-        const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
+        const cardW = typeof width === "number" ? width : 160;
+        const cardH = typeof height === "number" ? height : 80;
+        const clampedX = Math.max(-cardW + 40, Math.min(d.x, containerSize.width - 40));
+        const clampedY = Math.max(-cardH + 40, Math.min(d.y, containerSize.height - 40));
+        const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
+        const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
         onUpdate(card.id, card.html, { left, top });
       }}
       onResizeStop={(_e, _dir, ref, _delta, position) => {

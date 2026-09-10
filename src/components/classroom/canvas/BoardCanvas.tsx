@@ -237,13 +237,7 @@ export default function BoardCanvas({
   }, []);
 
   const themeBg =
-    theme === "chalkboard"
-      ? "bg-[#1a382b] text-white"
-      : theme === "white"
-      ? "bg-white text-slate-900"
-      : theme === "navy"
-      ? "bg-[#0b132b] text-white"
-      : "bg-[#faf5ea] text-amber-950";
+    theme === "chalkboard" ? "bg-[#1a382b] text-white" : theme === "white" ? "bg-white text-slate-900" : theme === "navy" ? "bg-[#0b132b] text-white" : "bg-[#faf5ea] text-amber-950";
 
   const fontPx = Number(fontSize) || 42;
   const scaleFont = (size: number) => Math.round(size * 0.75);
@@ -263,7 +257,6 @@ export default function BoardCanvas({
           {/* 요소 1: 날짜 글상자 */}
           {isBoxVisibleToday(layouts.dateBox.visible, layouts.dateBox.visibleDays) && (
           <Rnd
-            bounds="parent"
             position={{
               x: (parsePercent(layouts.dateBox.left, 2.5) / 100) * containerSize.width,
               y: (parsePercent(layouts.dateBox.top, 3.0) / 100) * containerSize.height,
@@ -277,8 +270,10 @@ export default function BoardCanvas({
                 : "auto",
             }}
             onDragStop={(_e, d) => {
-              const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
+              const clampedX = Math.max(-containerSize.width * 0.8, Math.min(d.x, containerSize.width - 40));
+              const clampedY = Math.max(-containerSize.height * 0.8, Math.min(d.y, containerSize.height - 40));
+              const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
+              const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
               updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, left, top } }));
             }}
             onResizeStop={(_e, _dir, ref, _delta, position) => {
@@ -290,7 +285,20 @@ export default function BoardCanvas({
             }}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
-            onClick={() => onSelectElement?.("dateBox")}
+            onClick={() => {
+              const prev = targetElement;
+              onSelectElement?.("dateBox");
+              if (prev !== "dateBox") {
+                const el = document.getElementById("canvas-date-text");
+                if (el) {
+                  const range = document.createRange();
+                  range.selectNodeContents(el);
+                  const sel = window.getSelection();
+                  sel?.removeAllRanges();
+                  sel?.addRange(range);
+                }
+              }
+            }}
             className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${
               targetElement === "dateBox"
                 ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
@@ -376,7 +384,6 @@ export default function BoardCanvas({
           {/* 요소 4: 루틴 당번 목록 글상자 */}
           {isBoxVisibleToday(layouts.routineBox.visible, layouts.routineBox.visibleDays) && (
           <Rnd
-            bounds="parent"
             cancel="button, select, input, [contenteditable='true'], [role='dialog']"
             position={{
               x: (parsePercent(layouts.routineBox.left, 2.5) / 100) * containerSize.width,
@@ -389,8 +396,10 @@ export default function BoardCanvas({
                 : "auto",
             }}
             onDragStop={(_e, d) => {
-              const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
+              const clampedX = Math.max(-containerSize.width * 0.8, Math.min(d.x, containerSize.width - 40));
+              const clampedY = Math.max(-containerSize.height * 0.8, Math.min(d.y, containerSize.height - 40));
+              const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
+              const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
               updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, left, top } }));
             }}
             onResizeStop={(_e, _dir, ref, _delta, position) => {
