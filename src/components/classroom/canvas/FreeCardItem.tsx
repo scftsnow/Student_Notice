@@ -66,6 +66,13 @@ export default function FreeCardItem({
     }
   }, [card.html]);
 
+  // Reset selection state when card loses edit focus or is deselected
+  useEffect(() => {
+    if (!isSelected || !isEditing) {
+      hasInitialSelectionRef.current = false;
+    }
+  }, [isSelected, isEditing]);
+
   const selectAllContent = () => {
     if (!editorRef.current) return;
     const range = document.createRange();
@@ -174,14 +181,9 @@ export default function FreeCardItem({
           onFocus={() => {
             isFocused.current = true;
             setIsEditing(true);
-            if (!hasInitialSelectionRef.current) {
-              hasInitialSelectionRef.current = true;
-              setTimeout(selectAllContent, 20);
-            }
           }}
           onBlur={() => {
             isFocused.current = false;
-            hasInitialSelectionRef.current = false;
             setIsEditing(false);
           }}
           onPaste={handlePaste}
