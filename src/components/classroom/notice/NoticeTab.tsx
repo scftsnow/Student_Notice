@@ -240,9 +240,9 @@ export default function NoticeTab({
   };
 
   return (
-    <div className="space-y-3">
-      {/* 상단 통합 편집 툴바 */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+    <div className="rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs overflow-hidden divide-y divide-slate-200/80">
+      {/* 1행: 상단 서식 편집 툴바 */}
+      <div className="p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           {/* 서식 적용 대상 선택 드롭다운 */}
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">

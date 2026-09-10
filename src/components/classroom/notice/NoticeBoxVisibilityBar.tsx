@@ -186,7 +186,7 @@ export default function NoticeBoxVisibilityBar({
   ];
 
   return (
-    <div className="rounded-xl bg-slate-50/90 border border-slate-200 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+    <div className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs bg-slate-50/60">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-bold text-slate-700 flex items-center gap-1.5 shrink-0 select-none">
           <Layout className="w-3.5 h-3.5 text-indigo-600" />
