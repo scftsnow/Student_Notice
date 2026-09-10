@@ -251,6 +251,9 @@ export default function BoardCanvas({
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") { setScaleInput(String(previewScale)); (e.target as HTMLInputElement).blur(); }
+                if (e.key === "ArrowUp") { e.preventDefault(); updateScale(previewScale + 5); }
+                if (e.key === "ArrowDown") { e.preventDefault(); updateScale(previewScale - 5); }
               }}
               className="w-9 text-center font-bold text-slate-800 bg-white border border-slate-200 rounded px-1 py-0.5 text-xs focus:outline-indigo-500 font-mono"
             />
@@ -264,6 +267,23 @@ export default function BoardCanvas({
             title="배율 확대 (+5%)"
           >
             <Plus className="w-3.5 h-3.5" />
+          </button>
+          <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
+          <button
+            type="button"
+            onClick={() => updateScale(75)}
+            className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
+            title="기본 배율 (75%) 복원"
+          >
+            기본
+          </button>
+          <button
+            type="button"
+            onClick={() => updateScale(100)}
+            className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
+            title="100% 원본 배율"
+          >
+            100%
           </button>
         </div>
       </div>
@@ -454,20 +474,12 @@ export default function BoardCanvas({
                 </div>
               ) : (
                 <>
-                  {routines
-                    .filter((r) => r.visibleInNotice !== false)
-                    .map((r) => (
+                  {routines.filter((r) => r.visibleInNotice !== false).map((r) => (
                     <RoutineElementInCanvas
-                      key={r.id}
-                      routine={r}
-                      students={students}
-                      currencyName={currencyName}
-                      theme={theme}
-                      customColor={layouts.routineBox.color}
-                      onPayRoutineToday={onPayRoutineToday}
-                      onPayAllRoutinesToday={onPayAllRoutinesToday}
-                      onUpdateRoutine={onUpdateRoutine}
-                      onAdvanceRoutine={onAdvanceRoutine}
+                      key={r.id} routine={r} students={students} currencyName={currencyName}
+                      theme={theme} customColor={layouts.routineBox.color}
+                      onPayRoutineToday={onPayRoutineToday} onPayAllRoutinesToday={onPayAllRoutinesToday}
+                      onUpdateRoutine={onUpdateRoutine} onAdvanceRoutine={onAdvanceRoutine}
                       onSelect={() => onSelectElement?.("routineBox")}
                     />
                   ))}
@@ -475,10 +487,7 @@ export default function BoardCanvas({
                     {onAdvanceAllRoutines && (
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAdvanceAllRoutines();
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onAdvanceAllRoutines(); }}
                         className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shrink-0 shadow-xs cursor-pointer inline-flex items-center gap-1"
                         title="모든 학생 업무의 순번을 다음으로 일괄 넘기기"
                       >
@@ -489,10 +498,7 @@ export default function BoardCanvas({
                     {onOpenRoutineNoticeSettings && routines.length > 0 && (
                       <button
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenRoutineNoticeSettings();
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onOpenRoutineNoticeSettings(); }}
                         className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shadow-xs cursor-pointer inline-flex items-center gap-1"
                         title="알림장 칠판에 노출할 학생 업무 및 표시 문구 서식 설정"
                       >
@@ -507,9 +513,7 @@ export default function BoardCanvas({
           </Rnd>
           )}
 
-          {freeCards
-            .filter((card) => isBoxVisibleToday(card.visible, card.visibleDays))
-            .map((card) => (
+          {freeCards.filter((card) => isBoxVisibleToday(card.visible, card.visibleDays)).map((card) => (
             <FreeCardItem
               key={card.id}
               card={{ ...card, fontSize: scaleFont(card.fontSize || fontPx) }}
@@ -526,6 +530,7 @@ export default function BoardCanvas({
               containerSize={containerSize}
               targetElement={targetElement}
               onSelectElement={onSelectElement}
+              scaleFont={scaleFont}
               onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, accountBox: updater(p.accountBox ?? DEFAULT_LAYOUTS.accountBox!) }))}
             />
           )}

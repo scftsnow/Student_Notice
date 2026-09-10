@@ -13,6 +13,7 @@ interface CanvasAccountIconProps {
   targetElement?: BoardTargetElement;
   onSelectElement?: (elem: BoardTargetElement) => void;
   onUpdateLayout: (updater: (prev: ElementLayout) => ElementLayout) => void;
+  scaleFont?: (size: number) => number;
 }
 
 export default function CanvasAccountIcon({
@@ -21,14 +22,16 @@ export default function CanvasAccountIcon({
   targetElement,
   onSelectElement,
   onUpdateLayout,
+  scaleFont,
 }: CanvasAccountIconProps) {
   const isDragging = useRef(false);
   const dragStartTime = useRef(0);
 
   const leftPct = parsePercent(layout?.left, 93.0);
   const topPct = parsePercent(layout?.top, 3.0);
-  const widthPx = parseDimension(layout?.width, containerSize.width, 50);
-  const heightPx = parseDimension(layout?.height, containerSize.height, 50);
+  const defaultSize = scaleFont ? scaleFont(50) : 50;
+  const widthPx = parseDimension(layout?.width, containerSize.width, defaultSize);
+  const heightPx = parseDimension(layout?.height, containerSize.height, defaultSize);
   const isSelected = targetElement === "accountBox";
 
   const handleOpenAccountBoard = () => {
