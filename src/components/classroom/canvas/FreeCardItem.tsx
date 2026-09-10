@@ -48,9 +48,7 @@ export default function FreeCardItem({
 }: FreeCardItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  // isFocused: tracks whether the contentEditable div currently has browser focus
-  // true  = consecutive click  -> let browser place cursor naturally
-  // false = non-consecutive click -> select all on first entry
+  // true when the contentEditable div has browser focus (consecutive click context)
   const isFocused = useRef(false);
 
   const parsePercent = (val: string | undefined, fallback: number) => {
@@ -59,7 +57,7 @@ export default function FreeCardItem({
     return isNaN(num) ? fallback : num;
   };
 
-  // Sync external card.html changes when not focused
+  // Sync external card.html when editor is not focused
   useEffect(() => {
     if (editorRef.current && !isFocused.current) {
       if (editorRef.current.innerHTML !== (card.html || "")) {
@@ -68,10 +66,11 @@ export default function FreeCardItem({
     }
   }, [card.html]);
 
-  // Exit edit mode when card is deselected from outside
+  // Exit edit mode when deselected from outside
   useEffect(() => {
     if (!isSelected) {
       setIsEditing(false);
+      isFocused.current = false;
     }
   }, [isSelected]);
 
@@ -138,20 +137,16 @@ export default function FreeCardItem({
         const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
         onUpdate(card.id, card.html, { width: w, height: h, left, top });
       }}
-      onClick={(e: React.MouseEvent) => {
+      onClick={() => {
         onSelect?.(card.id);
-        // Non-consecutive click: editor not yet focused -> enter edit mode + select all
-        // Consecutive click: already focused -> do nothing, let browser handle cursor placement
+        // Non-consecutive: not yet focused -> enter edit + select all
+        // Consecutive: already focused -> browser handles cursor placement naturally
         if (!isFocused.current) {
-          e.preventDefault();
           setIsEditing(true);
           setTimeout(() => {
             editorRef.current?.focus();
             selectAllContent();
           }, 30);
-        } else if (!isEditing) {
-          // Fallback: focused but isEditing flag not yet set
-          setIsEditing(true);
         }
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col bg-transparent ${
@@ -162,7 +157,7 @@ export default function FreeCardItem({
           : "border-transparent hover:border-white/30 cursor-grab active:cursor-grabbing"
       }`}
     >
-      {/* 글상자 삭제/비우기 버튼 (테두리 노출 시 상시, 그 외 호버 시 우측 상단 노출) */}
+      {/* 글상자 삭제/비우기 버튼 */}
       <button
         type="button"
         onClick={(e) => {
@@ -177,11 +172,11 @@ export default function FreeCardItem({
         <X className="w-3.5 h-3.5" />
       </button>
 
-      {/* 자유 글상자 본문 */}
+      {/* 자유 글상자 본문 — contentEditable 항상 활성, pointer-events로 편집 진입 제어 */}
       <div className="p-2 flex-1 w-full h-full">
         <div
           ref={editorRef}
-          contentEditable={isEditing}
+          contentEditable
           suppressContentEditableWarning
           onFocus={() => {
             isFocused.current = true;
@@ -194,7 +189,7 @@ export default function FreeCardItem({
           onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
           className={`w-full h-full outline-none font-bold overflow-y-auto leading-relaxed tracking-tight ${
-            isEditing ? "cursor-text select-text" : "select-none"
+            isEditing ? "cursor-text select-text" : "pointer-events-none select-none"
           }`}
           style={{
             fontSize: `${card.fontSize || 42}px`,
