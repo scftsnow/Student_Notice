@@ -62,6 +62,7 @@ export default function FreeCardItem({
   const editorRef = useRef<HTMLDivElement>(null);
   // isFocused: 텍스트 에디터 브라우저 포커스 여부
   const isFocused = useRef(false);
+  const wasFocusedRef = useRef(false);
   // isDraggingRef: 드래그 이동과 단순 클릭을 구별하기 위한 플래그
   const isDraggingRef = useRef(false);
 
@@ -85,6 +86,7 @@ export default function FreeCardItem({
     if (!isSelected) {
       setIsEditing(false);
       isFocused.current = false;
+      wasFocusedRef.current = false;
     }
   }, [isSelected]);
 
@@ -172,12 +174,17 @@ export default function FreeCardItem({
         if (!isTargetEditor) return;
 
         const sel = window.getSelection();
-        const hasRange = sel && !sel.isCollapsed && sel.toString().length > 0;
+        const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 &&
+          Boolean(editorRef.current && (
+            editorRef.current.contains(sel.anchorNode) ||
+            editorRef.current.contains(sel.focusNode)
+          ));
 
         // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
         // (단, 사용자가 드래그하여 일부 텍스트를 지정한 경우 전체 선택으로 덮어쓰지 않음)
-        if (!hasRange && !isFocused.current) {
+        if (!isRangeInThis && !wasFocusedRef.current) {
           setIsEditing(true);
+          wasFocusedRef.current = true;
           setTimeout(() => {
             editorRef.current?.focus();
             selectAllContent();
@@ -230,6 +237,9 @@ export default function FreeCardItem({
           ref={editorRef}
           contentEditable={true}
           suppressContentEditableWarning
+          onMouseDown={() => {
+            wasFocusedRef.current = document.activeElement === editorRef.current;
+          }}
           onFocus={() => {
             isFocused.current = true;
             setIsEditing(true);
@@ -237,6 +247,7 @@ export default function FreeCardItem({
           }}
           onBlur={() => {
             isFocused.current = false;
+            wasFocusedRef.current = false;
             setIsEditing(false);
           }}
           onPaste={handlePaste}

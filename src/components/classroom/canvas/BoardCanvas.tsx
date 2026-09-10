@@ -285,8 +285,12 @@ export default function BoardCanvas({
               if (!isTargetText) return;
 
               const sel = window.getSelection();
-              const hasRange = sel && !sel.isCollapsed && sel.toString().length > 0;
-              if (!hasRange && prev !== "dateBox") {
+              const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 &&
+                Boolean(el && (
+                  el.contains(sel.anchorNode) ||
+                  el.contains(sel.focusNode)
+                ));
+              if (!isRangeInThis && prev !== "dateBox") {
                 if (el) {
                   const range = document.createRange();
                   range.selectNodeContents(el);

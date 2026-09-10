@@ -106,6 +106,7 @@ export default function RoutineElementInCanvas({
   );
 
   const isFocusedRef = useRef(false);
+  const wasFocusedRef = useRef(false);
   const [isEditing, setIsEditing] = useState(false);
   const editableRef = useRef<HTMLDivElement>(null);
 
@@ -134,7 +135,7 @@ export default function RoutineElementInCanvas({
           ? ""
           : workerColor;
         const style = customColor && !isSubstituted ? `style="color:${customColor};"` : "";
-        return `<span data-worker-index="${workerIdx}" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
+        return `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
           currentWorker || "당번"
         )} — 클릭: 급여·대타 메뉴">${escapeHtml(seg.text)}</span>`;
       })
@@ -168,6 +169,7 @@ export default function RoutineElementInCanvas({
 
   const handleBlur = () => {
     isFocusedRef.current = false;
+    wasFocusedRef.current = false;
     setIsEditing(false);
     if (!editableRef.current || !onUpdateRoutine) return;
     const newTemplate = extractTemplateFromDOM(editableRef.current);
@@ -201,14 +203,19 @@ export default function RoutineElementInCanvas({
     }
 
     const sel = window.getSelection();
-    const hasRangeSelection = sel && !sel.isCollapsed && (sel.toString().length > 0);
+    const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 &&
+      Boolean(editableRef.current && (
+        editableRef.current.contains(sel.anchorNode) ||
+        editableRef.current.contains(sel.focusNode)
+      ));
 
     // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
-    // (단, 사용자가 드래그하여 일부 텍스트 블록을 지정한 경우 전체 선택으로 덮어쓰지 않음)
-    if (!hasRangeSelection && !isFocusedRef.current) {
+    // (단, 이 요소 내부에서 드래그하여 일부 텍스트 블록을 지정한 경우 전체 선택으로 덮어쓰지 않음)
+    if (!isRangeInThis && !wasFocusedRef.current) {
       onSelect?.();
       setIsEditing(true);
       isFocusedRef.current = true;
+      wasFocusedRef.current = true;
       setTimeout(() => {
         if (editableRef.current) {
           editableRef.current.focus();
@@ -252,11 +259,15 @@ export default function RoutineElementInCanvas({
     >
       <div
         ref={editableRef}
-        contentEditable={isEditing}
+        contentEditable={true}
         suppressContentEditableWarning
+        onMouseDown={() => {
+          wasFocusedRef.current = document.activeElement === editableRef.current;
+        }}
         onFocus={() => {
           isFocusedRef.current = true;
           setIsEditing(true);
+          onSelect?.();
         }}
         onBlur={handleBlur}
         onClick={handleClick}
