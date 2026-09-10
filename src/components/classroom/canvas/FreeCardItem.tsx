@@ -162,7 +162,7 @@ export default function FreeCardItem({
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col bg-transparent ${
         isEditing
-          ? "border-indigo-400/60 ring-1 ring-indigo-400/40"
+          ? "border-indigo-400/60 ring-1 ring-indigo-400/40 cursor-text"
           : isSelected
           ? "border-transparent hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 cursor-grab active:cursor-grabbing"
           : "border-transparent hover:border-white/30 cursor-grab active:cursor-grabbing"

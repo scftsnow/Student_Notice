@@ -149,7 +149,7 @@ export default function CanvasClock({
         </div>
         <div className="flex items-center justify-center flex-1">
           {isAnalog ? (
-            <div className="w-full h-full min-w-[50px] min-h-[50px] max-w-[120px] max-h-[120px] aspect-square flex items-center justify-center pointer-events-none">
+            <div className="w-full h-full aspect-square flex items-center justify-center pointer-events-none">
               <AnalogClock color={layout.color || "currentColor"} size="100%" />
             </div>
           ) : (

@@ -290,17 +290,7 @@ export default function BoardCanvas({
             }}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
-            onClick={() => {
-              onSelectElement?.("dateBox");
-              const el = document.getElementById("canvas-date-text");
-              if (el) {
-                const range = document.createRange();
-                range.selectNodeContents(el);
-                const sel = window.getSelection();
-                sel?.removeAllRanges();
-                sel?.addRange(range);
-              }
-            }}
+            onClick={() => onSelectElement?.("dateBox")}
             className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${
               targetElement === "dateBox"
                 ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"

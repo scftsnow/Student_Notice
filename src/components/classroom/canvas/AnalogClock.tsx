@@ -43,6 +43,14 @@ export default function AnalogClock({
     return { x1, y1, x2, y2, isMajor, key: i };
   });
 
+  // 4대 숫자 위치 (12시=북, 3시=동, 6시=남, 9시=서)
+  const numberLabels = [
+    { label: "12", cx: 50, cy: 11 },
+    { label: "3",  cx: 90, cy: 52 },
+    { label: "6",  cx: 50, cy: 92 },
+    { label: "9",  cx: 10, cy: 52 },
+  ];
+
   return (
     <svg
       viewBox="0 0 100 100"
@@ -75,6 +83,24 @@ export default function AnalogClock({
           strokeLinecap="round"
           strokeOpacity={t.isMajor ? 0.95 : 0.6}
         />
+      ))}
+
+      {/* 4대 숫자 */}
+      {numberLabels.map(({ label, cx, cy }) => (
+        <text
+          key={label}
+          x={cx}
+          y={cy}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize="11"
+          fontWeight="bold"
+          fill="currentColor"
+          fillOpacity={0.85}
+          style={{ fontFamily: "system-ui, sans-serif", userSelect: "none" }}
+        >
+          {label}
+        </text>
       ))}
 
       {/* 시침 (짧고 굵음) */}
