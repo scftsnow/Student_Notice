@@ -72,24 +72,46 @@ export default function NoticeTab({
     CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id ||
     "pretendard";
 
+  useEffect(() => {
+    lastRangeRef.current = null;
+    lastEditableRef.current = null;
+  }, [targetElement]);
+
+  const getEffectiveRange = (): { range: Range | null; sel: Selection | null } => {
+    const isTextCard = targetElement === "noticeBox" || Boolean(targetElement?.startsWith("free-"));
+    const sel = typeof window !== "undefined" ? window.getSelection() : null;
+    if (!isTextCard) return { range: null, sel };
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
+      return { range: sel.getRangeAt(0), sel };
+    }
+    return { range: lastRangeRef.current, sel };
+  };
+
+  const getTargetEl = (range: Range | null): HTMLElement | null => {
+    if (!range) return lastEditableRef.current || (document.activeElement as HTMLElement | null);
+    const container = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+      ? (range.commonAncestorContainer as HTMLElement)
+      : range.commonAncestorContainer.parentElement;
+    return container?.closest<HTMLElement>("[contenteditable='true']") || lastEditableRef.current || (document.activeElement as HTMLElement | null);
+  };
+
+  const dispatchInput = (el?: HTMLElement | null) => {
+    if (el && (el.getAttribute("contenteditable") === "true" || el.hasAttribute("contenteditable"))) {
+      el.focus();
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+
   const applyFontFamilyToSelectionOrTarget = (fontId: string) => {
     const fontObj = CLASSROOM_FONTS.find((f) => f.id === fontId);
     const fontFamily = fontObj ? fontObj.family : "'Pretendard', sans-serif";
-
-    const sel = typeof window !== "undefined" ? window.getSelection() : null;
-    let range: Range | null = null;
-    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-      range = sel.getRangeAt(0);
-    } else if (lastRangeRef.current) {
-      range = lastRangeRef.current;
-    }
+    const { range, sel } = getEffectiveRange();
 
     if (range) {
       try {
         const span = document.createElement("span");
         span.style.fontFamily = fontFamily;
-        const contents = range.extractContents();
-        span.appendChild(contents);
+        span.appendChild(range.extractContents());
         range.insertNode(span);
         if (sel) {
           sel.removeAllRanges();
@@ -98,16 +120,7 @@ export default function NoticeTab({
           sel.addRange(newRange);
           lastRangeRef.current = newRange.cloneRange();
         }
-        const targetEl =
-          (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-            ? (range.commonAncestorContainer as HTMLElement)
-            : range.commonAncestorContainer.parentElement)?.closest<HTMLElement>("[contenteditable='true']") ||
-          lastEditableRef.current ||
-          document.activeElement;
-        if (targetEl instanceof HTMLElement) {
-          targetEl.focus();
-          targetEl.dispatchEvent(new Event("input", { bubbles: true }));
-        }
+        dispatchInput(getTargetEl(range));
         return;
       } catch {
         // Fallback to applying on target element
@@ -133,14 +146,12 @@ export default function NoticeTab({
     num = Math.max(12, Math.min(160, num));
     setFontSizeInput(String(num));
     applyFontSizeToSelectionOrTarget(String(num) as NoticeFontSize);
-    onApplyFontSize?.(num);
   };
 
   const handleStepFontSize = (delta: number) => {
     const next = Math.max(12, Math.min(160, effectiveFontSize + delta));
     setFontSizeInput(String(next));
     applyFontSizeToSelectionOrTarget(String(next) as NoticeFontSize);
-    onApplyFontSize?.(next);
   };
 
   // 구글 독스 스타일 줄간격 숫자 입력 및 +/- 스테퍼 로직
@@ -189,13 +200,13 @@ export default function NoticeTab({
   }, []);
 
   const getTargetLabel = (target?: BoardTargetElement) => {
-    if (!target || target === "noticeBox") return "알림장 본문";
+    if (!target || target === "all") return "전체 일괄";
+    if (target === "noticeBox") return "알림장 본문";
     if (target === "dateBox") return "날짜";
     if (target === "clockBox") return "시간";
     if (target === "routineBox") return "학생 업무";
     if (target === "accountBox") return "계좌 아이콘";
     if (target.startsWith("free-") || target === "freeCard") return "자유 글상자";
-    if (target === "all") return "전체";
     return "선택 요소";
   };
 
@@ -207,24 +218,11 @@ export default function NoticeTab({
       lastEditableRef.current?.focus();
     }
     document.execCommand(cmd, false, value ?? "");
-    const targetEl = lastEditableRef.current || document.activeElement;
-    if (
-      targetEl instanceof HTMLElement &&
-      (targetEl.getAttribute("contenteditable") === "true" || targetEl.hasAttribute("contenteditable"))
-    ) {
-      targetEl.dispatchEvent(new Event("input", { bubbles: true }));
-    }
+    dispatchInput(lastEditableRef.current || (document.activeElement as HTMLElement | null));
   };
 
   const applyColorToSelectionOrTarget = (color: string) => {
-    const sel = typeof window !== "undefined" ? window.getSelection() : null;
-    let range: Range | null = null;
-    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-      range = sel.getRangeAt(0);
-    } else if (lastRangeRef.current) {
-      range = lastRangeRef.current;
-    }
-
+    const { range, sel } = getEffectiveRange();
     if (range) {
       if (sel) {
         sel.removeAllRanges();
@@ -233,13 +231,7 @@ export default function NoticeTab({
       lastEditableRef.current?.focus();
       document.execCommand("styleWithCSS", false, "true");
       document.execCommand("foreColor", false, color);
-      const targetEl = lastEditableRef.current || document.activeElement;
-      if (
-        targetEl instanceof HTMLElement &&
-        (targetEl.getAttribute("contenteditable") === "true" || targetEl.hasAttribute("contenteditable"))
-      ) {
-        targetEl.dispatchEvent(new Event("input", { bubbles: true }));
-      }
+      dispatchInput(getTargetEl(range));
       return;
     }
     onApplyColor?.(color);
@@ -248,42 +240,23 @@ export default function NoticeTab({
   const applyFontSizeToSelectionOrTarget = (sz: NoticeFontSize) => {
     onFontSizeChange(sz);
     const numSz = Number(sz);
-    const sel = typeof window !== "undefined" ? window.getSelection() : null;
-    let range: Range | null = null;
-    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-      range = sel.getRangeAt(0);
-    } else if (lastRangeRef.current) {
-      range = lastRangeRef.current;
-    }
+    const { range, sel } = getEffectiveRange();
 
     if (range) {
       try {
-        const targetEl =
-          (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-            ? (range.commonAncestorContainer as HTMLElement)
-            : range.commonAncestorContainer.parentElement)?.closest<HTMLElement>("[contenteditable='true']") ||
-          lastEditableRef.current ||
-          document.activeElement;
-
-        // 전체 텍스트 선택 시 인라인 span 삽입 대신 요소 자체 폰트 크기 변경
-        const targetText = (targetEl instanceof HTMLElement ? targetEl.innerText : targetEl?.textContent) ?? "";
-        const isAllSelected = Boolean(targetText && targetText.trim() === range.toString().trim());
-        if (isAllSelected) {
+        const targetEl = getTargetEl(range);
+        const targetText = targetEl ? (targetEl.innerText || targetEl.textContent || "") : "";
+        if (targetText && targetText.trim() === range.toString().trim()) {
           onApplyFontSize?.(numSz);
-          if (targetEl instanceof HTMLElement) {
-            targetEl.focus();
-            targetEl.dispatchEvent(new Event("input", { bubbles: true }));
-          }
+          dispatchInput(targetEl);
           return;
         }
 
-        // 부분 텍스트 선택 시: 부모 기본 폰트 크기 대비 상대 em 배율 계산 (교사 75% / 학생 100% 비례 유지)
         const baseSize = effectiveFontSize || 42;
         const emRatio = (numSz / baseSize).toFixed(3);
         const span = document.createElement("span");
         span.style.fontSize = `${emRatio}em`;
-        const contents = range.extractContents();
-        span.appendChild(contents);
+        span.appendChild(range.extractContents());
         range.insertNode(span);
         if (sel) {
           sel.removeAllRanges();
@@ -292,10 +265,7 @@ export default function NoticeTab({
           sel.addRange(newRange);
           lastRangeRef.current = newRange.cloneRange();
         }
-        if (targetEl instanceof HTMLElement) {
-          targetEl.focus();
-          targetEl.dispatchEvent(new Event("input", { bubbles: true }));
-        }
+        dispatchInput(targetEl);
         return;
       } catch {
         // Fallback to target
@@ -309,10 +279,25 @@ export default function NoticeTab({
       {/* 상단 통합 편집 툴바 */}
       <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          {/* 현재 선택된 요소 안내 뱃지 */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
-            <span className="w-2 h-2 rounded-full bg-indigo-600" />
-            <span>선택: {getTargetLabel(targetElement)}</span>
+          {/* 서식 적용 대상 선택 드롭다운 */}
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
+            <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
+            <span className="text-indigo-950/60 text-[11px] font-semibold shrink-0">대상:</span>
+            <select
+              value={targetElement ?? "all"}
+              onChange={(e) => onTargetElementChange?.(e.target.value as BoardTargetElement)}
+              className="bg-transparent font-bold text-indigo-800 text-xs focus:outline-none cursor-pointer py-0.5"
+              title="서식을 적용할 대상을 선택하세요 (전체 일괄 또는 개별 글상자)"
+            >
+              <option value="all">전체 일괄 적용</option>
+              <option value="noticeBox">알림장 본문</option>
+              <option value="dateBox">날짜</option>
+              <option value="clockBox">시간/시계</option>
+              <option value="routineBox">학생 업무</option>
+              {freeCards && freeCards.length > 0 && (
+                <option value="freeCard">자유 글상자</option>
+              )}
+            </select>
           </div>
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />

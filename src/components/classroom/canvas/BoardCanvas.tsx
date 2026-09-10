@@ -177,7 +177,7 @@ export default function BoardCanvas({
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
     const fontPxCurrent = Number(fontSize) || 42;
-    if (targetElement === "noticeBox") return layouts.noticeBox.fontSize || fontPxCurrent;
+    if (targetElement === "all" || targetElement === "noticeBox") return layouts.noticeBox.fontSize || fontPxCurrent;
     if (targetElement === "dateBox") return layouts.dateBox.fontSize || fontPxCurrent;
     if (targetElement === "clockBox") return layouts.clockBox.fontSize || fontPxCurrent;
     if (targetElement === "routineBox") return layouts.routineBox.fontSize || fontPxCurrent;
@@ -195,7 +195,7 @@ export default function BoardCanvas({
       if (isNaN(n)) return 140;
       return n < 10 ? Math.round(n * 100) : Math.round(n);
     };
-    if (targetElement === "noticeBox") return getLh(layouts.noticeBox.lineHeight);
+    if (targetElement === "all" || targetElement === "noticeBox") return getLh(layouts.noticeBox.lineHeight);
     if (targetElement === "routineBox") return getLh(layouts.routineBox.lineHeight);
     if (targetElement && targetElement.startsWith("free-")) {
       const card = freeCards.find((c) => c.id === targetElement);
@@ -242,7 +242,10 @@ export default function BoardCanvas({
           className="relative w-[75%] overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
           style={{ fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
         >
-          <div className={`absolute inset-0 ${themeBg}`}>
+          <div
+            className={`absolute inset-0 ${themeBg}`}
+            onClick={() => onSelectElement?.("all")}
+          >
 
           {/* 요소 1: 날짜 글상자 */}
           {isBoxVisibleToday(layouts.dateBox.visible, layouts.dateBox.visibleDays) && (

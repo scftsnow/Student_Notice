@@ -9,7 +9,7 @@ import { BoardTargetElement } from "@/types/classroom";
 
 export default function NoticePageClient() {
   const state = useClassroomState();
-  const [targetElement, setTargetElement] = useState<BoardTargetElement>("noticeBox");
+  const [targetElement, setTargetElement] = useState<BoardTargetElement>("all");
   const [currentFontSize, setCurrentFontSize] = useState<number>(42);
   const [currentLineHeight, setCurrentLineHeight] = useState<number>(140);
   const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(() => {

@@ -18,7 +18,7 @@ export default function ClassroomApp() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("notice");
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [isRoutineNoticeSettingsOpen, setIsRoutineNoticeSettingsOpen] = useState(false);
-  const [targetElement, setTargetElement] = useState<BoardTargetElement>("noticeBox");
+  const [targetElement, setTargetElement] = useState<BoardTargetElement>("all");
   const [currentFontSize, setCurrentFontSize] = useState<number>(42);
   const [currentLineHeight, setCurrentLineHeight] = useState<number>(140);
   const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(() => {
