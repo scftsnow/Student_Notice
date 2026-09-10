@@ -13,7 +13,6 @@ interface FreeCardItemProps {
   isSelected?: boolean;
   onSelect?: (id: string) => void;
   placeholder?: string;
-  isMainNotice?: boolean;
 }
 
 export default function FreeCardItem({
@@ -24,7 +23,6 @@ export default function FreeCardItem({
   isSelected = false,
   onSelect,
   placeholder = "메모를 입력하세요...",
-  isMainNotice = false,
 }: FreeCardItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -150,9 +148,7 @@ export default function FreeCardItem({
       className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden ${
         isSelected
           ? "border-indigo-400 ring-2 ring-indigo-400/40 bg-white/5"
-          : isMainNotice
-          ? "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
-          : "border-dashed border-white/20 hover:border-white/40 bg-transparent"
+          : "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
       } cursor-grab active:cursor-grabbing`}
     >
       {/* 상단 드래그 핸들 및 닫기 버튼 바 */}
@@ -170,9 +166,7 @@ export default function FreeCardItem({
           title="드래그하여 글상자 이동"
         >
           <GripHorizontal className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-bold tracking-tight opacity-75">
-            {isMainNotice ? "알림장 본문" : "자유 글상자"}
-          </span>
+          <span className="text-[10px] font-bold tracking-tight opacity-75">글상자</span>
         </div>
         <button
           type="button"
@@ -181,7 +175,7 @@ export default function FreeCardItem({
             onRemove(card.id);
           }}
           className="text-white/50 hover:text-rose-400 p-0.5 rounded transition-colors"
-          title={isMainNotice ? "알림장 내용 비우기" : "글상자 삭제"}
+          title="글상자 삭제"
         >
           <X className="w-3.5 h-3.5" />
         </button>

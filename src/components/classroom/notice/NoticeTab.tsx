@@ -256,9 +256,9 @@ export default function NoticeTab({
               <option value="dateBox">날짜</option>
               <option value="clockBox">시간/시계</option>
               <option value="routineBox">학생 업무</option>
-              {freeCards && freeCards.length > 0 && (
-                <option value="freeCard">자유 글상자</option>
-              )}
+              {freeCards && freeCards.map((card, idx) => (
+                <option key={card.id} value={card.id}>자유 글상자 {idx + 1}</option>
+              ))}
             </select>
           </div>
 

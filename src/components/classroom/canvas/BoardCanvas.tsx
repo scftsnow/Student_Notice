@@ -156,9 +156,9 @@ export default function BoardCanvas({
       return prev;
     });
 
-    if (target === "all" || target === "freeCard") {
+    if (target === "all") {
       freeCards.forEach((c) => onUpdateFreeCard(c.id, c.html, stylePatch));
-    } else {
+    } else if (target.startsWith("free-")) {
       const fc = freeCards.find((c) => c.id === target);
       if (fc) onUpdateFreeCard(fc.id, fc.html, stylePatch);
     }
@@ -331,7 +331,6 @@ export default function BoardCanvas({
             }}
             onRemove={() => onNoticeTextChange("")}
             placeholder="전달할 알림장 내용을 입력하세요..."
-            isMainNotice
           />
           )}
 
