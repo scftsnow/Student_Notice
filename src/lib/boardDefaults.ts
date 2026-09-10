@@ -17,7 +17,6 @@ export const DEFAULT_NOTICE_CARD: FreeCardData = {
   fontSize: 42,
   align: "left",
   visible: true,
-  label: "알림장 본문",
 };
 
 export const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];

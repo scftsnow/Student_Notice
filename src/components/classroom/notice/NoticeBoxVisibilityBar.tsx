@@ -5,7 +5,6 @@ import {
   Layout,
   Calendar,
   Clock,
-  FileText,
   Coins,
   SquarePen,
   Plus,
@@ -358,7 +357,7 @@ export default function NoticeBoxVisibilityBar({
         {/* 6. 자유 글상자들 (알림장 본문 포함 완전 일원화) */}
         {freeCards.map((card, idx) => {
           const preview = card.html ? card.html.replace(/<[^>]+>/g, "").trim().slice(0, 8) : "";
-          const defaultTitle = card.id === "noticeBox" ? "알림장 본문" : (preview ? `자유: ${preview}` : `자유 ${idx + 1}`);
+          const defaultTitle = preview ? `자유: ${preview}` : `자유 ${idx + 1}`;
           const displayName = card.label?.trim() || defaultTitle;
           const isVisible = card.visible !== false;
           const isEditing = editingKey === card.id;
@@ -380,11 +379,7 @@ export default function NoticeBoxVisibilityBar({
                 className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
                 title={`${displayName} 표시/숨김 토글`}
               />
-              {card.id === "noticeBox" ? (
-                <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              ) : (
-                <SquarePen className="w-3.5 h-3.5 text-violet-500 shrink-0" />
-              )}
+              <SquarePen className="w-3.5 h-3.5 text-violet-500 shrink-0" />
 
               {isEditing ? (
                 <input

@@ -102,6 +102,7 @@ export default function RoutineElementInCanvas({
 
   const isFocusedRef = useRef(false);
   const wasFocusedRef = useRef(false);
+  const isSavingRef = useRef(false);
   const [isEditing, setIsEditing] = useState(false);
   const editableRef = useRef<HTMLDivElement>(null);
 
@@ -146,10 +147,12 @@ export default function RoutineElementInCanvas({
   }, [segments, rawWorkers, pinchHitter, customColor, workerColor]);
 
   // 포커스 해제 상태일 때만 DOM innerHTML 동기화 (React 가상 DOM 충돌 방지)
+  // isSavingRef: handleBlur에서 저장 직후 routineHtml 재주입 차단
   useEffect(() => {
-    if (editableRef.current && !isFocusedRef.current) {
+    if (editableRef.current && !isFocusedRef.current && !isSavingRef.current) {
       editableRef.current.innerHTML = routineHtml;
     }
+    isSavingRef.current = false;
   }, [routineHtml]);
 
   const extractTemplateFromDOM = (container: HTMLElement): string => {
@@ -177,6 +180,7 @@ export default function RoutineElementInCanvas({
     if (!editableRef.current || !onUpdateRoutine) return;
     const newTemplate = extractTemplateFromDOM(editableRef.current);
     if (newTemplate && newTemplate !== (routine.displayFormat ?? "")) {
+      isSavingRef.current = true;
       onUpdateRoutine(routine.id, { displayFormat: newTemplate });
     }
   };
@@ -185,6 +189,39 @@ export default function RoutineElementInCanvas({
     if (e.key === "Enter") {
       e.preventDefault();
       editableRef.current?.blur();
+      return;
+    }
+    // worker span(학생 이름) 삭제 방지
+    if (e.key === "Backspace" || e.key === "Delete") {
+      const sel = window.getSelection();
+      if (sel && sel.isCollapsed && editableRef.current) {
+        const anchor = sel.anchorNode;
+        const offset = sel.anchorOffset;
+        if (e.key === "Backspace") {
+          // 커서가 텍스트 시작이거나 독립 노드 경계에 있을 때 바로 앞 형제가 worker span이면 차단
+          const prevSibling =
+            offset === 0 ? anchor?.previousSibling : null;
+          if (
+            prevSibling instanceof HTMLElement &&
+            prevSibling.dataset.workerIndex !== undefined
+          ) {
+            e.preventDefault();
+            return;
+          }
+        } else {
+          // Delete: 커서가 텍스트 끝에 있을 때 바로 뒤 형제가 worker span이면 차단
+          const textLen = anchor?.textContent?.length ?? 0;
+          const nextSibling =
+            offset === textLen ? anchor?.nextSibling : null;
+          if (
+            nextSibling instanceof HTMLElement &&
+            nextSibling.dataset.workerIndex !== undefined
+          ) {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
     }
   };
 

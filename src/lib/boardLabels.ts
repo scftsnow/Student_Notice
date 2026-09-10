@@ -9,7 +9,6 @@ import { BoardTargetElement } from "@/types/classroom";
 /** BoardTargetElement 를 사용자에게 보여줄 한글 레이블로 변환. */
 export function getTargetLabel(target?: BoardTargetElement): string {
   if (!target || target === "all") return "전체 일괄";
-  if (target === "noticeBox") return "알림장 본문";
   if (target === "dateBox") return "날짜";
   if (target === "clockBox") return "시간/시계";
   if (target === "routineBox") return "학생 업무";

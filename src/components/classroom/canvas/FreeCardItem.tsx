@@ -202,7 +202,7 @@ export default function FreeCardItem({
         >
           <GripHorizontal className="w-3.5 h-3.5" />
           <span className="text-[10px] font-bold tracking-tight opacity-75">
-            {card.label || (card.id === "noticeBox" ? "알림장 본문" : "글상자")}
+            {card.label || "글상자"}
           </span>
         </div>
         {card.id !== "noticeBox" && (

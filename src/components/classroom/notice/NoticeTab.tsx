@@ -216,7 +216,6 @@ export default function NoticeTab({
               title="서식을 적용할 대상을 선택하세요 (전체 일괄 또는 개별 글상자)"
             >
               <option value="all">전체 일괄 적용</option>
-              <option value="noticeBox">알림장 본문</option>
               <option value="dateBox">날짜</option>
               <option value="clockBox">시간/시계</option>
               <option value="routineBox">학생 업무</option>
@@ -226,7 +225,7 @@ export default function NoticeTab({
               {(showEconomyShortcut || targetElement === "accountBox") && (
                 <option value="accountBox">학생 계좌</option>
               )}
-              {freeCards && freeCards.filter((c) => c.id !== "noticeBox").map((card, idx) => (
+              {freeCards && freeCards.map((card, idx) => (
                 <option key={card.id} value={card.id}>{card.label?.trim() || `자유 글상자 ${idx + 1}`}</option>
               ))}
             </select>
