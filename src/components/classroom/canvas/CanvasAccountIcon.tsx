@@ -1,11 +1,16 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import { Rnd } from "react-rnd";
 import { Coins } from "lucide-react";
 import { ElementLayout, BoardTargetElement } from "@/types/classroom";
 import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
-import { parsePercent, parseDimension, toPct, clampPos } from "@/lib/canvasUtils";
+import {
+  parsePercent,
+  parseDimension,
+  makeDragSaveHandler,
+  makeResizeSaveHandler,
+} from "@/lib/canvasUtils";
 
 interface CanvasAccountIconProps {
   layout?: ElementLayout;
@@ -22,16 +27,15 @@ export default function CanvasAccountIcon({
   targetElement,
   onSelectElement,
   onUpdateLayout,
-  scaleFont,
 }: CanvasAccountIconProps) {
-  const isDragging = useRef(false);
-  const dragStartTime = useRef(0);
-
   const leftPct = parsePercent(layout?.left, 93.0);
-  const topPct = parsePercent(layout?.top, 3.0);
-  const defaultSize = scaleFont ? scaleFont(50) : 50;
-  const widthPx = parseDimension(layout?.width, containerSize.width, defaultSize);
-  const heightPx = parseDimension(layout?.height, containerSize.height, defaultSize);
+  const topPct = parsePercent(layout?.top, 89.0);
+  const widthPx = layout?.width
+    ? parseDimension(layout.width, containerSize.width, 50)
+    : 50;
+  const heightPx = layout?.height
+    ? parseDimension(layout.height, containerSize.height, 50)
+    : 50;
   const isSelected = targetElement === "accountBox";
 
   const handleOpenAccountBoard = () => {
@@ -57,31 +61,17 @@ export default function CanvasAccountIcon({
       size={{ width: widthPx, height: heightPx }}
       minWidth={28}
       minHeight={28}
-      onDragStart={() => {
-        isDragging.current = false;
-        dragStartTime.current = Date.now();
-      }}
-      onDrag={() => { isDragging.current = true; }}
-      onDragStop={(_e, d) => {
-        const clamped = clampPos(d, containerSize, widthPx - 12, heightPx - 12);
-        onUpdateLayout((prev) => ({
-          ...prev,
-          left: toPct(clamped.x, containerSize.width),
-          top: toPct(clamped.y, containerSize.height),
-          width: `${Math.round(widthPx)}px`,
-          height: `${Math.round(heightPx)}px`,
-        }));
-        setTimeout(() => { isDragging.current = false; }, 150);
-      }}
-      onResizeStop={(_e, _dir, ref, _delta, position) => {
-        onUpdateLayout((prev) => ({
-          ...prev,
-          left: toPct(position.x, containerSize.width),
-          top: toPct(position.y, containerSize.height),
-          width: `${Math.round(parseFloat(ref.style.width))}px`,
-          height: `${Math.round(parseFloat(ref.style.height))}px`,
-        }));
-      }}
+      onDragStop={makeDragSaveHandler(
+        containerSize,
+        widthPx,
+        heightPx,
+        (left, top) => onUpdateLayout((prev) => ({ ...prev, left, top })),
+      )}
+      onResizeStop={makeResizeSaveHandler(
+        containerSize,
+        (width, height, left, top) =>
+          onUpdateLayout((prev) => ({ ...prev, width, height, left, top })),
+      )}
       enableResizing={RESIZE_ENABLE}
       resizeHandleComponent={RESIZE_HANDLES}
       className={`z-20 group rounded-2xl transition-all cursor-grab active:cursor-grabbing select-none flex items-center justify-center p-1.5 ${
@@ -92,11 +82,12 @@ export default function CanvasAccountIcon({
       onClick={(e: React.MouseEvent) => {
         e.stopPropagation();
         onSelectElement?.("accountBox");
-        if (!isDragging.current && Date.now() - dragStartTime.current < 300) {
-          handleOpenAccountBoard();
-        }
       }}
-      title="학생 계좌(화폐 전광판) 창 열기 (드래그하여 이동, 모서리로 크기 조절)"
+      onDoubleClick={(e: React.MouseEvent) => {
+        e.stopPropagation();
+        handleOpenAccountBoard();
+      }}
+      title="학생 계좌 아이콘 (클릭: 선택, 더블클릭: 전광판 열기, 드래그: 이동, 모서리: 크기 조절)"
     >
       <div className="w-full h-full flex items-center justify-center pointer-events-none">
         <Coins

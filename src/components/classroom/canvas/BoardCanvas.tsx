@@ -91,7 +91,7 @@ export default function BoardCanvas({
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.dateBox && parsed.clockBox && parsed.noticeBox && parsed.routineBox) {
-            setInternalLayouts(parsed);
+            setInternalLayouts({ ...DEFAULT_LAYOUTS, ...parsed, accountBox: parsed.accountBox || DEFAULT_LAYOUTS.accountBox });
           }
         }
       }
@@ -99,7 +99,7 @@ export default function BoardCanvas({
       ch.onmessage = (e) => {
         if (e.data?.defaultFontFamily) setDefaultFontFamily(e.data.defaultFontFamily);
         if (!externalUpdateLayouts && e.data?.layouts) {
-          setInternalLayouts(e.data.layouts);
+          setInternalLayouts({ ...DEFAULT_LAYOUTS, ...e.data.layouts, accountBox: e.data.layouts.accountBox || DEFAULT_LAYOUTS.accountBox });
         }
       };
       return () => ch.close();
@@ -144,13 +144,14 @@ export default function BoardCanvas({
     updateLayouts((prev) => {
       if (target === "all") {
         return {
+          ...prev,
           dateBox: { ...prev.dateBox, ...stylePatch },
           clockBox: { ...prev.clockBox, ...stylePatch },
           noticeBox: { ...prev.noticeBox, ...stylePatch },
           routineBox: { ...prev.routineBox, ...stylePatch },
         };
       }
-      if (target === "noticeBox" || target === "dateBox" || target === "clockBox" || target === "routineBox") {
+      if (target === "noticeBox" || target === "dateBox" || target === "clockBox" || target === "routineBox" || target === "accountBox") {
         return { ...prev, [target]: { ...prev[target as keyof BoardElementLayouts], ...stylePatch } };
       }
       return prev;
@@ -454,7 +455,6 @@ export default function BoardCanvas({
               containerSize={containerSize}
               targetElement={targetElement}
               onSelectElement={onSelectElement}
-              scaleFont={scaleFont}
               onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, accountBox: updater(p.accountBox ?? DEFAULT_LAYOUTS.accountBox!) }))}
             />
           )}

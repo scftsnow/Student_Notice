@@ -256,6 +256,9 @@ export default function NoticeTab({
               <option value="dateBox">날짜</option>
               <option value="clockBox">시간/시계</option>
               <option value="routineBox">학생 업무</option>
+              {(showEconomyShortcut || targetElement === "accountBox") && (
+                <option value="accountBox">학생 계좌</option>
+              )}
               {freeCards && freeCards.map((card, idx) => (
                 <option key={card.id} value={card.id}>자유 글상자 {idx + 1}</option>
               ))}
@@ -477,10 +480,11 @@ export default function NoticeTab({
                     isNaN(n) ? setScaleInput(String(previewScale)) : handleScaleChange(n);
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                    if (e.key === "Escape") { setScaleInput(String(previewScale)); (e.target as HTMLInputElement).blur(); }
-                    if (e.key === "ArrowUp") { e.preventDefault(); handleScaleChange(previewScale + 5); }
-                    if (e.key === "ArrowDown") { e.preventDefault(); handleScaleChange(previewScale - 5); }
+                    if (e.key === "Enter" || e.key === "Escape") {
+                      if (e.key === "Escape") setScaleInput(String(previewScale));
+                      (e.target as HTMLInputElement).blur();
+                    } else if (e.key === "ArrowUp") { e.preventDefault(); handleScaleChange(previewScale + 5); }
+                    else if (e.key === "ArrowDown") { e.preventDefault(); handleScaleChange(previewScale - 5); }
                   }}
                   className="w-9 text-center font-bold text-slate-800 bg-white border border-slate-200 rounded px-1 py-0.5 text-xs focus:outline-indigo-500 font-mono"
                 />
@@ -496,18 +500,8 @@ export default function NoticeTab({
                 <Plus className="w-3.5 h-3.5" />
               </button>
               <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
-              <button
-                type="button"
-                onClick={() => handleScaleChange(75)}
-                className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
-                title="기본 배율 (75%) 복원"
-              >기본</button>
-              <button
-                type="button"
-                onClick={() => handleScaleChange(100)}
-                className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
-                title="100% 원본 배율"
-              >100%</button>
+              <button type="button" onClick={() => handleScaleChange(75)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`} title="기본 배율 (75%) 복원">기본</button>
+              <button type="button" onClick={() => handleScaleChange(100)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`} title="100% 원본 배율">100%</button>
             </div>
           )}
           {/* 칠판 표시 업무 설정 버튼 */}

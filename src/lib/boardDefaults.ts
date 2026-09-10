@@ -5,7 +5,7 @@ export const DEFAULT_LAYOUTS: BoardElementLayouts = {
   clockBox: { left: "75.0%", top: "3.0%", align: "right", clockType: "digital", clockFormat: "24h", visible: true },
   noticeBox: { left: "2.5%", top: "15.0%", width: "95.0%", height: "62.0%", align: "left", visible: true },
   routineBox: { left: "2.5%", top: "82.0%", width: "95.0%", height: "10.0%", align: "left", visible: true },
-  accountBox: { left: "93.0%", top: "89.0%", align: "center", visible: false },
+  accountBox: { left: "93.0%", top: "89.0%", width: "5.0%", height: "8.0%", align: "center", visible: false },
 };
 
 export const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];

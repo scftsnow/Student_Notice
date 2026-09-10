@@ -86,7 +86,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         if (savedLayouts) {
           const parsedLayouts = JSON.parse(savedLayouts);
           if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.noticeBox && parsedLayouts.routineBox) {
-            setLayouts(parsedLayouts);
+            setLayouts({ ...DEFAULT_LAYOUTS, ...parsedLayouts, accountBox: parsedLayouts.accountBox || DEFAULT_LAYOUTS.accountBox });
           }
         }
       } catch {
