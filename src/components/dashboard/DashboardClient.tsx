@@ -58,7 +58,9 @@ export default function DashboardClient({
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("classroom_os_state_v2");
+      const saved =
+        localStorage.getItem("classroom_os_state_v3") ||
+        localStorage.getItem("classroom_os_state_v2");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed.students)) setLiveStudentsCount(parsed.students.length);

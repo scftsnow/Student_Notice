@@ -81,11 +81,11 @@ export default function Navbar({
   }, []);
 
   const navItems = [
-    { href: "/", label: "대시보드", icon: LayoutDashboard },
+    { href: "/notice", label: "알림장", icon: FileText },
     { href: "/students", label: "학생 명단", icon: Users },
     { href: "/routines", label: "학생 업무", icon: CheckSquare },
-    { href: "/notice", label: "알림장", icon: FileText },
     { href: "/economy", label: "학급 화폐", icon: Coins },
+    { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
     { href: "/settings", label: "설정", icon: Settings },
   ];
 
@@ -99,7 +99,7 @@ export default function Navbar({
         <div className="flex items-center justify-between h-16">
           {/* Logo & Class Name */}
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href="/notice" className="flex items-center gap-2 group">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
                 <Sparkles className="w-5 h-5" />
               </div>
@@ -116,10 +116,7 @@ export default function Navbar({
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
+              const isActive = pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}

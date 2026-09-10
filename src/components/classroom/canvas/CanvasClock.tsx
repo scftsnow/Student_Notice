@@ -165,7 +165,7 @@ export default function CanvasClock({
 
           {/* 컨텍스트 메뉴 창 */}
           <div
-            className="fixed z-[99999] bg-slate-900/96 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs p-2 space-y-2 min-w-[210px] select-none"
+            className="fixed z-[99999] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl text-white text-xs p-2 space-y-2 min-w-[210px] select-none"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => {

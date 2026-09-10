@@ -24,6 +24,7 @@ export interface ClassroomStateOptions {
 
 export function useClassroomState(options?: ClassroomStateOptions) {
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [className, setClassName] = useState(options?.initialClassName || "우리 반");
   const [currencyName, setCurrencyName] = useState(options?.initialCurrencyName || "원");
   const [students, setStudents] = useState<ClassroomStudent[]>([]);
@@ -98,6 +99,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         if (saved) {
           const parsed = JSON.parse(saved) as Record<string, unknown>;
           applyParsedState(parsed, options?.initialCurrencyName);
+          // If migrated from v2, immediately persist into v3
+          if (!savedV3 && savedV2) {
+            try { localStorage.setItem("classroom_os_state_v3", savedV2); } catch { /* noop */ }
+          }
+          setIsLoaded(true);
           return;
         }
       } catch {
@@ -114,6 +120,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         }
       } catch {
         // DB also unavailable — start fresh
+      } finally {
+        setIsLoaded(true);
       }
     };
     doLoad();
@@ -716,6 +724,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
 
   return {
     isMounted,
+    isLoaded,
     className,
     setClassName,
     currencyName,

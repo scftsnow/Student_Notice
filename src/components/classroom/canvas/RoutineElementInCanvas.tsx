@@ -205,7 +205,7 @@ export default function RoutineElementInCanvas({
 
           {/* 컨텍스트 메뉴 창 */}
           <div
-            className="fixed z-[99999] bg-slate-900/96 border border-white/20 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs overflow-hidden select-none"
+            className="fixed z-[99999] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl text-white text-xs overflow-hidden select-none"
             style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 210 }}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => {
@@ -301,7 +301,7 @@ export default function RoutineElementInCanvas({
                     <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${pinchSubmenuOpen ? "rotate-90" : ""}`} />
                   </button>
                   {pinchSubmenuOpen && (
-                    <div className="p-1.5 rounded-xl bg-slate-800/95 border border-white/10 flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                    <div className="p-1.5 rounded-xl bg-slate-800 border border-slate-700 flex flex-wrap gap-1 max-h-32 overflow-y-auto">
                       {students.map((s) => (
                         <button
                           key={s.name}
@@ -373,7 +373,7 @@ export default function RoutineElementInCanvas({
 
               {/* 당번 급여 및 대타 팝오버 창 */}
               <div
-                className="fixed z-[99999] min-w-[220px] max-w-[280px] bg-slate-900/96 border border-white/20 rounded-2xl p-3 shadow-2xl backdrop-blur-md text-xs space-y-2.5 text-white select-none"
+                className="fixed z-[99999] min-w-[220px] max-w-[280px] bg-slate-900 border border-slate-700 rounded-2xl p-3 shadow-2xl text-xs space-y-2.5 text-white select-none"
                 style={{ left: workerPopupPos.x, top: workerPopupPos.y }}
                 onClick={(e) => e.stopPropagation()}
                 onContextMenu={(e) => {

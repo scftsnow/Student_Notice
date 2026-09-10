@@ -38,6 +38,24 @@ export default async function RootLayout({
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined') {
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    for (var r of regs) { r.unregister(); }
+                  });
+                }
+                if ('caches' in window) {
+                  caches.keys().then(function(keys) {
+                    for (var k of keys) { caches.delete(k); }
+                  });
+                }
+              }
+            `,
+          }}
+        />
       </head>
       <body className="min-h-screen flex flex-col bg-slate-50/70 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-800">
         <Navbar

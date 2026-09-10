@@ -7,10 +7,11 @@ import RoutineTab from "@/components/classroom/routines/RoutineTab";
 export default function RoutinesPageClient() {
   const state = useClassroomState();
 
-  if (!state.isMounted) {
+  if (!state.isLoaded) {
     return (
-      <div className="py-16 flex items-center justify-center">
-        <div className="text-slate-400 font-bold text-sm animate-pulse">학생 업무 불러오는 중...</div>
+      <div className="py-20 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="text-slate-400 font-bold text-xs animate-pulse">학생 업무 불러오는 중...</div>
       </div>
     );
   }
