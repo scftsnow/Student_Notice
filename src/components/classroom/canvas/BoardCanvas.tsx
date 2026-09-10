@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { ClipboardList, FastForward } from "lucide-react";
+import { ClipboardList, FastForward, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
@@ -23,11 +23,7 @@ interface BoardCanvasProps {
   freeCards: FreeCardData[];
   onAddFreeCard: () => void;
   onRemoveFreeCard: (id: string) => void;
-  onUpdateFreeCard: (
-    id: string,
-    html: string,
-    updates?: Partial<FreeCardData>
-  ) => void;
+  onUpdateFreeCard: (id: string, html: string, updates?: Partial<FreeCardData>) => void;
   students?: ClassroomStudent[];
   currencyName?: string;
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
@@ -44,42 +40,19 @@ interface BoardCanvasProps {
   layouts?: BoardElementLayouts;
   onUpdateLayouts?: (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => void;
   appliedStyle?: {
-    target: string;
-    color?: string;
-    fontSize?: number;
-    align?: "left" | "center" | "right";
-    lineHeight?: number;
-    fontFamily?: string;
-    timestamp: number;
+    target: string; color?: string; fontSize?: number; align?: "left" | "center" | "right";
+    lineHeight?: number; fontFamily?: string; timestamp: number;
   } | null;
 }
 
 export default function BoardCanvas({
-  theme,
-  fontSize,
-  noticeText,
-  onNoticeTextChange,
-  routines,
-  freeCards,
-  onAddFreeCard,
-  onRemoveFreeCard,
-  onUpdateFreeCard,
-  students = [],
-  currencyName = "원",
-  onPayRoutineToday,
-  onPayAllRoutinesToday,
-  onUpdateRoutine,
-  onAdvanceRoutine,
-  onAdvanceAllRoutines,
-  onOpenRoutineNoticeSettings,
-  targetElement = "noticeBox",
-  onSelectElement,
-  onCurrentFontSize,
-  onCurrentLineHeight,
-  showEconomyShortcut = false,
-  layouts: externalLayouts,
-  onUpdateLayouts: externalUpdateLayouts,
-  appliedStyle,
+  theme, fontSize, noticeText, onNoticeTextChange,
+  routines, freeCards, onAddFreeCard, onRemoveFreeCard, onUpdateFreeCard,
+  students = [], currencyName = "원",
+  onPayRoutineToday, onPayAllRoutinesToday, onUpdateRoutine,
+  onAdvanceRoutine, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
+  targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
+  showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
@@ -439,9 +412,16 @@ export default function BoardCanvas({
           >
             <div
               id="canvas-routine-container"
-              className="flex items-center gap-4 sm:gap-6 flex-wrap w-full"
+              className="flex items-center gap-3 sm:gap-5 flex-wrap w-full"
               style={{ fontSize: "inherit" }}
             >
+              <span
+                className="text-white/40 hover:text-white cursor-grab active:cursor-grabbing select-none text-xs font-bold shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-all border border-white/10"
+                title="드래그하여 업무 루틴 글상자 전체 이동"
+              >
+                <GripHorizontal className="w-3.5 h-3.5" />
+                <span className="text-[10px]">이동</span>
+              </span>
               {routines.filter((r) => r.visibleInNotice !== false).length === 0 ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="opacity-50 italic text-xs">

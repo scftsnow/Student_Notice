@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { FreeCardData } from "@/types/classroom";
 
@@ -48,8 +48,10 @@ export default function FreeCardItem({
 }: FreeCardItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  // true when the contentEditable div has browser focus (consecutive click context)
+  // isFocused: 텍스트 에디터 브라우저 포커스 여부
   const isFocused = useRef(false);
+  // isDraggingRef: 드래그 이동과 단순 클릭을 구별하기 위한 플래그
+  const isDraggingRef = useRef(false);
 
   const parsePercent = (val: string | undefined, fallback: number) => {
     if (!val) return fallback;
@@ -122,10 +124,16 @@ export default function FreeCardItem({
       position={{ x, y }}
       size={{ width, height }}
       minWidth={120}
-      disableDragging={isEditing}
+      cancel={isEditing ? "[contenteditable='true'], .freecard-editor-text" : undefined}
       enableResizing={RESIZE_ENABLE}
       resizeHandleComponent={RESIZE_HANDLES}
+      onDragStart={() => {
+        isDraggingRef.current = true;
+      }}
       onDragStop={(_e, d) => {
+        setTimeout(() => {
+          isDraggingRef.current = false;
+        }, 150);
         const left = `${((d.x / containerSize.width) * 100).toFixed(1)}%`;
         const top = `${((d.y / containerSize.height) * 100).toFixed(1)}%`;
         onUpdate(card.id, card.html, { left, top });
@@ -138,9 +146,12 @@ export default function FreeCardItem({
         onUpdate(card.id, card.html, { width: w, height: h, left, top });
       }}
       onClick={() => {
+        // 드래그 직후에 발생하는 클릭 이벤트는 텍스트 편집 모드로 전환하지 않음
+        if (isDraggingRef.current) return;
+
         onSelect?.(card.id);
-        // Non-consecutive: not yet focused -> enter edit + select all
-        // Consecutive: already focused -> browser handles cursor placement naturally
+        // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
+        // 연속 클릭: 이미 포커스된 상태에서는 브라우저 기본 커서 위치 이동
         if (!isFocused.current) {
           setIsEditing(true);
           setTimeout(() => {
@@ -157,26 +168,39 @@ export default function FreeCardItem({
           : "border-transparent hover:border-white/30 cursor-grab active:cursor-grabbing"
       }`}
     >
-      {/* 글상자 삭제/비우기 버튼 */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(card.id);
-        }}
-        className={`transition-opacity absolute top-1.5 right-1.5 z-30 text-white/50 hover:text-rose-400 p-0.5 rounded ${
+      {/* 상단 드래그 핸들 및 닫기 버튼 바 */}
+      <div
+        className={`transition-opacity flex items-center justify-between px-2.5 py-1 bg-slate-900/40 backdrop-blur-xs rounded-t-2xl border-b border-white/10 select-none ${
           isEditing || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
-        title={isMainNotice ? "알림장 내용 비우기" : "글상자 삭제"}
       >
-        <X className="w-3.5 h-3.5" />
-      </button>
+        <div
+          className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing text-white/70 hover:text-white py-0.5"
+          title="드래그하여 글상자 이동"
+        >
+          <GripHorizontal className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-bold tracking-tight opacity-75">
+            {isMainNotice ? "알림장 본문" : "자유 글상자"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(card.id);
+          }}
+          className="text-white/50 hover:text-rose-400 p-0.5 rounded transition-colors"
+          title={isMainNotice ? "알림장 내용 비우기" : "글상자 삭제"}
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
-      {/* 자유 글상자 본문 — contentEditable 항상 활성, pointer-events로 편집 진입 제어 */}
+      {/* 자유 글상자 본문 */}
       <div className="p-2 flex-1 w-full h-full">
         <div
           ref={editorRef}
-          contentEditable
+          contentEditable={isEditing}
           suppressContentEditableWarning
           onFocus={() => {
             isFocused.current = true;
@@ -189,7 +213,9 @@ export default function FreeCardItem({
           onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
           className={`w-full h-full outline-none font-bold overflow-y-auto leading-relaxed tracking-tight ${
-            isEditing ? "cursor-text select-text" : "pointer-events-none select-none"
+            isEditing
+              ? "cursor-text select-text freecard-editor-text"
+              : "select-none cursor-grab active:cursor-grabbing"
           }`}
           style={{
             fontSize: `${card.fontSize || 42}px`,
