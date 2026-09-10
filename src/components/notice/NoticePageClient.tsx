@@ -24,6 +24,9 @@ export default function NoticePageClient() {
     setShowEconomyShortcut(show);
     try {
       localStorage.setItem("classroom_show_economy_shortcut", String(show));
+      const ch = new BroadcastChannel("classroom_os_sync");
+      ch.postMessage({ showEconomyShortcut: show });
+      ch.close();
     } catch {}
   };
 

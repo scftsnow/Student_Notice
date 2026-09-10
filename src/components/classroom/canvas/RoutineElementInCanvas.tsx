@@ -119,12 +119,16 @@ export default function RoutineElementInCanvas({
       .replace(/'/g, "&#039;");
   };
 
+  const ZWSP = "\u200B";
+
   const routineHtml = useMemo(() => {
-    return segments
-      .map((seg) => {
-        if (seg.type === "text") {
-          return `<span class="whitespace-pre">${escapeHtml(seg.text)}</span>`;
-        }
+    const parts: string[] = [];
+    // 항상 맨 앞에 zero-width space를 배치하여 첫 당번 span 앞에서도 커서가 위치할 수 있도록 보장
+    parts.push(ZWSP);
+    segments.forEach((seg) => {
+      if (seg.type === "text") {
+        parts.push(`<span class="whitespace-pre">${escapeHtml(seg.text)}</span>`);
+      } else {
         const workerIdx = seg.workerIndex ?? 0;
         const originalName = rawWorkers[workerIdx] || "";
         const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
@@ -135,11 +139,15 @@ export default function RoutineElementInCanvas({
           ? ""
           : workerColor;
         const style = customColor && !isSubstituted ? `style="color:${customColor};"` : "";
-        return `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
-          currentWorker || "당번"
-        )} — 클릭: 급여·대타 메뉴">${escapeHtml(seg.text)}</span>`;
-      })
-      .join("");
+        parts.push(
+          `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
+            currentWorker || "당번"
+          )} — 클릭: 급여·대타 메뉴">${escapeHtml(seg.text)}</span>`
+        );
+        parts.push(ZWSP);
+      }
+    });
+    return parts.join("");
   }, [segments, rawWorkers, pinchHitter, customColor, workerColor]);
 
   // 포커스 해제 상태일 때만 DOM innerHTML 동기화 (React 가상 DOM 충돌 방지)
@@ -195,10 +203,36 @@ export default function RoutineElementInCanvas({
   const handleClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const workerSpan = target.closest("[data-worker-index]") as HTMLElement | null;
-    if (workerSpan) {
+    const containerRect = editableRef.current?.getBoundingClientRect();
+
+    // 1. 맨 앞(첫 이름 앞 / 좌측 14px 이내) 클릭 시: 팝업 차단 및 첫머리 커서 위치
+    const isClickAtStart = containerRect ? e.clientX <= containerRect.left + 14 : false;
+    if (isClickAtStart) {
       e.stopPropagation();
-      const workerIdx = parseInt(workerSpan.dataset.workerIndex || "0", 10);
-      handleWorkerSpanClick(e, workerIdx);
+      onSelect?.();
+      setIsEditing(true);
+      isFocusedRef.current = true;
+      wasFocusedRef.current = true;
+      if (editableRef.current) {
+        editableRef.current.focus();
+        const sel = window.getSelection();
+        if (sel) {
+          const range = document.createRange();
+          const first = editableRef.current.firstChild;
+          if (first && first.nodeType === Node.TEXT_NODE) range.setStart(first, 0);
+          else range.setStart(editableRef.current, 0);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+      return;
+    }
+
+    // 2. 당번 이름 클릭: 미편집 상태일 때만 급여/대타 팝업 오픈
+    if (workerSpan && !isFocusedRef.current) {
+      e.stopPropagation();
+      handleWorkerSpanClick(e, parseInt(workerSpan.dataset.workerIndex || "0", 10));
       return;
     }
 
@@ -209,8 +243,7 @@ export default function RoutineElementInCanvas({
         editableRef.current.contains(sel.focusNode)
       ));
 
-    // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
-    // (단, 이 요소 내부에서 드래그하여 일부 텍스트 블록을 지정한 경우 전체 선택으로 덮어쓰지 않음)
+    // 3. 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
     if (!isRangeInThis && !wasFocusedRef.current) {
       onSelect?.();
       setIsEditing(true);
@@ -227,7 +260,6 @@ export default function RoutineElementInCanvas({
         }
       }, 30);
     }
-    // 연속 클릭: 이미 포커스된 상태에서는 브라우저 기본 커서 이동
   };
 
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
@@ -241,9 +273,7 @@ export default function RoutineElementInCanvas({
       const popupWidth = 240;
       const popupHeight = 290;
       let top = rect.top - popupHeight - 8;
-      if (top < 10) {
-        top = Math.min(window.innerHeight - popupHeight - 10, rect.bottom + 8);
-      }
+      if (top < 10) top = Math.min(window.innerHeight - popupHeight - 10, rect.bottom + 8);
       const left = Math.max(10, Math.min(rect.left, window.innerWidth - popupWidth - 10));
       setWorkerPopupPos({ x: left, y: Math.max(10, top) });
       setActivePopupIndex(workerIdx);
@@ -261,8 +291,10 @@ export default function RoutineElementInCanvas({
         ref={editableRef}
         contentEditable={true}
         suppressContentEditableWarning
-        onMouseDown={() => {
+        onMouseDown={(e) => {
           wasFocusedRef.current = document.activeElement === editableRef.current;
+          const containerRect = editableRef.current?.getBoundingClientRect();
+          if (containerRect && e.clientX <= containerRect.left + 14) isFocusedRef.current = true;
         }}
         onFocus={() => {
           isFocusedRef.current = true;
@@ -273,7 +305,7 @@ export default function RoutineElementInCanvas({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        className={`outline-none rounded px-0.5 inline-flex items-center flex-wrap gap-0 transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
+        className={`outline-none rounded px-1 inline-block transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
         style={customColor ? { color: customColor } : undefined}
         title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 전체 선택 / 당번 클릭: 급여·대타 메뉴"}
       />
@@ -295,14 +327,12 @@ export default function RoutineElementInCanvas({
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
-            {/* 헤더 */}
             <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
               <CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />
               <span className="font-bold text-white/90 truncate">{routine.name}</span>
             </div>
 
             <div className="p-1.5 space-y-0.5">
-              {/* 이 업무 급여 지급 */}
               {onPayRoutineToday && (
                 <button
                   type="button"
@@ -316,14 +346,10 @@ export default function RoutineElementInCanvas({
                 </button>
               )}
 
-              {/* 전체 업무 급여 일괄 지급 */}
               {onPayAllRoutinesToday && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onPayAllRoutinesToday();
-                    setContextMenu(null);
-                  }}
+                  onClick={() => { onPayAllRoutinesToday(); setContextMenu(null); }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 transition-colors text-left font-bold"
                 >
                   <Coins className="w-3.5 h-3.5" />
@@ -333,14 +359,10 @@ export default function RoutineElementInCanvas({
 
               <div className="h-px bg-white/10 my-0.5" />
 
-              {/* 다음 순서로 */}
               {onAdvanceRoutine && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onAdvanceRoutine(routine.id);
-                    setContextMenu(null);
-                  }}
+                  onClick={() => { onAdvanceRoutine(routine.id); setContextMenu(null); }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
                 >
                   <ArrowRight className="w-3.5 h-3.5 text-indigo-300" />
@@ -348,16 +370,12 @@ export default function RoutineElementInCanvas({
                 </button>
               )}
 
-              {/* 대타 지정 / 대타 취소 / 대타 변경 */}
               {onUpdateRoutine && students.length > 0 && (
                 <div className="space-y-1">
                   {pinchHitter && (
                     <button
                       type="button"
-                      onClick={() => {
-                        handlePinchChange("none");
-                        setContextMenu(null);
-                      }}
+                      onClick={() => { handlePinchChange("none"); setContextMenu(null); }}
                       className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 transition-colors text-left font-medium"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -381,14 +399,8 @@ export default function RoutineElementInCanvas({
                         <button
                           key={s.name}
                           type="button"
-                          onClick={() => {
-                            handlePinchChange(s.name);
-                            setContextMenu(null);
-                            setPinchSubmenuOpen(false);
-                          }}
-                          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
-                            pinchHitter === s.name ? "bg-amber-400 text-slate-900" : "bg-white/10 hover:bg-white/20 text-white"
-                          }`}
+                          onClick={() => { handlePinchChange(s.name); setContextMenu(null); setPinchSubmenuOpen(false); }}
+                          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${pinchHitter === s.name ? "bg-amber-400 text-slate-900" : "bg-white/10 hover:bg-white/20 text-white"}`}
                         >
                           {s.name}
                         </button>
@@ -400,14 +412,10 @@ export default function RoutineElementInCanvas({
 
               <div className="h-px bg-white/10 my-0.5" />
 
-              {/* 알림장에서 숨기기 */}
               {onUpdateRoutine && (
                 <button
                   type="button"
-                  onClick={() => {
-                    onUpdateRoutine(routine.id, { visibleInNotice: false });
-                    setContextMenu(null);
-                  }}
+                  onClick={() => { onUpdateRoutine(routine.id, { visibleInNotice: false }); setContextMenu(null); }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-slate-300 hover:text-white"
                 >
                   <EyeOff className="w-3.5 h-3.5 text-slate-400" />
@@ -430,14 +438,11 @@ export default function RoutineElementInCanvas({
 
           return (
             <>
-              {/* 전체화면 투명 백드롭 (외부 클릭 시 팝업 닫기) */}
               <div
                 className="fixed inset-0 z-[99998]"
                 onClick={(e) => { e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }}
               />
-
-              {/* 당번 급여 및 대타 팝오버 창 */}
               <div
                 className="fixed z-[99999] min-w-[220px] max-w-[280px] bg-slate-900 border border-slate-700 rounded-2xl p-3 shadow-2xl text-xs space-y-2.5 text-white select-none"
                 style={{ left: workerPopupPos.x, top: workerPopupPos.y }}
@@ -452,10 +457,7 @@ export default function RoutineElementInCanvas({
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      setActivePopupIndex(null);
-                      setWorkerPopupPos(null);
-                    }}
+                    onClick={() => { setActivePopupIndex(null); setWorkerPopupPos(null); }}
                     className="text-white/40 hover:text-white p-0.5 leading-none"
                     title="닫기"
                   >
@@ -486,11 +488,7 @@ export default function RoutineElementInCanvas({
                           key={s.name}
                           type="button"
                           onClick={() => handlePinchChange(s.name)}
-                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${
-                            currentWorker === s.name
-                              ? "bg-amber-400 text-slate-900 shadow-xs"
-                              : "bg-white/10 hover:bg-white/20 text-white/90"
-                          }`}
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${currentWorker === s.name ? "bg-amber-400 text-slate-900 shadow-xs" : "bg-white/10 hover:bg-white/20 text-white/90"}`}
                         >
                           {s.name}
                         </button>
@@ -503,11 +501,7 @@ export default function RoutineElementInCanvas({
                   <div className="pt-0.5 pb-1 border-b border-white/10">
                     <button
                       type="button"
-                      onClick={() => {
-                        onAdvanceRoutine(routine.id);
-                        setActivePopupIndex(null);
-                        setWorkerPopupPos(null);
-                      }}
+                      onClick={() => { onAdvanceRoutine(routine.id); setActivePopupIndex(null); setWorkerPopupPos(null); }}
                       className="w-full py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
                     >
                       <ArrowRight className="w-3.5 h-3.5" /><span>다음 순서로</span>

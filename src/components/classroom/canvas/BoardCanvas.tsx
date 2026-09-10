@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo, MouseEvent as ReactMouseEvent } from "react";
-import { ClipboardList, FastForward, GripHorizontal } from "lucide-react";
+import { ClipboardList, FastForward, GripHorizontal, Minus, Plus } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
@@ -61,19 +61,33 @@ export default function BoardCanvas({
   const [internalLayouts, setInternalLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
   const layouts = externalLayouts ?? internalLayouts;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
-    width: 1000,
-    height: 562.5,
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 1000, height: 562.5 });
+
+  const [previewScale, setPreviewScale] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("classroom_preview_scale");
+      if (saved) {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 50 && n <= 100) return n;
+      }
+    } catch {}
+    return 75;
   });
+  const [scaleInput, setScaleInput] = useState<string>(String(previewScale));
+
+  const updateScale = useCallback((next: number) => {
+    const clamped = Math.max(50, Math.min(100, Math.round(next)));
+    setPreviewScale(clamped);
+    setScaleInput(String(clamped));
+    try { localStorage.setItem("classroom_preview_scale", String(clamped)); } catch {}
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const updateSize = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          setContainerSize({ width: rect.width, height: rect.height });
-        }
+        if (rect.width > 0 && rect.height > 0) setContainerSize({ width: rect.width, height: rect.height });
       }
     };
     updateSize();
@@ -152,8 +166,7 @@ export default function BoardCanvas({
         };
       }
       if (target === "noticeBox" || target === "dateBox" || target === "clockBox" || target === "routineBox") {
-        const current = prev[target as keyof BoardElementLayouts];
-        return { ...prev, [target]: { ...current, ...stylePatch } };
+        return { ...prev, [target]: { ...prev[target as keyof BoardElementLayouts], ...stylePatch } };
       }
       return prev;
     });
@@ -166,10 +179,6 @@ export default function BoardCanvas({
     }
   }, [appliedStyle, updateLayouts, freeCards, onUpdateFreeCard]);
 
-  // NOTE: state.fontSize는 새 요소 생성 시 폴백 기본값(fontPx)으로만 사용.
-  // layouts 각 요소별 fontSize는 이미 localStorage/DB에서 복원되므로
-  // 전역 fontSize로 강제 덮어쓰기 하지 않음.
-
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
     const fontPxCurrent = Number(fontSize) || 42;
@@ -178,8 +187,7 @@ export default function BoardCanvas({
     if (targetElement === "clockBox") return layouts.clockBox.fontSize || fontPxCurrent;
     if (targetElement === "routineBox") return layouts.routineBox.fontSize || fontPxCurrent;
     if (targetElement && targetElement.startsWith("free-")) {
-      const card = freeCards.find((c) => c.id === targetElement);
-      return card?.fontSize || fontPxCurrent;
+      return freeCards.find((c) => c.id === targetElement)?.fontSize || fontPxCurrent;
     }
     return fontPxCurrent;
   }, [targetElement, layouts.noticeBox.fontSize, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, fontSize]);
@@ -188,55 +196,88 @@ export default function BoardCanvas({
     const getLh = (lh: number | string | undefined) => {
       if (!lh) return 140;
       const n = typeof lh === "number" ? lh : parseFloat(lh);
-      if (isNaN(n)) return 140;
-      return n < 10 ? Math.round(n * 100) : Math.round(n);
+      return isNaN(n) ? 140 : n < 10 ? Math.round(n * 100) : Math.round(n);
     };
     if (targetElement === "all" || targetElement === "noticeBox") return getLh(layouts.noticeBox.lineHeight);
     if (targetElement === "routineBox") return getLh(layouts.routineBox.lineHeight);
     if (targetElement && targetElement.startsWith("free-")) {
-      const card = freeCards.find((c) => c.id === targetElement);
-      return getLh(card?.lineHeight);
+      return getLh(freeCards.find((c) => c.id === targetElement)?.lineHeight);
     }
     return 140;
   }, [targetElement, layouts.noticeBox.lineHeight, layouts.routineBox.lineHeight, freeCards]);
 
-  useEffect(() => {
-    onCurrentFontSize?.(targetFontSize);
-  }, [targetFontSize, onCurrentFontSize]);
-
-  useEffect(() => {
-    onCurrentLineHeight?.(targetLineHeight);
-  }, [targetLineHeight, onCurrentLineHeight]);
+  useEffect(() => { onCurrentFontSize?.(targetFontSize); }, [targetFontSize, onCurrentFontSize]);
+  useEffect(() => { onCurrentLineHeight?.(targetLineHeight); }, [targetLineHeight, onCurrentLineHeight]);
 
   // Live date
   useEffect(() => {
     const update = () => {
       const now = new Date();
       const days = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
-      const mo = now.getMonth() + 1;
-      const d = now.getDate();
-      setLiveDateStr(`${mo}월 ${d}일 ${days[now.getDay()]}`);
+      setLiveDateStr(`${now.getMonth() + 1}월 ${now.getDate()}일 ${days[now.getDay()]}`);
     };
     update();
     const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const themeBg =
-    theme === "chalkboard" ? "bg-[#1a382b] text-white" : theme === "white" ? "bg-white text-slate-900" : theme === "navy" ? "bg-[#0b132b] text-white" : "bg-[#faf5ea] text-amber-950";
-
+  const themeBg = theme === "chalkboard" ? "bg-[#1a382b] text-white" : theme === "white" ? "bg-white text-slate-900" : theme === "navy" ? "bg-[#0b132b] text-white" : "bg-[#faf5ea] text-amber-950";
   const fontPx = Number(fontSize) || 42;
-  const scaleFont = (size: number) => Math.round(size * 0.75);
+  const scaleFont = (size: number) => Math.round(size * (previewScale / 100));
 
   return (
     <div className="space-y-2">
-      {/* 16:9 캔버스 본체 (학생 전체창 대비 75% 비율) */}
+      {/* 미리보기 배율 조절 바 (최소 50%, 최대 100%) */}
+      <div className="flex items-center justify-between px-2 text-xs text-slate-500 max-w-[1200px] mx-auto">
+        <span className="font-semibold text-slate-600">미리보기 (학생 화면 대비)</span>
+        <div className="flex items-center gap-1 bg-slate-100/90 rounded-lg p-0.5 border border-slate-200/80 select-none">
+          <button
+            type="button"
+            onClick={() => updateScale(previewScale - 5)}
+            disabled={previewScale <= 50}
+            className="w-6 h-6 rounded flex items-center justify-center hover:bg-white active:scale-95 disabled:opacity-30 text-slate-700 font-bold transition-all cursor-pointer"
+            title="배율 축소 (-5%)"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex items-center">
+            <input
+              type="text"
+              value={scaleInput}
+              onChange={(e) => setScaleInput(e.target.value)}
+              onBlur={() => {
+                const n = parseInt(scaleInput, 10);
+                isNaN(n) ? setScaleInput(String(previewScale)) : updateScale(n);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="w-9 text-center font-bold text-slate-800 bg-white border border-slate-200 rounded px-1 py-0.5 text-xs focus:outline-indigo-500 font-mono"
+            />
+            <span className="text-[11px] font-bold text-slate-500 ml-0.5 mr-1">%</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => updateScale(previewScale + 5)}
+            disabled={previewScale >= 100}
+            className="w-6 h-6 rounded flex items-center justify-center hover:bg-white active:scale-95 disabled:opacity-30 text-slate-700 font-bold transition-all cursor-pointer"
+            title="배율 확대 (+5%)"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* 16:9 캔버스 본체 */}
       <div className="flex justify-center w-full">
         <div
           ref={containerRef}
           id="preview-16-9-wrapper"
-          className="relative w-[75%] overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
-          style={{ fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
+          className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
+          style={{
+            width: `${previewScale}%`,
+            fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+          }}
         >
           <div
             className={`absolute inset-0 ${themeBg}`}
@@ -253,46 +294,25 @@ export default function BoardCanvas({
               y: (parsePercent(layouts.dateBox.top, 3.0) / 100) * containerSize.height,
             }}
             size={{
-              width: layouts.dateBox.width
-                ? (parsePercent(layouts.dateBox.width, 20) / 100) * containerSize.width
-                : "auto",
-              height: layouts.dateBox.height
-                ? (parsePercent(layouts.dateBox.height, 10) / 100) * containerSize.height
-                : "auto",
+              width: layouts.dateBox.width ? (parsePercent(layouts.dateBox.width, 20) / 100) * containerSize.width : "auto",
+              height: layouts.dateBox.height ? (parsePercent(layouts.dateBox.height, 10) / 100) * containerSize.height : "auto",
             }}
-            onDragStop={makeDragSaveHandler(
-              containerSize,
-              containerSize.width * 0.2,
-              40,
-              (left, top) => updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, left, top } })),
-            )}
-            onResizeStop={makeResizeSaveHandler(
-              containerSize,
-              (width, height, left, top) => updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, width, height, left, top } })),
-            )}
+            onDragStop={makeDragSaveHandler(containerSize, containerSize.width * 0.2, 40, (left, top) => updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, left, top } })))}
+            onResizeStop={makeResizeSaveHandler(containerSize, (width, height, left, top) => updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, width, height, left, top } })))}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={(e: ReactMouseEvent<HTMLElement>) => {
               const prev = targetElement;
               onSelectElement?.("dateBox");
               const el = document.getElementById("canvas-date-text");
-              const isTargetText = el && (e.target === el || el.contains(e.target as Node));
-              if (!isTargetText) return;
-
+              if (!el || (e.target !== el && !el.contains(e.target as Node))) return;
               const sel = window.getSelection();
-              const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 &&
-                Boolean(el && (
-                  el.contains(sel.anchorNode) ||
-                  el.contains(sel.focusNode)
-                ));
+              const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 && Boolean(el.contains(sel.anchorNode) || el.contains(sel.focusNode));
               if (!isRangeInThis && prev !== "dateBox") {
-                if (el) {
-                  const range = document.createRange();
-                  range.selectNodeContents(el);
-                  const s = window.getSelection();
-                  s?.removeAllRanges();
-                  s?.addRange(range);
-                }
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
               }
             }}
             className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${selectedBorderClass(targetElement === "dateBox")}`}
@@ -313,8 +333,17 @@ export default function BoardCanvas({
               <span className="text-[10px] font-bold tracking-tight text-white/70">날짜</span>
             </div>
             <div className="px-2 py-1 cursor-grab active:cursor-grabbing">
-              <span id="canvas-date-text" className="select-text cursor-text canvas-text-content">
-                {liveDateStr || "오늘 날짜"}
+              <span
+                id="canvas-date-text"
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={(e) => {
+                  const txt = e.currentTarget.innerText.trim();
+                  if (txt) setLiveDateStr(txt);
+                }}
+                className="inline-block cursor-text focus:outline-hidden focus:ring-1 focus:ring-indigo-400/60 rounded px-0.5"
+              >
+                {liveDateStr || "오늘의 날짜"}
               </span>
             </div>
           </Rnd>
@@ -327,9 +356,7 @@ export default function BoardCanvas({
             containerSize={containerSize}
             targetElement={targetElement}
             onSelectElement={onSelectElement}
-            onUpdateLayout={(updater) =>
-              updateLayouts((p) => ({ ...p, clockBox: updater(p.clockBox) }))
-            }
+            onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, clockBox: updater(p.clockBox) }))}
             scaleFont={scaleFont}
             fontPx={fontPx}
           />
@@ -354,18 +381,8 @@ export default function BoardCanvas({
             isSelected={targetElement === "noticeBox"}
             onSelect={() => onSelectElement?.("noticeBox")}
             onUpdate={(_id, html, updates) => {
-              if (html !== undefined && html !== noticeText) {
-                onNoticeTextChange(html);
-              }
-              if (updates) {
-                updateLayouts((p) => ({
-                  ...p,
-                  noticeBox: {
-                    ...p.noticeBox,
-                    ...updates,
-                  },
-                }));
-              }
+              if (html !== undefined && html !== noticeText) onNoticeTextChange(html);
+              if (updates) updateLayouts((p) => ({ ...p, noticeBox: { ...p.noticeBox, ...updates } }));
             }}
             onRemove={() => onNoticeTextChange("")}
             placeholder="전달할 알림장 내용을 입력하세요..."
@@ -384,20 +401,10 @@ export default function BoardCanvas({
             }}
             size={{
               width: (parsePercent(layouts.routineBox.width, 95.0) / 100) * containerSize.width,
-              height: layouts.routineBox.height
-                ? (parsePercent(layouts.routineBox.height, 10) / 100) * containerSize.height
-                : "auto",
+              height: layouts.routineBox.height ? (parsePercent(layouts.routineBox.height, 10) / 100) * containerSize.height : "auto",
             }}
-            onDragStop={makeDragSaveHandler(
-              containerSize,
-              containerSize.width * 0.5,
-              40,
-              (left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, left, top } })),
-            )}
-            onResizeStop={makeResizeSaveHandler(
-              containerSize,
-              (width, height, left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, width, height, left, top } })),
-            )}
+            onDragStop={makeDragSaveHandler(containerSize, containerSize.width * 0.5, 40, (left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, left, top } })))}
+            onResizeStop={makeResizeSaveHandler(containerSize, (width, height, left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, width, height, left, top } })))}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("routineBox")}

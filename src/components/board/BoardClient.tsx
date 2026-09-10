@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Coins, Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
-import { isBoxVisibleToday } from "@/lib/boardDefaults";
+import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 
 interface BoardClientProps {
@@ -31,12 +31,8 @@ export default function BoardClient({
   const [liveDateStr, setLiveDateStr] = useState<string>("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [layouts, setLayouts] = useState<BoardElementLayouts>({
-    dateBox: { left: "2.5%", top: "3.0%", fontSize: 42 },
-    clockBox: { left: "68.0%", top: "3.0%", fontSize: 42 },
-    noticeBox: { left: "2.5%", top: "16.0%", width: "95.0%", height: "62.0%", fontSize: 42 },
-    routineBox: { left: "2.5%", top: "82.0%", width: "95.0%", fontSize: 42 },
-  });
+  const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(false);
+  const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
 
   // Real-time clock and date
   useEffect(() => {
@@ -80,6 +76,8 @@ export default function BoardClient({
           setLayouts(parsedLayouts);
         }
       }
+      const savedShowEconomy = localStorage.getItem("classroom_show_economy_shortcut");
+      if (savedShowEconomy !== null) setShowEconomyShortcut(savedShowEconomy === "true");
     } catch {
       // Ignore parse errors
     }
@@ -100,12 +98,27 @@ export default function BoardClient({
       if (Array.isArray(data.students)) setStudents(data.students);
       if (Array.isArray(data.freeCards)) setFreeCards(data.freeCards);
       if (data.layouts) setLayouts(data.layouts);
+      if (data.showEconomyShortcut !== undefined) setShowEconomyShortcut(Boolean(data.showEconomyShortcut));
     };
 
     return () => {
       channel.close();
     };
   }, []);
+
+  const handleOpenAccountBoard = () => {
+    if (typeof window !== "undefined") {
+      const w = 1100;
+      const h = 750;
+      const left = Math.max(0, Math.round((window.screen.width - w) / 2));
+      const top = Math.max(0, Math.round((window.screen.height - h) / 2));
+      window.open(
+        "/economy/board",
+        "StudentEconomyBoardWindow",
+        `width=${w},height=${h},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`,
+      );
+    }
+  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -187,21 +200,24 @@ export default function BoardClient({
       {/* 글상자 2: 시각 글상자 */}
       {isBoxVisibleToday(layouts.clockBox?.visible, layouts.clockBox?.visibleDays) && (
       <div
-        className="absolute z-10 flex items-center gap-3 text-right"
+        className="absolute z-10 flex items-center"
         style={{
           left: layouts.clockBox.left,
           top: layouts.clockBox.top,
-          width: layouts.clockBox.width,
-          height: layouts.clockBox.height,
+          width: layouts.clockBox.width || (layouts.clockBox.clockType === "analog" ? `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px` : "auto"),
+          height: layouts.clockBox.height || (layouts.clockBox.clockType === "analog" ? `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px` : "auto"),
           color: layouts.clockBox.color || "inherit",
+          justifyContent: layouts.clockBox.align === "left" ? "flex-start" : layouts.clockBox.align === "center" ? "center" : "flex-end",
         }}
       >
         {layouts.clockBox.clockType === "analog" ? (
           <div
-            className="flex items-center justify-center p-1"
+            className="aspect-square flex items-center justify-center p-1 pointer-events-none"
             style={{
-              width: `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
-              height: `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
+              width: "100%",
+              height: "100%",
+              maxWidth: layouts.clockBox.width ? "100%" : `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
+              maxHeight: layouts.clockBox.height ? "100%" : `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
             }}
           >
             <AnalogClock color={layouts.clockBox.color || "currentColor"} size="100%" />
@@ -225,14 +241,6 @@ export default function BoardClient({
               : (currentTime || "--:--:--")}
           </div>
         )}
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          className="p-1 opacity-30 hover:opacity-100 transition-opacity"
-          title="전체화면 (F11)"
-        >
-          {isFullscreen ? <Minimize2 className="w-5 h-5 sm:w-6 sm:h-6" /> : <Maximize2 className="w-5 h-5 sm:w-6 sm:h-6" />}
-        </button>
       </div>
       )}
 
@@ -361,6 +369,26 @@ export default function BoardClient({
           dangerouslySetInnerHTML={{ __html: card.html }}
         />
       ))}
+
+      {/* 글상자 5: 학생 화폐 바로가기 아이콘 (동전 아이콘) */}
+      {showEconomyShortcut && isBoxVisibleToday(layouts.accountBox?.visible, layouts.accountBox?.visibleDays) && (
+        <div
+          className="absolute z-20 cursor-pointer select-none flex items-center justify-center p-1.5 transition-transform hover:scale-110 active:scale-95"
+          style={{
+            left: layouts.accountBox?.left || "93.0%",
+            top: layouts.accountBox?.top || "3.0%",
+            width: layouts.accountBox?.width || "50px",
+            height: layouts.accountBox?.height || "50px",
+          }}
+          onClick={handleOpenAccountBoard}
+          title="학생 계좌(화폐 전광판) 열기"
+        >
+          <Coins
+            className="w-full h-full text-amber-300 drop-shadow-md"
+            style={layouts.accountBox?.color ? { color: layouts.accountBox.color } : undefined}
+          />
+        </div>
+      )}
 
       {/* 전체화면 / 창화면 전환 플로팅 버튼 (우측 하단) */}
       <button
