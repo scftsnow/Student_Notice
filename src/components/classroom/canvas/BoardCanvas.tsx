@@ -301,7 +301,7 @@ export default function BoardCanvas({
                 sel?.addRange(range);
               }
             }}
-            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing ${
+            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${
               targetElement === "dateBox"
                 ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
                 : "border-transparent hover:border-white/30 bg-transparent"
@@ -313,9 +313,20 @@ export default function BoardCanvas({
               fontFamily: layouts.dateBox.fontFamily || undefined,
             }}
           >
-            <span id="canvas-date-text">
-              {liveDateStr || "오늘 날짜"}
-            </span>
+            {/* 날짜 상단바 */}
+            <div
+              className={`transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+                targetElement === "dateBox" ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              <GripHorizontal className="w-3.5 h-3.5 text-white/70" />
+              <span className="text-[10px] font-bold tracking-tight text-white/70">날짜</span>
+            </div>
+            <div className="px-2 py-1">
+              <span id="canvas-date-text">
+                {liveDateStr || "오늘 날짜"}
+              </span>
+            </div>
           </Rnd>
           )}
 
@@ -402,7 +413,7 @@ export default function BoardCanvas({
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("routineBox")}
-            className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing ${
+            className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing flex flex-col ${
               targetElement === "routineBox"
                 ? "z-30 border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
                 : "z-10 border-transparent hover:border-white/30 bg-transparent"
@@ -415,18 +426,20 @@ export default function BoardCanvas({
               lineHeight: layouts.routineBox.lineHeight ? `${layouts.routineBox.lineHeight}` : "1.4",
             }}
           >
+            {/* 루틴 상단바 */}
+            <div
+              className={`transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+                targetElement === "routineBox" ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              <GripHorizontal className="w-3.5 h-3.5 text-white/70" />
+              <span className="text-[10px] font-bold tracking-tight text-white/70">학생 업무</span>
+            </div>
             <div
               id="canvas-routine-container"
-              className="flex items-center gap-3 sm:gap-5 flex-wrap w-full"
+              className="flex items-center gap-3 sm:gap-5 flex-wrap w-full px-2 py-1"
               style={{ fontSize: "inherit" }}
             >
-              <span
-                className="text-white/40 hover:text-white cursor-grab active:cursor-grabbing select-none text-xs font-bold shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 transition-all border border-white/10"
-                title="드래그하여 업무 루틴 글상자 전체 이동"
-              >
-                <GripHorizontal className="w-3.5 h-3.5" />
-                <span className="text-[10px]">이동</span>
-              </span>
               {routines.filter((r) => r.visibleInNotice !== false).length === 0 ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="opacity-50 italic text-xs">

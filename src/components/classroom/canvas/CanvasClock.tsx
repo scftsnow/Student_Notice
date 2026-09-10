@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Rnd } from "react-rnd";
-import { Clock, Check } from "lucide-react";
+import { Clock, Check, GripHorizontal } from "lucide-react";
 import { ElementLayout } from "@/types/classroom";
 import AnalogClock from "./AnalogClock";
 
@@ -124,8 +124,8 @@ export default function CanvasClock({
         resizeHandleComponent={RESIZE_HANDLES}
         onClick={() => onSelectElement?.("clockBox")}
         onContextMenu={handleContextMenu}
-        className={`z-10 group rounded-xl border transition-all cursor-grab active:cursor-grabbing ${
-          isAnalog ? "flex items-center justify-center p-1" : "font-mono font-black tracking-wider whitespace-nowrap opacity-90"
+        className={`z-10 group rounded-xl border transition-all cursor-grab active:cursor-grabbing flex flex-col ${
+          isAnalog ? "" : "font-mono font-black tracking-wider whitespace-nowrap opacity-90"
         } ${
           targetElement === "clockBox"
             ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
@@ -137,13 +137,27 @@ export default function CanvasClock({
           textAlign: layout.align || (isAnalog ? "center" : "right"),
         }}
       >
-        {isAnalog ? (
-          <div className="w-full h-full min-w-[50px] min-h-[50px] max-w-[120px] max-h-[120px] aspect-square flex items-center justify-center pointer-events-none">
-            <AnalogClock color={layout.color || "currentColor"} size="100%" />
-          </div>
-        ) : (
-          <span id="canvas-clock-text">{digitalStr}</span>
-        )}
+        {/* 시계 상단바 */}
+        <div
+          className={`transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+            targetElement === "clockBox" ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          onContextMenu={handleContextMenu}
+        >
+          <GripHorizontal className="w-3.5 h-3.5 text-white/70" />
+          <span className="text-[10px] font-bold tracking-tight text-white/70">시계</span>
+        </div>
+        <div className="flex items-center justify-center flex-1">
+          {isAnalog ? (
+            <div className="w-full h-full min-w-[50px] min-h-[50px] max-w-[120px] max-h-[120px] aspect-square flex items-center justify-center pointer-events-none">
+              <AnalogClock color={layout.color || "currentColor"} size="100%" />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center flex-1 px-2 py-1">
+              <span id="canvas-clock-text">{digitalStr}</span>
+            </div>
+          )}
+        </div>
       </Rnd>
 
       {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
