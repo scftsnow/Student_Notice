@@ -19,6 +19,7 @@ interface CanvasAccountIconProps {
   onSelectElement?: (elem: BoardTargetElement) => void;
   onUpdateLayout: (updater: (prev: ElementLayout) => ElementLayout) => void;
   scaleFont?: (size: number) => number;
+  scale?: number;
 }
 
 export default function CanvasAccountIcon({
@@ -27,6 +28,7 @@ export default function CanvasAccountIcon({
   targetElement,
   onSelectElement,
   onUpdateLayout,
+  scale,
 }: CanvasAccountIconProps) {
   const leftPct = parsePercent(layout?.left, 93.0);
   const topPct = parsePercent(layout?.top, 89.0);
@@ -54,6 +56,7 @@ export default function CanvasAccountIcon({
 
   return (
     <Rnd
+      scale={scale}
       position={{
         x: (leftPct / 100) * containerSize.width,
         y: (topPct / 100) * containerSize.height,

@@ -196,6 +196,8 @@ export default function RoutineElementInCanvas({
   };
 
   const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.();
     const target = e.target as HTMLElement;
     const workerSpan = target.closest("[data-worker-index]") as HTMLElement | null;
     const containerRect = editableRef.current?.getBoundingClientRect();
@@ -278,6 +280,10 @@ export default function RoutineElementInCanvas({
   return (
     <div
       ref={containerRef}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect?.();
+      }}
       onContextMenu={handleContextMenu}
       className="relative inline-flex items-center leading-snug group"
       style={{ fontSize: "inherit" }}
@@ -287,11 +293,11 @@ export default function RoutineElementInCanvas({
         contentEditable={true}
         suppressContentEditableWarning
         onMouseDown={(e) => {
+          e.stopPropagation();
+          onSelect?.();
           const workerSpan = (e.target as HTMLElement).closest("[data-worker-index]") as HTMLElement | null;
           if (workerSpan) {
             e.preventDefault();
-            e.stopPropagation();
-            onSelect?.();
             const workerIdx = parseInt(workerSpan.dataset.workerIndex || "0", 10);
             handleWorkerSpanClick(workerSpan, workerIdx);
             return;

@@ -13,6 +13,7 @@ interface FreeCardItemProps {
   isSelected?: boolean;
   onSelect?: (id: string) => void;
   placeholder?: string;
+  scale?: number;
 }
 
 export default function FreeCardItem({
@@ -23,6 +24,7 @@ export default function FreeCardItem({
   isSelected = false,
   onSelect,
   placeholder = "메모를 입력하세요...",
+  scale,
 }: FreeCardItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -92,6 +94,7 @@ export default function FreeCardItem({
 
   return (
     <Rnd
+      scale={scale}
       position={{ x, y }}
       size={{ width, height }}
       minWidth={120}
@@ -120,7 +123,7 @@ export default function FreeCardItem({
       onClick={(e: ReactMouseEvent<HTMLElement>) => {
         // 드래그 이동 직후에 발생하는 클릭 이벤트는 무시
         if (isDraggingRef.current) return;
-
+        e.stopPropagation();
         onSelect?.(card.id);
 
         // 텍스트 에디터 내부 클릭일 때만 블록 선택 / 커서 분기 수행
@@ -187,8 +190,14 @@ export default function FreeCardItem({
           ref={editorRef}
           contentEditable={true}
           suppressContentEditableWarning
-          onMouseDown={() => {
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect?.(card.id);
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
             wasFocusedRef.current = document.activeElement === editorRef.current;
+            onSelect?.(card.id);
           }}
           onFocus={() => {
             isFocused.current = true;

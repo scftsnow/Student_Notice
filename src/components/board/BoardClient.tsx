@@ -33,6 +33,18 @@ export default function BoardClient({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(false);
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
+  const [viewport, setViewport] = useState({ width: 1280, height: 720 });
+
+  useEffect(() => {
+    const updateSize = () => {
+      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    };
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  const scale = Math.min(viewport.width / 1000, viewport.height / 562.5);
 
   // Real-time clock and date
   useEffect(() => {
@@ -170,14 +182,23 @@ export default function BoardClient({
 
   return (
     <div
-      className={`fixed inset-0 z-50 w-screen h-screen select-none overflow-hidden ${themeStyle.bg}`}
+      className={`fixed inset-0 z-50 w-screen h-screen select-none overflow-hidden flex items-center justify-center ${themeStyle.bg}`}
       style={{ fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       {/* 
-        교사 미리보기(BoardCanvas)와 100% 동일한 절대 좌표 기반 글상자 배치
-        단, 학생 화면 요구사항에 따라 카드 배경(bg)과 테두리(border)는 완전 투명(무배경·무테두리)
+        교사 미리보기(BoardCanvas)의 1000x562.5 기준 캔버스를 100% 동일하게 스케일링하여 투영
+        비율, 글자 크기, 행간, 줄바꿈이 미리보기와 완벽히 1:1 일치
       */}
-
+      <div
+        className="relative overflow-hidden aspect-video select-none"
+        style={{
+          width: "1000px",
+          height: "562.5px",
+          transform: `scale(${scale})`,
+          transformOrigin: "center center",
+          flexShrink: 0,
+        }}
+      >
       {/* 글상자 1: 날짜 글상자 */}
       {isBoxVisibleToday(layouts.dateBox?.visible, layouts.dateBox?.visibleDays) && (
       <div
@@ -395,6 +416,7 @@ export default function BoardClient({
           />
         </div>
       )}
+      </div>
 
       {/* 전체화면 / 창화면 전환 플로팅 버튼 (우측 하단) */}
       <button

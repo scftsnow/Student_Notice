@@ -61,23 +61,21 @@ export default function BoardCanvas({
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
   const [internalLayouts, setInternalLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
   const layouts = externalLayouts ?? internalLayouts;
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 1000, height: 562.5 });
-
-
-
+  const parentRef = useRef<HTMLDivElement>(null);
+  const [parentWidth, setParentWidth] = useState<number>(1000);
+  const containerSize = useMemo(() => ({ width: 1000, height: 562.5 }), []);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!parentRef.current) return;
     const updateSize = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) setContainerSize({ width: rect.width, height: rect.height });
+      if (parentRef.current) {
+        const w = parentRef.current.clientWidth;
+        if (w > 0) setParentWidth(w);
       }
     };
     updateSize();
     const ro = new ResizeObserver(updateSize);
-    ro.observe(containerRef.current);
+    ro.observe(parentRef.current);
     return () => ro.disconnect();
   }, []);
 
@@ -227,29 +225,40 @@ export default function BoardCanvas({
 
   const themeBg = theme === "chalkboard" ? "bg-[#1a382b] text-white" : theme === "white" ? "bg-white text-slate-900" : theme === "navy" ? "bg-[#0b132b] text-white" : "bg-[#faf5ea] text-amber-950";
   const fontPx = Number(fontSize) || 42;
-  const scaleFont = (size: number) => Math.round(size * (previewScale / 100));
+  const previewWidth = Math.max(320, Math.round(parentWidth * (previewScale / 100)));
+  const previewHeight = Math.round(previewWidth * 0.5625);
+  const scale = previewWidth / 1000;
 
   return (
-    <div>
-      {/* 16:9 캔버스 본체 */}
-      <div className="flex justify-center w-full">
+    <div ref={parentRef} className="flex justify-center w-full">
+      {/* 16:9 캔버스 본체 (가로/세로 비율 100% 고정 뷰포트) */}
+      <div
+        id="preview-16-9-wrapper"
+        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-300 select-none bg-slate-900"
+        style={{
+          width: `${previewWidth}px`,
+          height: `${previewHeight}px`,
+        }}
+      >
         <div
-          ref={containerRef}
-          id="preview-16-9-wrapper"
-          className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-300 aspect-video select-none"
           style={{
-            width: `${previewScale}%`,
+            width: "1000px",
+            height: "562.5px",
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
             fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
           }}
+          className="relative"
         >
           <div
             className={`absolute inset-0 ${themeBg}`}
-            onClick={() => onSelectElement?.("all")}
+            onClick={(e) => { if (e.target === e.currentTarget) onSelectElement?.("all"); }}
           >
 
           {/* 요소 1: 날짜 글상자 */}
           {isBoxVisibleToday(layouts.dateBox.visible, layouts.dateBox.visibleDays) && (
           <Rnd
+            scale={scale}
             cancel="#canvas-date-text, .canvas-text-content"
             enableUserSelectHack={false}
             position={{
@@ -265,6 +274,7 @@ export default function BoardCanvas({
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={(e: ReactMouseEvent<HTMLElement>) => {
+              e.stopPropagation();
               const prev = targetElement;
               onSelectElement?.("dateBox");
               const el = document.getElementById("canvas-date-text");
@@ -280,7 +290,7 @@ export default function BoardCanvas({
             }}
             className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${selectedBorderClass(targetElement === "dateBox")}`}
             style={{
-              fontSize: `${scaleFont(layouts.dateBox.fontSize || fontPx)}px`,
+              fontSize: `${layouts.dateBox.fontSize || fontPx}px`,
               color: layouts.dateBox.color || "inherit",
               textAlign: layouts.dateBox.align || "left",
               fontFamily: layouts.dateBox.fontFamily || undefined,
@@ -315,12 +325,13 @@ export default function BoardCanvas({
           {/* 요소 2: 시각 글상자 (우클릭 모양/표시제 토글 지원) */}
           {isBoxVisibleToday(layouts.clockBox.visible, layouts.clockBox.visibleDays) && (
           <CanvasClock
+            scale={scale}
             layout={layouts.clockBox}
             containerSize={containerSize}
             targetElement={targetElement}
             onSelectElement={onSelectElement}
             onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, clockBox: updater(p.clockBox) }))}
-            scaleFont={scaleFont}
+            scaleFont={(s) => s}
             fontPx={fontPx}
           />
           )}
@@ -328,6 +339,7 @@ export default function BoardCanvas({
           {/* 요소 3: 알림장 본문 — 자유 글상자(FreeCardItem) 컴포넌트로 완전 일원화 */}
           {isBoxVisibleToday(layouts.noticeBox.visible, layouts.noticeBox.visibleDays) && (
           <FreeCardItem
+            scale={scale}
             card={{
               id: "noticeBox",
               html: noticeText,
@@ -335,7 +347,7 @@ export default function BoardCanvas({
               top: layouts.noticeBox.top,
               width: layouts.noticeBox.width || "95.0%",
               height: layouts.noticeBox.height || "62.0%",
-              fontSize: scaleFont(layouts.noticeBox.fontSize || fontPx),
+              fontSize: layouts.noticeBox.fontSize || fontPx,
               color: layouts.noticeBox.color,
               align: layouts.noticeBox.align,
               fontFamily: layouts.noticeBox.fontFamily,
@@ -390,6 +402,7 @@ export default function BoardCanvas({
                   return (
                     <Rnd
                       key={r.id}
+                      scale={scale}
                       cancel="button, select, input, [contenteditable='true'], [role='dialog'], .routine-text-editor, .canvas-text-content"
                       enableUserSelectHack={false}
                       position={{
@@ -413,12 +426,12 @@ export default function BoardCanvas({
                       )}
                       enableResizing={RESIZE_ENABLE}
                       resizeHandleComponent={RESIZE_HANDLES}
-                      onClick={() => onSelectElement?.(r.id)}
+                      onClick={(e: ReactMouseEvent<HTMLElement>) => { e.stopPropagation(); onSelectElement?.(r.id); }}
                       className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing flex flex-col ${
                         isSelected ? "z-30" : "z-10"
                       } ${selectedBorderClass(isSelected)}`}
                       style={{
-                        fontSize: `${scaleFont(r.layout?.fontSize || layouts.routineBox.fontSize || fontPx)}px`,
+                        fontSize: `${r.layout?.fontSize || layouts.routineBox.fontSize || fontPx}px`,
                         color: r.layout?.color || layouts.routineBox.color || "inherit",
                         textAlign: r.layout?.align || layouts.routineBox.align || "left",
                         fontFamily: r.layout?.fontFamily || layouts.routineBox.fontFamily || undefined,
@@ -470,7 +483,8 @@ export default function BoardCanvas({
           {freeCards.filter((card) => isBoxVisibleToday(card.visible, card.visibleDays)).map((card) => (
             <FreeCardItem
               key={card.id}
-              card={{ ...card, fontSize: scaleFont(card.fontSize || fontPx) }}
+              scale={scale}
+              card={{ ...card, fontSize: card.fontSize || fontPx }}
               containerSize={containerSize}
               isSelected={targetElement === card.id}
               onSelect={() => onSelectElement?.(card.id)}
@@ -480,6 +494,7 @@ export default function BoardCanvas({
           ))}
           {showEconomyShortcut && (
             <CanvasAccountIcon
+              scale={scale}
               layout={layouts.accountBox}
               containerSize={containerSize}
               targetElement={targetElement}
@@ -491,5 +506,5 @@ export default function BoardCanvas({
       </div>
     </div>
   </div>
-);
+  );
 }

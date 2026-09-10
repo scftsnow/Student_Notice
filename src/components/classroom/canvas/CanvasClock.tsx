@@ -22,6 +22,7 @@ interface CanvasClockProps {
   onUpdateLayout: (updater: (prev: ElementLayout) => ElementLayout) => void;
   scaleFont: (size: number) => number;
   fontPx: number;
+  scale?: number;
 }
 
 export default function CanvasClock({
@@ -32,6 +33,7 @@ export default function CanvasClock({
   onUpdateLayout,
   scaleFont,
   fontPx,
+  scale,
 }: CanvasClockProps) {
   const [now, setNow] = useState<Date>(new Date());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -75,6 +77,7 @@ export default function CanvasClock({
   return (
     <>
       <Rnd
+        scale={scale}
         cancel="button"
         position={{
           x: (parsePercent(layout.left, 68.0) / 100) * containerSize.width,
@@ -104,7 +107,7 @@ export default function CanvasClock({
         )}
         enableResizing={RESIZE_ENABLE}
         resizeHandleComponent={RESIZE_HANDLES}
-        onClick={() => onSelectElement?.("clockBox")}
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSelectElement?.("clockBox"); }}
         onContextMenu={handleContextMenu}
         className={`z-10 group rounded-xl border transition-all cursor-grab active:cursor-grabbing flex flex-col ${
           isAnalog ? "" : "font-mono font-black tracking-wider whitespace-nowrap opacity-90"
