@@ -102,7 +102,7 @@ export default function RoutineElementInCanvas({
 
   const isFocusedRef = useRef(false);
   const wasFocusedRef = useRef(false);
-  const isSavingRef = useRef(false);
+  const lastGoodHtmlRef = useRef<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const editableRef = useRef<HTMLDivElement>(null);
 
@@ -146,31 +146,37 @@ export default function RoutineElementInCanvas({
     return parts.join("");
   }, [segments, rawWorkers, pinchHitter, customColor, workerColor]);
 
-  // 포커스 해제 상태일 때만 DOM innerHTML 동기화 (React 가상 DOM 충돌 방지)
-  // isSavingRef: handleBlur에서 저장 직후 routineHtml 재주입 차단
+  const expectedWorkerCount = segments.filter((s) => s.type === "worker").length;
+
+  // 포커스 해제 상태일 때만 DOM innerHTML 동기화
   useEffect(() => {
-    if (editableRef.current && !isFocusedRef.current && !isSavingRef.current) {
+    if (editableRef.current && !isFocusedRef.current) {
       editableRef.current.innerHTML = routineHtml;
+      lastGoodHtmlRef.current = routineHtml;
     }
-    isSavingRef.current = false;
   }, [routineHtml]);
 
-  const extractTemplateFromDOM = (container: HTMLElement): string => {
-    let result = "";
-    for (const node of Array.from(container.childNodes)) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        result += node.textContent ?? "";
-      } else if (node instanceof HTMLElement && node.dataset.workerIndex !== undefined) {
-        result += "?";
-      } else if (node instanceof HTMLElement) {
-        if (node.querySelector("[data-worker-index]")) {
-          result += "?";
-        } else {
-          result += node.innerText ?? node.textContent ?? "";
-        }
-      }
+  // 재귀적 노드 탐색으로 래핑 태그에 상관없이 안전하게 ? 플레이스홀더 템플릿 추출
+  const extractTemplateFromNode = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent ?? "";
     }
-    return result.replace(/\u200B/g, "").trim();
+    if (node instanceof HTMLElement) {
+      if (node.dataset.workerIndex !== undefined || node.getAttribute("data-worker-index") !== null) {
+        return "?";
+      }
+      let acc = "";
+      for (const child of Array.from(node.childNodes)) {
+        acc += extractTemplateFromNode(child);
+      }
+      return acc;
+    }
+    return "";
+  };
+
+  const extractTemplateFromDOM = (container: HTMLElement): string => {
+    const raw = extractTemplateFromNode(container);
+    return raw.replace(/\u200B/g, "").trim();
   };
 
   const handleBlur = () => {
@@ -178,11 +184,55 @@ export default function RoutineElementInCanvas({
     wasFocusedRef.current = false;
     setIsEditing(false);
     if (!editableRef.current || !onUpdateRoutine) return;
+
     const newTemplate = extractTemplateFromDOM(editableRef.current);
-    if (newTemplate && newTemplate !== (routine.displayFormat ?? "")) {
-      isSavingRef.current = true;
-      onUpdateRoutine(routine.id, { displayFormat: newTemplate });
+    if (!newTemplate) {
+      editableRef.current.innerHTML = routineHtml;
+      return;
     }
+
+    const defaultTemplate = `${routine.icon ? routine.icon + " " : ""}${routine.name}: ${Array(expectedWorkerCount || 1).fill("?").join(", ")}`.trim();
+    const currentEffective = routine.displayFormat?.trim() || defaultTemplate;
+
+    if (newTemplate !== currentEffective) {
+      onUpdateRoutine(routine.id, { displayFormat: newTemplate });
+    } else {
+      editableRef.current.innerHTML = routineHtml;
+    }
+  };
+
+  // 선택 영역에 worker span이 포함되어 있는지 확인
+  const isSelectionDamagingWorkers = (sel: Selection): boolean => {
+    if (!sel.rangeCount || sel.isCollapsed) return false;
+    const range = sel.getRangeAt(0);
+    const frag = range.cloneContents();
+    return Boolean(frag.querySelector("[data-worker-index]"));
+  };
+
+  // 커서 인접 worker span 감지 (Backspace/Delete 차단용)
+  const isWorkerAdjacent = (direction: "before" | "after", sel: Selection): boolean => {
+    if (!sel.rangeCount || !editableRef.current) return false;
+    const range = sel.getRangeAt(0);
+    const workers = Array.from(editableRef.current.querySelectorAll<HTMLElement>("[data-worker-index]"));
+    for (const w of workers) {
+      const testRange = document.createRange();
+      try {
+        if (direction === "before") {
+          testRange.setStartAfter(w);
+          testRange.setEnd(range.startContainer, range.startOffset);
+        } else {
+          testRange.setStart(range.endContainer, range.endOffset);
+          testRange.setEndBefore(w);
+        }
+        if (testRange.compareBoundaryPoints(Range.START_TO_END, testRange) >= 0) {
+          const text = testRange.toString().replace(/[\u200B\s]/g, "");
+          if (text === "") return true;
+        }
+      } catch {
+        // Boundary error ignore
+      }
+    }
+    return false;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -191,42 +241,46 @@ export default function RoutineElementInCanvas({
       editableRef.current?.blur();
       return;
     }
-    // worker span(학생 이름) 삭제 방지
-    if (e.key === "Backspace" || e.key === "Delete") {
-      const sel = window.getSelection();
-      if (sel && sel.isCollapsed && editableRef.current) {
-        const anchor = sel.anchorNode;
-        const offset = sel.anchorOffset;
-        if (e.key === "Backspace") {
-          // 커서가 텍스트 시작이거나 독립 노드 경계에 있을 때 바로 앞 형제가 worker span이면 차단
-          const prevSibling =
-            offset === 0 ? anchor?.previousSibling : null;
-          if (
-            prevSibling instanceof HTMLElement &&
-            prevSibling.dataset.workerIndex !== undefined
-          ) {
-            e.preventDefault();
-            return;
-          }
-        } else {
-          // Delete: 커서가 텍스트 끝에 있을 때 바로 뒤 형제가 worker span이면 차단
-          const textLen = anchor?.textContent?.length ?? 0;
-          const nextSibling =
-            offset === textLen ? anchor?.nextSibling : null;
-          if (
-            nextSibling instanceof HTMLElement &&
-            nextSibling.dataset.workerIndex !== undefined
-          ) {
-            e.preventDefault();
-            return;
-          }
-        }
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    // 1) 범위 선택 시 worker span 포함되어 있으면 삭제/입력 차단
+    if (isSelectionDamagingWorkers(sel)) {
+      if (e.key === "Backspace" || e.key === "Delete" || e.key.length === 1) {
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // 2) 단일 커서 상태에서 Backspace/Delete로 인접 worker span 삭제 차단
+    if (sel.isCollapsed) {
+      if (e.key === "Backspace" && isWorkerAdjacent("before", sel)) {
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Delete" && isWorkerAdjacent("after", sel)) {
+        e.preventDefault();
+        return;
       }
     }
   };
 
+  const handleInput = () => {
+    if (!editableRef.current) return;
+    const currentCount = editableRef.current.querySelectorAll("[data-worker-index]").length;
+    if (currentCount < expectedWorkerCount) {
+      // 학생 이름 span 삭제 감지 -> 즉각 백업 복원
+      editableRef.current.innerHTML = lastGoodHtmlRef.current;
+      return;
+    }
+    lastGoodHtmlRef.current = editableRef.current.innerHTML;
+  };
+
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
+    const sel = window.getSelection();
+    if (sel && isSelectionDamagingWorkers(sel)) return;
     const text = e.clipboardData.getData("text/plain");
     if (!text) return;
     document.execCommand("insertText", false, text);
@@ -237,64 +291,15 @@ export default function RoutineElementInCanvas({
     onSelect?.();
     const target = e.target as HTMLElement;
     const workerSpan = target.closest("[data-worker-index]") as HTMLElement | null;
-    const containerRect = editableRef.current?.getBoundingClientRect();
 
-    // 1. 맨 앞(첫 이름 앞 / 좌측 14px 이내) 클릭 시: 팝업 차단 및 첫머리 커서 위치
-    const isClickAtStart = containerRect ? e.clientX <= containerRect.left + 14 : false;
-    if (isClickAtStart) {
-      e.stopPropagation();
-      onSelect?.();
-      setIsEditing(true);
-      isFocusedRef.current = true;
-      wasFocusedRef.current = true;
-      if (editableRef.current) {
-        editableRef.current.focus();
-        const sel = window.getSelection();
-        if (sel) {
-          const range = document.createRange();
-          const first = editableRef.current.firstChild;
-          if (first && first.nodeType === Node.TEXT_NODE) range.setStart(first, 0);
-          else range.setStart(editableRef.current, 0);
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      }
-      return;
-    }
-
-    // 2. 당번 이름 클릭: 즉각 급여/대타 팝업 오픈
     if (workerSpan) {
-      e.stopPropagation();
-      onSelect?.();
       handleWorkerSpanClick(workerSpan, parseInt(workerSpan.dataset.workerIndex || "0", 10));
       return;
     }
 
-    const sel = window.getSelection();
-    const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 &&
-      Boolean(editableRef.current && (
-        editableRef.current.contains(sel.anchorNode) ||
-        editableRef.current.contains(sel.focusNode)
-      ));
-
-    // 3. 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
-    if (!isRangeInThis && !wasFocusedRef.current) {
-      onSelect?.();
-      setIsEditing(true);
-      isFocusedRef.current = true;
-      wasFocusedRef.current = true;
-      setTimeout(() => {
-        if (editableRef.current) {
-          editableRef.current.focus();
-          const range = document.createRange();
-          range.selectNodeContents(editableRef.current);
-          const sel2 = window.getSelection();
-          sel2?.removeAllRanges();
-          sel2?.addRange(range);
-        }
-      }, 30);
-    }
+    setIsEditing(true);
+    isFocusedRef.current = true;
+    wasFocusedRef.current = true;
   };
 
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
@@ -340,8 +345,6 @@ export default function RoutineElementInCanvas({
             return;
           }
           wasFocusedRef.current = document.activeElement === editableRef.current;
-          const containerRect = editableRef.current?.getBoundingClientRect();
-          if (containerRect && e.clientX <= containerRect.left + 14) isFocusedRef.current = true;
         }}
         onFocus={() => {
           isFocusedRef.current = true;
@@ -351,10 +354,11 @@ export default function RoutineElementInCanvas({
         onBlur={handleBlur}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
+        onInput={handleInput}
         onPaste={handlePaste}
         className={`outline-none rounded px-1 inline-block transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
         style={customColor ? { color: customColor } : undefined}
-        title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 전체 선택 / 당번 클릭: 급여·대타 메뉴"}
+        title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 편집 / 당번 클릭: 급여·대타 메뉴"}
       />
 
       {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
