@@ -247,6 +247,7 @@ export default function NoticeTab({
 
   const applyFontSizeToSelectionOrTarget = (sz: NoticeFontSize) => {
     onFontSizeChange(sz);
+    const numSz = Number(sz);
     const sel = typeof window !== "undefined" ? window.getSelection() : null;
     let range: Range | null = null;
     if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
@@ -257,8 +258,30 @@ export default function NoticeTab({
 
     if (range) {
       try {
+        const targetEl =
+          (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? (range.commonAncestorContainer as HTMLElement)
+            : range.commonAncestorContainer.parentElement)?.closest<HTMLElement>("[contenteditable='true']") ||
+          lastEditableRef.current ||
+          document.activeElement;
+
+        // 전체 텍스트 선택 시 인라인 span 삽입 대신 요소 자체 폰트 크기 변경
+        const targetText = (targetEl instanceof HTMLElement ? targetEl.innerText : targetEl?.textContent) ?? "";
+        const isAllSelected = Boolean(targetText && targetText.trim() === range.toString().trim());
+        if (isAllSelected) {
+          onApplyFontSize?.(numSz);
+          if (targetEl instanceof HTMLElement) {
+            targetEl.focus();
+            targetEl.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+          return;
+        }
+
+        // 부분 텍스트 선택 시: 부모 기본 폰트 크기 대비 상대 em 배율 계산 (교사 75% / 학생 100% 비례 유지)
+        const baseSize = effectiveFontSize || 42;
+        const emRatio = (numSz / baseSize).toFixed(3);
         const span = document.createElement("span");
-        span.style.fontSize = `${sz}px`;
+        span.style.fontSize = `${emRatio}em`;
         const contents = range.extractContents();
         span.appendChild(contents);
         range.insertNode(span);
@@ -269,22 +292,16 @@ export default function NoticeTab({
           sel.addRange(newRange);
           lastRangeRef.current = newRange.cloneRange();
         }
-        const targetEl =
-          (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-            ? (range.commonAncestorContainer as HTMLElement)
-            : range.commonAncestorContainer.parentElement)?.closest<HTMLElement>("[contenteditable='true']") ||
-          lastEditableRef.current ||
-          document.activeElement;
         if (targetEl instanceof HTMLElement) {
           targetEl.focus();
           targetEl.dispatchEvent(new Event("input", { bubbles: true }));
         }
         return;
       } catch {
-        // Fallback to applying on target
+        // Fallback to target
       }
     }
-    onApplyFontSize?.(Number(sz));
+    onApplyFontSize?.(numSz);
   };
 
   return (

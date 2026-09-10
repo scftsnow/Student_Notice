@@ -91,6 +91,8 @@ export default function CanvasClock({
     setContextMenu({ x, y });
   };
 
+  const analogClockPx = Math.round(scaleFont(layout.fontSize || fontPx) * 2.2);
+
   return (
     <>
       <Rnd
@@ -102,14 +104,18 @@ export default function CanvasClock({
         size={{
           width: layout.width
             ? (parsePercent(layout.width, isAnalog ? 10 : 22) / 100) * containerSize.width
+            : isAnalog
+            ? analogClockPx
             : "auto",
           height: layout.height
             ? (parsePercent(layout.height, isAnalog ? 18 : 10) / 100) * containerSize.height
+            : isAnalog
+            ? analogClockPx + 24
             : "auto",
         }}
         onDragStop={(_e, d) => {
-          const clockW = isAnalog ? 80 : 120;
-          const clockH = isAnalog ? 80 : 40;
+          const clockW = isAnalog ? analogClockPx : 120;
+          const clockH = isAnalog ? analogClockPx : 40;
           const clampedX = Math.max(-clockW + 40, Math.min(d.x, containerSize.width - 40));
           const clampedY = Math.max(-clockH + 40, Math.min(d.y, containerSize.height - 40));
           const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
@@ -152,7 +158,13 @@ export default function CanvasClock({
         </div>
         <div className="flex items-center justify-center flex-1">
           {isAnalog ? (
-            <div className="w-full h-full aspect-square flex items-center justify-center pointer-events-none">
+            <div
+              className="aspect-square flex items-center justify-center pointer-events-none p-1"
+              style={{
+                width: layout.width ? "100%" : `${analogClockPx}px`,
+                height: layout.height ? "100%" : `${analogClockPx}px`,
+              }}
+            >
               <AnalogClock color={layout.color || "currentColor"} size="100%" />
             </div>
           ) : (
