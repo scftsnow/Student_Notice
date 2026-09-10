@@ -12,6 +12,7 @@ import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
 } from "@/types/classroom";
+import { DEFAULT_LAYOUTS, isBoxVisibleToday } from "@/lib/boardDefaults";
 
 interface BoardCanvasProps {
   theme: BoardTheme;
@@ -40,6 +41,8 @@ interface BoardCanvasProps {
   onCurrentFontSize?: (size: number) => void;
   onCurrentLineHeight?: (lineHeight: number) => void;
   showEconomyShortcut?: boolean;
+  layouts?: BoardElementLayouts;
+  onUpdateLayouts?: (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => void;
   appliedStyle?: {
     target: string;
     color?: string;
@@ -50,14 +53,6 @@ interface BoardCanvasProps {
     timestamp: number;
   } | null;
 }
-
-const DEFAULT_LAYOUTS: BoardElementLayouts = {
-  dateBox: { left: "2.5%", top: "3.0%", fontSize: 42, lineHeight: 1.4 },
-  clockBox: { left: "81.0%", top: "3.0%", fontSize: 32, lineHeight: 1.4 },
-  noticeBox: { left: "2.5%", top: "15.0%", width: "95%", height: "64%", fontSize: 42, lineHeight: 1.4 },
-  routineBox: { left: "2.5%", top: "82.0%", width: "95%", height: "12%", fontSize: 34, lineHeight: 1.4 },
-  accountBox: { left: "93.0%", top: "3.0%", width: "48px", height: "48px", fontSize: 32 },
-};
 
 export default function BoardCanvas({
   theme,
@@ -82,11 +77,14 @@ export default function BoardCanvas({
   onCurrentFontSize,
   onCurrentLineHeight,
   showEconomyShortcut = false,
+  layouts: externalLayouts,
+  onUpdateLayouts: externalUpdateLayouts,
   appliedStyle,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
-  const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
+  const [internalLayouts, setInternalLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
+  const layouts = externalLayouts ?? internalLayouts;
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
     width: 1000,
@@ -124,22 +122,31 @@ export default function BoardCanvas({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.dateBox && parsed.clockBox && parsed.noticeBox && parsed.routineBox) {
-          setLayouts(parsed);
+          if (externalUpdateLayouts) externalUpdateLayouts(() => parsed);
+          else setInternalLayouts(parsed);
         }
       }
       const ch = new BroadcastChannel("classroom_os_sync");
       ch.onmessage = (e) => {
         if (e.data?.defaultFontFamily) setDefaultFontFamily(e.data.defaultFontFamily);
+        if (e.data?.layouts) {
+          if (externalUpdateLayouts) externalUpdateLayouts(() => e.data.layouts);
+          else setInternalLayouts(e.data.layouts);
+        }
       };
       return () => ch.close();
     } catch {
       // Ignore parse errors
     }
-  }, []);
+  }, [externalUpdateLayouts]);
 
   // Save layout changes and broadcast to student window
   const updateLayouts = useCallback((updater: (prev: BoardElementLayouts) => BoardElementLayouts) => {
-    setLayouts((prev) => {
+    if (externalUpdateLayouts) {
+      externalUpdateLayouts(updater);
+      return;
+    }
+    setInternalLayouts((prev) => {
       const next = updater(prev);
       try {
         localStorage.setItem("classroom_board_layouts", JSON.stringify(next));
@@ -151,7 +158,7 @@ export default function BoardCanvas({
       }
       return next;
     });
-  }, []);
+  }, [externalUpdateLayouts]);
 
   // 외부 툴바 스타일(크기, 색상, 정렬, 줄간격) 변경 적용
   useEffect(() => {
@@ -276,6 +283,7 @@ export default function BoardCanvas({
           <div className={`absolute inset-0 ${themeBg}`}>
 
           {/* 요소 1: 날짜 글상자 */}
+          {isBoxVisibleToday(layouts.dateBox.visible, layouts.dateBox.visibleDays) && (
           <Rnd
             bounds="parent"
             position={{
@@ -331,8 +339,10 @@ export default function BoardCanvas({
               {liveDateStr || "오늘 날짜"}
             </span>
           </Rnd>
+          )}
 
           {/* 요소 2: 시각 글상자 (우클릭 모양/표시제 토글 지원) */}
+          {isBoxVisibleToday(layouts.clockBox.visible, layouts.clockBox.visibleDays) && (
           <CanvasClock
             layout={layouts.clockBox}
             containerSize={containerSize}
@@ -344,8 +354,10 @@ export default function BoardCanvas({
             scaleFont={scaleFont}
             fontPx={fontPx}
           />
+          )}
 
           {/* 요소 3: 알림장 본문 — 자유 글상자(FreeCardItem) 컴포넌트로 완전 일원화 */}
+          {isBoxVisibleToday(layouts.noticeBox.visible, layouts.noticeBox.visibleDays) && (
           <FreeCardItem
             card={{
               id: "noticeBox",
@@ -380,8 +392,10 @@ export default function BoardCanvas({
             placeholder="전달할 알림장 내용을 입력하세요..."
             isMainNotice
           />
+          )}
 
           {/* 요소 4: 루틴 당번 목록 글상자 */}
+          {isBoxVisibleToday(layouts.routineBox.visible, layouts.routineBox.visibleDays) && (
           <Rnd
             bounds="parent"
             cancel="button, select, input, [contenteditable='true'], [role='dialog']"
@@ -499,8 +513,11 @@ export default function BoardCanvas({
               )}
             </div>
           </Rnd>
+          )}
 
-          {freeCards.map((card) => (
+          {freeCards
+            .filter((card) => isBoxVisibleToday(card.visible, card.visibleDays))
+            .map((card) => (
             <FreeCardItem
               key={card.id}
               card={{ ...card, fontSize: scaleFont(card.fontSize || fontPx) }}

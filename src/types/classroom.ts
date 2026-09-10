@@ -79,6 +79,9 @@ export interface FreeCardData {
   fontSize?: number;
   lineHeight?: number | string;
   fontFamily?: string;
+  visible?: boolean;
+  label?: string;
+  visibleDays?: number[];
 }
 
 export interface ElementLayout {
@@ -93,6 +96,9 @@ export interface ElementLayout {
   fontFamily?: string;
   clockType?: "digital" | "analog";
   clockFormat?: "12h" | "24h";
+  visible?: boolean;
+  label?: string;
+  visibleDays?: number[];
 }
 
 export interface BoardElementLayouts {

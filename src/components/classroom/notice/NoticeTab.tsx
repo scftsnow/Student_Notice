@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Coins, Minus, Plus } from "lucide-react";
-import { BoardTheme, NoticeFontSize, BoardTargetElement } from "@/types/classroom";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus } from "lucide-react";
+import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import FontSelectorDropdown from "./FontSelectorDropdown";
+import NoticeBoxVisibilityBar from "./NoticeBoxVisibilityBar";
 
 const TEXT_COLORS = [
   { label: "흰색", value: "#ffffff" }, { label: "노랑", value: "#fde047" },
@@ -31,6 +32,12 @@ interface NoticeTabProps {
   showEconomyShortcut?: boolean;
   onToggleEconomyShortcut?: (show: boolean) => void;
   onOpenRoutineNoticeSettings?: () => void;
+  layouts?: BoardElementLayouts;
+  onUpdateLayouts?: (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => void;
+  freeCards?: FreeCardData[];
+  onToggleFreeCardVisibility?: (id: string, visible: boolean) => void;
+  onUpdateFreeCard?: (id: string, html: string, updates?: Partial<FreeCardData>) => void;
+  onAddFreeCard?: () => void;
 }
 
 export default function NoticeTab({
@@ -51,6 +58,12 @@ export default function NoticeTab({
   showEconomyShortcut = false,
   onToggleEconomyShortcut,
   onOpenRoutineNoticeSettings,
+  layouts,
+  onUpdateLayouts,
+  freeCards,
+  onToggleFreeCardVisibility,
+  onUpdateFreeCard,
+  onAddFreeCard,
 }: NoticeTabProps) {
   const lastRangeRef = useRef<Range | null>(null);
   const lastEditableRef = useRef<HTMLElement | null>(null);
@@ -321,40 +334,13 @@ export default function NoticeTab({
 
           {/* 글자 정렬 */}
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                execCmd("justifyLeft");
-                onApplyAlign?.("left");
-              }}
-              title="왼쪽 정렬"
-              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
-            >
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd("justifyLeft"); onApplyAlign?.("left"); }} title="왼쪽 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
               <AlignLeft className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                execCmd("justifyCenter");
-                onApplyAlign?.("center");
-              }}
-              title="가운데 정렬"
-              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
-            >
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd("justifyCenter"); onApplyAlign?.("center"); }} title="가운데 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
               <AlignCenter className="w-3.5 h-3.5" />
             </button>
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                execCmd("justifyRight");
-                onApplyAlign?.("right");
-              }}
-              title="오른쪽 정렬"
-              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
-            >
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd("justifyRight"); onApplyAlign?.("right"); }} title="오른쪽 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
               <AlignRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -505,26 +491,12 @@ export default function NoticeTab({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {/* 학생 계좌 창 새로 띄우기 아이콘 토글 체크박스 */}
-          {onToggleEconomyShortcut && (
-            <label className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold cursor-pointer select-none px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs">
-              <input
-                type="checkbox"
-                checked={Boolean(showEconomyShortcut)}
-                onChange={(e) => onToggleEconomyShortcut(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-              />
-              <Coins className="w-3.5 h-3.5 text-amber-500" />
-              <span>학생 계좌 아이콘</span>
-            </label>
-          )}
-
           {/* 칠판 표시 업무 설정 버튼 */}
           {onOpenRoutineNoticeSettings && (
             <button
               type="button"
               onClick={onOpenRoutineNoticeSettings}
-              className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs"
+              className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
               title="알림장 칠판에 노출할 학생 업무 및 문구 서식을 설정합니다"
             >
               <ClipboardList className="w-3.5 h-3.5" />
@@ -533,6 +505,20 @@ export default function NoticeTab({
           )}
         </div>
       </div>
+
+      {/* 글상자별 표시/미표시, 이름 변경, 요일 자동표시 바 */}
+      {layouts && onUpdateLayouts && (
+        <NoticeBoxVisibilityBar
+          layouts={layouts}
+          onUpdateLayouts={onUpdateLayouts}
+          showEconomyShortcut={showEconomyShortcut}
+          onToggleEconomyShortcut={onToggleEconomyShortcut}
+          freeCards={freeCards}
+          onToggleFreeCardVisibility={onToggleFreeCardVisibility}
+          onUpdateFreeCard={onUpdateFreeCard}
+          onAddFreeCard={onAddFreeCard}
+        />
+      )}
     </div>
   );
 }

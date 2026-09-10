@@ -82,6 +82,12 @@ export default function ClassroomApp() {
     );
   };
 
+  const handleToggleFreeCardVisibility = (id: string, visible: boolean) => {
+    state.setFreeCards((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, visible } : c))
+    );
+  };
+
   if (!state.isMounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -187,6 +193,12 @@ export default function ClassroomApp() {
                 setAppliedStyle({ target: targetElement, fontFamily, timestamp: Date.now() })
               }
               onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
+              layouts={state.layouts}
+              onUpdateLayouts={state.updateLayouts}
+              freeCards={state.freeCards}
+              onToggleFreeCardVisibility={handleToggleFreeCardVisibility}
+              onUpdateFreeCard={handleUpdateFreeCard}
+              onAddFreeCard={handleAddFreeCard}
             />
             <BoardCanvas
               theme={state.theme}
@@ -212,6 +224,8 @@ export default function ClassroomApp() {
               showEconomyShortcut={showEconomyShortcut}
               appliedStyle={appliedStyle}
               onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
+              layouts={state.layouts}
+              onUpdateLayouts={state.updateLayouts}
             />
           </div>
         )}

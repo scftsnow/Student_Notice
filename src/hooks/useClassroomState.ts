@@ -10,9 +10,11 @@ import {
   BoardTheme,
   NoticeFontSize,
   FreeCardData,
+  BoardElementLayouts,
 } from "@/types/classroom";
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
+import { DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
 
 export interface ClassroomStateOptions {
@@ -38,6 +40,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const [theme, setTheme] = useState<BoardTheme>("chalkboard");
   const [fontSize, setFontSize] = useState<NoticeFontSize>("42");
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
+  const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
 
   // Toast message state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     if (parsed.theme) setTheme(parsed.theme as BoardTheme);
     if (parsed.fontSize) setFontSize(parsed.fontSize as NoticeFontSize);
     if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards as FreeCardData[]);
+    if (parsed.layouts) setLayouts(parsed.layouts as BoardElementLayouts);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -76,6 +80,17 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   useEffect(() => {
     setIsMounted(true);
     const doLoad = async () => {
+      try {
+        const savedLayouts = localStorage.getItem("classroom_board_layouts");
+        if (savedLayouts) {
+          const parsedLayouts = JSON.parse(savedLayouts);
+          if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.noticeBox && parsedLayouts.routineBox) {
+            setLayouts(parsedLayouts);
+          }
+        }
+      } catch {
+        // noop
+      }
       try {
         const savedV3 = localStorage.getItem("classroom_os_state_v3");
         const savedV2 = localStorage.getItem("classroom_os_state_v2");
@@ -130,6 +145,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       fontSize,
       freeCards,
       noticeTarget,
+      layouts,
     };
     const json = JSON.stringify(payload);
 
@@ -155,6 +171,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         routines,
         students,
         freeCards,
+        layouts,
       });
       channel.close();
     } catch { /* noop */ }
@@ -174,9 +191,26 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     fontSize,
     freeCards,
     noticeTarget,
+    layouts,
   ]);
 
-
+  const updateLayouts = useCallback(
+    (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => {
+      setLayouts((prev) => {
+        const next = updater(prev);
+        try {
+          localStorage.setItem("classroom_board_layouts", JSON.stringify(next));
+          const channel = new BroadcastChannel("classroom_os_sync");
+          channel.postMessage({ layouts: next });
+          channel.close();
+        } catch {
+          // noop
+        }
+        return next;
+      });
+    },
+    []
+  );
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -704,6 +738,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     setFontSize,
     freeCards,
     setFreeCards,
+    layouts,
+    setLayouts,
+    updateLayouts,
     toastMessage,
     showToast,
     addStudents,

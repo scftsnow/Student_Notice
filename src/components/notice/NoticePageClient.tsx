@@ -71,6 +71,12 @@ export default function NoticePageClient() {
     );
   };
 
+  const handleToggleFreeCardVisibility = (id: string, visible: boolean) => {
+    state.setFreeCards((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, visible } : c))
+    );
+  };
+
   if (!state.isMounted) {
     return (
       <div className="py-16 flex items-center justify-center">
@@ -135,6 +141,12 @@ export default function NoticePageClient() {
           onApplyFontFamily={(fontFamily) =>
             setAppliedStyle({ target: targetElement, fontFamily, timestamp: Date.now() })
           }
+          layouts={state.layouts}
+          onUpdateLayouts={state.updateLayouts}
+          freeCards={state.freeCards}
+          onToggleFreeCardVisibility={handleToggleFreeCardVisibility}
+          onUpdateFreeCard={handleUpdateFreeCard}
+          onAddFreeCard={handleAddFreeCard}
         />
         <BoardCanvas
           theme={state.theme}
@@ -159,6 +171,8 @@ export default function NoticePageClient() {
           onCurrentLineHeight={setCurrentLineHeight}
           showEconomyShortcut={showEconomyShortcut}
           appliedStyle={appliedStyle}
+          layouts={state.layouts}
+          onUpdateLayouts={state.updateLayouts}
         />
       </div>
     </div>

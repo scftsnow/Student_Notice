@@ -5,6 +5,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
+import { isBoxVisibleToday } from "@/lib/boardDefaults";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 
 interface BoardClientProps {
@@ -165,6 +166,7 @@ export default function BoardClient({
       */}
 
       {/* 글상자 1: 날짜 글상자 */}
+      {isBoxVisibleToday(layouts.dateBox?.visible, layouts.dateBox?.visibleDays) && (
       <div
         className="absolute z-10 font-extrabold tracking-tight opacity-95 whitespace-nowrap"
         style={{
@@ -180,8 +182,10 @@ export default function BoardClient({
       >
         {liveDateStr || `${initialDateStr} (${todayDayOfWeek})`}
       </div>
+      )}
 
       {/* 글상자 2: 시각 글상자 */}
+      {isBoxVisibleToday(layouts.clockBox?.visible, layouts.clockBox?.visibleDays) && (
       <div
         className="absolute z-10 flex items-center gap-3 text-right"
         style={{
@@ -230,8 +234,10 @@ export default function BoardClient({
           {isFullscreen ? <Minimize2 className="w-5 h-5 sm:w-6 sm:h-6" /> : <Maximize2 className="w-5 h-5 sm:w-6 sm:h-6" />}
         </button>
       </div>
+      )}
 
       {/* 글상자 3: 알림장 본문 글상자 (자유 글상자 형식 연동) */}
+      {isBoxVisibleToday(layouts.noticeBox?.visible, layouts.noticeBox?.visibleDays) && (
       <div
         className="absolute z-10 overflow-y-auto"
         style={{
@@ -261,8 +267,10 @@ export default function BoardClient({
           }}
         />
       </div>
+      )}
 
       {/* 글상자 4: 루틴 당번 글상자 */}
+      {isBoxVisibleToday(layouts.routineBox?.visible, layouts.routineBox?.visibleDays) && (
       <div
         className="absolute z-10 flex items-center gap-6 sm:gap-8 flex-wrap font-bold opacity-95 leading-snug"
         style={{
@@ -331,9 +339,12 @@ export default function BoardClient({
           );
         })}
       </div>
+      )}
 
       {/* 자유 글상자 레이어 (무배경·무테두리) */}
-      {freeCards.map((card) => (
+      {freeCards
+        .filter((card) => isBoxVisibleToday(card.visible, card.visibleDays))
+        .map((card) => (
         <div
           key={card.id}
           className="absolute z-20 font-bold"
