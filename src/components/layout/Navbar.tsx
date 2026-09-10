@@ -29,7 +29,7 @@ export default function Navbar({
   const pathname = usePathname();
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDate, setCurrentDate] = useState<string>("");
-  const [liveClassName, setLiveClassName] = useState(classNameTitle);
+  const [liveClassName, setLiveClassName] = useState("");
   const [liveTreasury, setLiveTreasury] = useState(treasuryBalance);
   const [liveCurrency, setLiveCurrency] = useState(currencyName);
 
@@ -41,6 +41,7 @@ export default function Navbar({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.className) setLiveClassName(parsed.className);
+        else setLiveClassName(classNameTitle);
         if (currencyName && currencyName !== "미소" && (parsed.currencyName === "미소" || !parsed.currencyName)) {
           setLiveCurrency(currencyName);
         } else if (parsed.currencyName) {
@@ -49,11 +50,13 @@ export default function Navbar({
           setLiveCurrency(currencyName);
         }
         if (typeof parsed.treasuryBalance === "number") setLiveTreasury(parsed.treasuryBalance);
+      } else {
+        setLiveClassName(classNameTitle);
       }
     } catch {
-      // Ignore
+      setLiveClassName(classNameTitle);
     }
-  }, [currencyName]);
+  }, [currencyName, classNameTitle]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -104,7 +107,7 @@ export default function Navbar({
                 <span className="font-bold text-lg text-slate-800 tracking-tight flex items-center gap-1.5">
                   Teacher Helper-학급 운영
                 </span>
-                <span className="text-xs text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
+                <span suppressHydrationWarning className="text-xs text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
               </div>
             </Link>
           </div>
