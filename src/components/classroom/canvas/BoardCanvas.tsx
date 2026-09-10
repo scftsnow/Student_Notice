@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { ClipboardList, FastForward, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
@@ -91,20 +91,20 @@ export default function BoardCanvas({
     try {
       const savedFont = localStorage.getItem("classroom_default_font_family");
       if (savedFont) setDefaultFontFamily(savedFont);
-      const saved = localStorage.getItem("classroom_board_layouts");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.dateBox && parsed.clockBox && parsed.noticeBox && parsed.routineBox) {
-          if (externalUpdateLayouts) externalUpdateLayouts(() => parsed);
-          else setInternalLayouts(parsed);
+      if (!externalUpdateLayouts) {
+        const saved = localStorage.getItem("classroom_board_layouts");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.dateBox && parsed.clockBox && parsed.noticeBox && parsed.routineBox) {
+            setInternalLayouts(parsed);
+          }
         }
       }
       const ch = new BroadcastChannel("classroom_os_sync");
       ch.onmessage = (e) => {
         if (e.data?.defaultFontFamily) setDefaultFontFamily(e.data.defaultFontFamily);
-        if (e.data?.layouts) {
-          if (externalUpdateLayouts) externalUpdateLayouts(() => e.data.layouts);
-          else setInternalLayouts(e.data.layouts);
+        if (!externalUpdateLayouts && e.data?.layouts) {
+          setInternalLayouts(e.data.layouts);
         }
       };
       return () => ch.close();
@@ -174,48 +174,53 @@ export default function BoardCanvas({
   useEffect(() => {
     const num = Number(fontSize);
     if (!isNaN(num) && num > 0) {
-      updateLayouts((prev) => ({
-        ...prev,
-        noticeBox: { ...prev.noticeBox, fontSize: num },
-      }));
+      updateLayouts((prev) => {
+        if (prev.noticeBox.fontSize === num) return prev;
+        return {
+          ...prev,
+          noticeBox: { ...prev.noticeBox, fontSize: num },
+        };
+      });
     }
   }, [fontSize, updateLayouts]);
 
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
-  useEffect(() => {
+  const targetFontSize = useMemo(() => {
     const fontPxCurrent = Number(fontSize) || 42;
-    if (onCurrentFontSize) {
-      if (targetElement === "noticeBox") {
-        onCurrentFontSize(layouts.noticeBox.fontSize || fontPxCurrent);
-      } else if (targetElement === "dateBox") {
-        onCurrentFontSize(layouts.dateBox.fontSize || fontPxCurrent);
-      } else if (targetElement === "clockBox") {
-        onCurrentFontSize(layouts.clockBox.fontSize || fontPxCurrent);
-      } else if (targetElement === "routineBox") {
-        onCurrentFontSize(layouts.routineBox.fontSize || fontPxCurrent);
-      } else if (targetElement && targetElement.startsWith("free-")) {
-        const card = freeCards.find((c) => c.id === targetElement);
-        onCurrentFontSize(card?.fontSize || fontPxCurrent);
-      }
+    if (targetElement === "noticeBox") return layouts.noticeBox.fontSize || fontPxCurrent;
+    if (targetElement === "dateBox") return layouts.dateBox.fontSize || fontPxCurrent;
+    if (targetElement === "clockBox") return layouts.clockBox.fontSize || fontPxCurrent;
+    if (targetElement === "routineBox") return layouts.routineBox.fontSize || fontPxCurrent;
+    if (targetElement && targetElement.startsWith("free-")) {
+      const card = freeCards.find((c) => c.id === targetElement);
+      return card?.fontSize || fontPxCurrent;
     }
+    return fontPxCurrent;
+  }, [targetElement, layouts.noticeBox.fontSize, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, fontSize]);
 
-    if (onCurrentLineHeight) {
-      const getLh = (lh: number | string | undefined) => {
-        if (!lh) return 140;
-        const n = typeof lh === "number" ? lh : parseFloat(lh);
-        if (isNaN(n)) return 140;
-        return n < 10 ? Math.round(n * 100) : Math.round(n);
-      };
-      if (targetElement === "noticeBox") onCurrentLineHeight(getLh(layouts.noticeBox.lineHeight));
-      else if (targetElement === "routineBox") onCurrentLineHeight(getLh(layouts.routineBox.lineHeight));
-      else if (targetElement && targetElement.startsWith("free-")) {
-        const card = freeCards.find((c) => c.id === targetElement);
-        onCurrentLineHeight(getLh(card?.lineHeight));
-      } else {
-        onCurrentLineHeight(140);
-      }
+  const targetLineHeight = useMemo(() => {
+    const getLh = (lh: number | string | undefined) => {
+      if (!lh) return 140;
+      const n = typeof lh === "number" ? lh : parseFloat(lh);
+      if (isNaN(n)) return 140;
+      return n < 10 ? Math.round(n * 100) : Math.round(n);
+    };
+    if (targetElement === "noticeBox") return getLh(layouts.noticeBox.lineHeight);
+    if (targetElement === "routineBox") return getLh(layouts.routineBox.lineHeight);
+    if (targetElement && targetElement.startsWith("free-")) {
+      const card = freeCards.find((c) => c.id === targetElement);
+      return getLh(card?.lineHeight);
     }
-  }, [targetElement, layouts, freeCards, fontSize, onCurrentFontSize, onCurrentLineHeight]);
+    return 140;
+  }, [targetElement, layouts.noticeBox.lineHeight, layouts.routineBox.lineHeight, freeCards]);
+
+  useEffect(() => {
+    onCurrentFontSize?.(targetFontSize);
+  }, [targetFontSize, onCurrentFontSize]);
+
+  useEffect(() => {
+    onCurrentLineHeight?.(targetLineHeight);
+  }, [targetLineHeight, onCurrentLineHeight]);
 
   // Live date
   useEffect(() => {

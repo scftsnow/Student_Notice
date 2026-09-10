@@ -198,6 +198,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => {
       setLayouts((prev) => {
         const next = updater(prev);
+        if (next === prev) return prev;
         try {
           localStorage.setItem("classroom_board_layouts", JSON.stringify(next));
           const channel = new BroadcastChannel("classroom_os_sync");
