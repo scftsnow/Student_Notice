@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, MouseEvent as ReactMouseEvent } from "react";
 import { X, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { FreeCardData } from "@/types/classroom";
@@ -135,7 +135,8 @@ export default function FreeCardItem({
       position={{ x, y }}
       size={{ width, height }}
       minWidth={120}
-      cancel={isEditing ? "[contenteditable='true'], .freecard-editor-text" : undefined}
+      cancel="[contenteditable='true'], .freecard-editor-text, .canvas-text-space, input, textarea, button"
+      enableUserSelectHack={false}
       enableResizing={RESIZE_ENABLE}
       resizeHandleComponent={RESIZE_HANDLES}
       onDragStart={() => {
@@ -160,14 +161,22 @@ export default function FreeCardItem({
         const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
         onUpdate(card.id, card.html, { width: w, height: h, left, top });
       }}
-      onClick={() => {
-        // 드래그 직후에 발생하는 클릭 이벤트는 텍스트 편집 모드로 전환하지 않음
+      onClick={(e: ReactMouseEvent<HTMLElement>) => {
+        // 드래그 이동 직후에 발생하는 클릭 이벤트는 무시
         if (isDraggingRef.current) return;
 
         onSelect?.(card.id);
+
+        // 텍스트 에디터 내부 클릭일 때만 블록 선택 / 커서 분기 수행
+        const isTargetEditor = editorRef.current && (e.target === editorRef.current || editorRef.current.contains(e.target as Node));
+        if (!isTargetEditor) return;
+
+        const sel = window.getSelection();
+        const hasRange = sel && !sel.isCollapsed && sel.toString().length > 0;
+
         // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
-        // 연속 클릭: 이미 포커스된 상태에서는 브라우저 기본 커서 위치 이동
-        if (!isFocused.current) {
+        // (단, 사용자가 드래그하여 일부 텍스트를 지정한 경우 전체 선택으로 덮어쓰지 않음)
+        if (!hasRange && !isFocused.current) {
           setIsEditing(true);
           setTimeout(() => {
             editorRef.current?.focus();
@@ -181,17 +190,17 @@ export default function FreeCardItem({
           : isMainNotice
           ? "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
           : "border-dashed border-white/20 hover:border-white/40 bg-transparent"
-      } ${
-        isEditing
-          ? "cursor-text"
-          : "cursor-grab active:cursor-grabbing"
-      }`}
+      } cursor-grab active:cursor-grabbing`}
     >
       {/* 상단 드래그 핸들 및 닫기 버튼 바 */}
       <div
-        className={`transition-opacity flex items-center justify-between px-2.5 py-1 bg-slate-900/40 backdrop-blur-xs rounded-t-2xl border-b border-white/10 select-none ${
+        className={`transition-opacity flex items-center justify-between px-2.5 py-1 bg-slate-900/40 backdrop-blur-xs rounded-t-2xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
           isEditing || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect?.(card.id);
+        }}
       >
         <div
           className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing text-white/70 hover:text-white py-0.5"
@@ -216,14 +225,15 @@ export default function FreeCardItem({
       </div>
 
       {/* 자유 글상자 본문 */}
-      <div className="p-2 flex-1 w-full min-h-0 overflow-hidden">
+      <div className="p-2 flex-1 w-full min-h-0 overflow-hidden cursor-grab active:cursor-grabbing">
         <div
           ref={editorRef}
-          contentEditable={isEditing}
+          contentEditable={true}
           suppressContentEditableWarning
           onFocus={() => {
             isFocused.current = true;
             setIsEditing(true);
+            onSelect?.(card.id);
           }}
           onBlur={() => {
             isFocused.current = false;
@@ -231,11 +241,7 @@ export default function FreeCardItem({
           }}
           onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
-          className={`w-full h-full outline-none font-bold overflow-y-auto leading-relaxed tracking-tight ${
-            isEditing
-              ? "cursor-text select-text freecard-editor-text"
-              : "select-none cursor-grab active:cursor-grabbing"
-          }`}
+          className="w-full h-full outline-none font-bold overflow-y-auto leading-relaxed tracking-tight cursor-text select-text freecard-editor-text"
           style={{
             fontSize: `${card.fontSize || 42}px`,
             textAlign: card.align || "left",

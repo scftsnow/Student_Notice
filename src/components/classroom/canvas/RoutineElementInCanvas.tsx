@@ -200,8 +200,12 @@ export default function RoutineElementInCanvas({
       return;
     }
 
+    const sel = window.getSelection();
+    const hasRangeSelection = sel && !sel.isCollapsed && (sel.toString().length > 0);
+
     // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
-    if (!isFocusedRef.current) {
+    // (단, 사용자가 드래그하여 일부 텍스트 블록을 지정한 경우 전체 선택으로 덮어쓰지 않음)
+    if (!hasRangeSelection && !isFocusedRef.current) {
       onSelect?.();
       setIsEditing(true);
       isFocusedRef.current = true;
@@ -210,9 +214,9 @@ export default function RoutineElementInCanvas({
           editableRef.current.focus();
           const range = document.createRange();
           range.selectNodeContents(editableRef.current);
-          const sel = window.getSelection();
-          sel?.removeAllRanges();
-          sel?.addRange(range);
+          const sel2 = window.getSelection();
+          sel2?.removeAllRanges();
+          sel2?.addRange(range);
         }
       }, 30);
     }
@@ -258,11 +262,7 @@ export default function RoutineElementInCanvas({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        className={`outline-none rounded px-0.5 inline-flex items-center flex-wrap gap-0 transition-all ${
-          isEditing
-            ? "cursor-text select-text"
-            : "cursor-pointer select-none"
-        } ${customColor ? "" : routineTextColor}`}
+        className={`outline-none rounded px-0.5 inline-flex items-center flex-wrap gap-0 transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
         style={customColor ? { color: customColor } : undefined}
         title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 전체 선택 / 당번 클릭: 급여·대타 메뉴"}
       />

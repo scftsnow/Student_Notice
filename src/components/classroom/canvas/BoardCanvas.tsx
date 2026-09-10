@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, MouseEvent as ReactMouseEvent } from "react";
 import { ClipboardList, FastForward, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
@@ -247,6 +247,8 @@ export default function BoardCanvas({
           {/* 요소 1: 날짜 글상자 */}
           {isBoxVisibleToday(layouts.dateBox.visible, layouts.dateBox.visibleDays) && (
           <Rnd
+            cancel="#canvas-date-text, .canvas-text-content"
+            enableUserSelectHack={false}
             position={{
               x: (parsePercent(layouts.dateBox.left, 2.5) / 100) * containerSize.width,
               y: (parsePercent(layouts.dateBox.top, 3.0) / 100) * containerSize.height,
@@ -275,17 +277,22 @@ export default function BoardCanvas({
             }}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
-            onClick={() => {
+            onClick={(e: ReactMouseEvent<HTMLElement>) => {
               const prev = targetElement;
               onSelectElement?.("dateBox");
-              if (prev !== "dateBox") {
-                const el = document.getElementById("canvas-date-text");
+              const el = document.getElementById("canvas-date-text");
+              const isTargetText = el && (e.target === el || el.contains(e.target as Node));
+              if (!isTargetText) return;
+
+              const sel = window.getSelection();
+              const hasRange = sel && !sel.isCollapsed && sel.toString().length > 0;
+              if (!hasRange && prev !== "dateBox") {
                 if (el) {
                   const range = document.createRange();
                   range.selectNodeContents(el);
-                  const sel = window.getSelection();
-                  sel?.removeAllRanges();
-                  sel?.addRange(range);
+                  const s = window.getSelection();
+                  s?.removeAllRanges();
+                  s?.addRange(range);
                 }
               }
             }}
@@ -310,8 +317,8 @@ export default function BoardCanvas({
               <GripHorizontal className="w-3.5 h-3.5 text-white/70" />
               <span className="text-[10px] font-bold tracking-tight text-white/70">날짜</span>
             </div>
-            <div className="px-2 py-1">
-              <span id="canvas-date-text" className="select-text cursor-text">
+            <div className="px-2 py-1 cursor-grab active:cursor-grabbing">
+              <span id="canvas-date-text" className="select-text cursor-text canvas-text-content">
                 {liveDateStr || "오늘 날짜"}
               </span>
             </div>
@@ -374,7 +381,8 @@ export default function BoardCanvas({
           {/* 요소 4: 루틴 당번 목록 글상자 */}
           {isBoxVisibleToday(layouts.routineBox.visible, layouts.routineBox.visibleDays) && (
           <Rnd
-            cancel="button, select, input, [contenteditable='true'], [role='dialog']"
+            cancel="button, select, input, [contenteditable='true'], [role='dialog'], .routine-text-editor, .canvas-text-content"
+            enableUserSelectHack={false}
             position={{
               x: (parsePercent(layouts.routineBox.left, 2.5) / 100) * containerSize.width,
               y: (parsePercent(layouts.routineBox.top, 82.0) / 100) * containerSize.height,
