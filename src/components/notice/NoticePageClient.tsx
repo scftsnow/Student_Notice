@@ -30,6 +30,25 @@ export default function NoticePageClient() {
     } catch {}
   };
 
+  const [previewScale, setPreviewScale] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("classroom_preview_scale");
+      if (saved) {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 50 && n <= 100) return n;
+      }
+    } catch {}
+    return 75;
+  });
+
+  const handlePreviewScaleChange = (next: number) => {
+    const clamped = Math.max(50, Math.min(100, Math.round(next)));
+    setPreviewScale(clamped);
+    try {
+      localStorage.setItem("classroom_preview_scale", String(clamped));
+    } catch {}
+  };
+
   const [appliedStyle, setAppliedStyle] = useState<{
     target: BoardTargetElement;
     color?: string;
@@ -151,6 +170,8 @@ export default function NoticePageClient() {
           onToggleFreeCardVisibility={handleToggleFreeCardVisibility}
           onUpdateFreeCard={handleUpdateFreeCard}
           onAddFreeCard={handleAddFreeCard}
+          previewScale={previewScale}
+          onPreviewScaleChange={handlePreviewScaleChange}
         />
         <BoardCanvas
           theme={state.theme}
@@ -165,7 +186,6 @@ export default function NoticePageClient() {
           students={state.students}
           currencyName={state.currencyName}
           onPayRoutineToday={state.payRoutineToday}
-          onPayAllRoutinesToday={state.payAllRoutinesToday}
           onUpdateRoutine={state.updateRoutine}
           onAdvanceRoutine={state.advanceRoutine}
           onAdvanceAllRoutines={state.advanceAllRoutines}
@@ -177,6 +197,7 @@ export default function NoticePageClient() {
           appliedStyle={appliedStyle}
           layouts={state.layouts}
           onUpdateLayouts={state.updateLayouts}
+          previewScale={previewScale}
         />
       </div>
     </div>

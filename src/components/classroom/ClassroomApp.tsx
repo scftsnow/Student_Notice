@@ -49,6 +49,23 @@ export default function ClassroomApp() {
     timestamp: number;
   } | null>(null);
 
+  const [previewScale, setPreviewScale] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("classroom_preview_scale");
+      if (saved) {
+        const n = parseInt(saved, 10);
+        if (!isNaN(n) && n >= 50 && n <= 100) return n;
+      }
+    } catch {}
+    return 75;
+  });
+
+  const handlePreviewScaleChange = (next: number) => {
+    const clamped = Math.max(50, Math.min(100, Math.round(next)));
+    setPreviewScale(clamped);
+    try { localStorage.setItem("classroom_preview_scale", String(clamped)); } catch {}
+  };
+
   const state = useClassroomState();
 
   const handleOpenBoardWindow = () => {
@@ -202,6 +219,8 @@ export default function ClassroomApp() {
               onToggleFreeCardVisibility={handleToggleFreeCardVisibility}
               onUpdateFreeCard={handleUpdateFreeCard}
               onAddFreeCard={handleAddFreeCard}
+              previewScale={previewScale}
+              onPreviewScaleChange={handlePreviewScaleChange}
             />
             <BoardCanvas
               theme={state.theme}
@@ -216,7 +235,6 @@ export default function ClassroomApp() {
               students={state.students}
               currencyName={state.currencyName}
               onPayRoutineToday={state.payRoutineToday}
-              onPayAllRoutinesToday={state.payAllRoutinesToday}
               onUpdateRoutine={state.updateRoutine}
               onAdvanceRoutine={state.advanceRoutine}
               onAdvanceAllRoutines={state.advanceAllRoutines}
@@ -229,6 +247,7 @@ export default function ClassroomApp() {
               onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
               layouts={state.layouts}
               onUpdateLayouts={state.updateLayouts}
+              previewScale={previewScale}
             />
           </div>
         )}

@@ -40,6 +40,8 @@ interface NoticeTabProps {
   onToggleFreeCardVisibility?: (id: string, visible: boolean) => void;
   onUpdateFreeCard?: (id: string, html: string, updates?: Partial<FreeCardData>) => void;
   onAddFreeCard?: () => void;
+  previewScale?: number;
+  onPreviewScaleChange?: (scale: number) => void;
 }
 
 export default function NoticeTab({
@@ -66,6 +68,8 @@ export default function NoticeTab({
   onToggleFreeCardVisibility,
   onUpdateFreeCard,
   onAddFreeCard,
+  previewScale = 75,
+  onPreviewScaleChange,
 }: NoticeTabProps) {
   const {
     getEffectiveRange,
@@ -79,6 +83,14 @@ export default function NoticeTab({
   const selectedFontId =
     CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id ||
     "pretendard";
+
+  const [scaleInput, setScaleInput] = useState<string>(String(previewScale));
+  useEffect(() => { setScaleInput(String(previewScale)); }, [previewScale]);
+
+  const handleScaleChange = (next: number) => {
+    const clamped = Math.max(50, Math.min(100, Math.round(next)));
+    onPreviewScaleChange?.(clamped);
+  };
 
   const applyFontFamilyToSelectionOrTarget = (fontId: string) => {
     const fontObj = CLASSROOM_FONTS.find((f) => f.id === fontId);
@@ -183,13 +195,24 @@ export default function NoticeTab({
   const applyFontSizeToSelectionOrTarget = (sz: NoticeFontSize) => {
     onFontSizeChange(sz);
     const numSz = Number(sz);
+
+    // 전체 일괄 적용 대상이면 layout 즉시 반영
+    if (targetElement === "all") {
+      onApplyFontSize?.(numSz);
+      return;
+    }
+
     const { range, sel } = getEffectiveRange();
 
     if (range) {
       try {
         const targetEl = getTargetEl(range);
         const targetText = targetEl ? (targetEl.innerText || targetEl.textContent || "") : "";
-        if (targetText && targetText.trim() === range.toString().trim()) {
+        const rangeText = range.toString();
+        // 전체 텍스트 선택이거나 개행 차이로 동등한 경우 layout 반영
+        const isFullSelection = !targetText || !rangeText ||
+          targetText.replace(/\s/g, "") === rangeText.replace(/\s/g, "");
+        if (isFullSelection) {
           onApplyFontSize?.(numSz);
           dispatchInput(targetEl);
           return;
@@ -432,6 +455,61 @@ export default function NoticeTab({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap shrink-0">
+          {/* 미리보기 배율 조절 */}
+          {onPreviewScaleChange && (
+            <div className="flex items-center gap-0.5 bg-slate-100/90 rounded-lg p-0.5 border border-slate-200/80 select-none">
+              <button
+                type="button"
+                onClick={() => handleScaleChange(previewScale - 5)}
+                disabled={previewScale <= 50}
+                className="w-6 h-6 rounded flex items-center justify-center hover:bg-white active:scale-95 disabled:opacity-30 text-slate-700 font-bold transition-all cursor-pointer"
+                title="배율 축소 (-5%)"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  value={scaleInput}
+                  onChange={(e) => setScaleInput(e.target.value)}
+                  onBlur={() => {
+                    const n = parseInt(scaleInput, 10);
+                    isNaN(n) ? setScaleInput(String(previewScale)) : handleScaleChange(n);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                    if (e.key === "Escape") { setScaleInput(String(previewScale)); (e.target as HTMLInputElement).blur(); }
+                    if (e.key === "ArrowUp") { e.preventDefault(); handleScaleChange(previewScale + 5); }
+                    if (e.key === "ArrowDown") { e.preventDefault(); handleScaleChange(previewScale - 5); }
+                  }}
+                  className="w-9 text-center font-bold text-slate-800 bg-white border border-slate-200 rounded px-1 py-0.5 text-xs focus:outline-indigo-500 font-mono"
+                />
+                <span className="text-[11px] font-bold text-slate-500 ml-0.5 mr-1">%</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleScaleChange(previewScale + 5)}
+                disabled={previewScale >= 100}
+                className="w-6 h-6 rounded flex items-center justify-center hover:bg-white active:scale-95 disabled:opacity-30 text-slate-700 font-bold transition-all cursor-pointer"
+                title="배율 확대 (+5%)"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+              <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
+              <button
+                type="button"
+                onClick={() => handleScaleChange(75)}
+                className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
+                title="기본 배율 (75%) 복원"
+              >기본</button>
+              <button
+                type="button"
+                onClick={() => handleScaleChange(100)}
+                className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
+                title="100% 원본 배율"
+              >100%</button>
+            </div>
+          )}
           {/* 칠판 표시 업무 설정 버튼 */}
           {onOpenRoutineNoticeSettings && (
             <button

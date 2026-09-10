@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { EyeOff, RefreshCw, X, Coins, ArrowRight, CheckSquare, User, ChevronRight } from "lucide-react";
+import { EyeOff, RefreshCw, X, Coins, ArrowRight, CheckSquare, User } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
@@ -13,7 +13,6 @@ interface RoutineElementInCanvasProps {
   theme?: BoardTheme;
   customColor?: string;
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
-  onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
   onSelect?: () => void;
@@ -26,7 +25,6 @@ export default function RoutineElementInCanvas({
   theme = "chalkboard",
   customColor,
   onPayRoutineToday,
-  onPayAllRoutinesToday,
   onUpdateRoutine,
   onAdvanceRoutine,
   onSelect,
@@ -34,7 +32,6 @@ export default function RoutineElementInCanvas({
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [workerPopupPos, setWorkerPopupPos] = useState<{ x: number; y: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [pinchSubmenuOpen, setPinchSubmenuOpen] = useState(false);
   const [applyTax, setApplyTax] = useState(false);
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,7 +48,6 @@ export default function RoutineElementInCanvas({
     e.stopPropagation();
     setActivePopupIndex(null);
     setWorkerPopupPos(null);
-    setPinchSubmenuOpen(false);
     const menuWidth = 240;
     const menuHeight = 280;
     const x = Math.max(10, Math.min(e.clientX, window.innerWidth - menuWidth - 10));
@@ -82,7 +78,6 @@ export default function RoutineElementInCanvas({
     }
     setActivePopupIndex(null);
     setWorkerPopupPos(null);
-    setPinchSubmenuOpen(false);
   };
 
   const handlePayWorker = (workerName: string) => {
@@ -316,8 +311,8 @@ export default function RoutineElementInCanvas({
           {/* 전체화면 투명 백드롭 (뒤쪽 알림장 및 글상자 클릭 차단) */}
           <div
             className="fixed inset-0 z-[99998]"
-            onClick={(e) => { e.stopPropagation(); setContextMenu(null); setPinchSubmenuOpen(false); }}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu(null); setPinchSubmenuOpen(false); }}
+            onClick={(e) => { e.stopPropagation(); setContextMenu(null); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu(null); }}
           />
 
           {/* 컨텍스트 메뉴 창 */}
@@ -346,17 +341,6 @@ export default function RoutineElementInCanvas({
                 </button>
               )}
 
-              {onPayAllRoutinesToday && (
-                <button
-                  type="button"
-                  onClick={() => { onPayAllRoutinesToday(); setContextMenu(null); }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-600/80 transition-colors text-left font-bold"
-                >
-                  <Coins className="w-3.5 h-3.5" />
-                  <span>전체 업무 급여 일괄 지급</span>
-                </button>
-              )}
-
               <div className="h-px bg-white/10 my-0.5" />
 
               {onAdvanceRoutine && (
@@ -368,46 +352,6 @@ export default function RoutineElementInCanvas({
                   <ArrowRight className="w-3.5 h-3.5 text-indigo-300" />
                   <span className="font-semibold">다음 순서로</span>
                 </button>
-              )}
-
-              {onUpdateRoutine && students.length > 0 && (
-                <div className="space-y-1">
-                  {pinchHitter && (
-                    <button
-                      type="button"
-                      onClick={() => { handlePinchChange("none"); setContextMenu(null); }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 transition-colors text-left font-medium"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span className="font-semibold">대타 취소 ({pinchHitter})</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setPinchSubmenuOpen(!pinchSubmenuOpen)}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
-                  >
-                    <div className="flex items-center gap-2">
-                      <RefreshCw className="w-3.5 h-3.5 text-amber-300" />
-                      <span className="font-semibold">{pinchHitter ? "대타 변경" : "대타 지정"}</span>
-                    </div>
-                    <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${pinchSubmenuOpen ? "rotate-90" : ""}`} />
-                  </button>
-                  {pinchSubmenuOpen && (
-                    <div className="p-1.5 rounded-xl bg-slate-800 border border-slate-700 flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-                      {students.map((s) => (
-                        <button
-                          key={s.name}
-                          type="button"
-                          onClick={() => { handlePinchChange(s.name); setContextMenu(null); setPinchSubmenuOpen(false); }}
-                          className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${pinchHitter === s.name ? "bg-amber-400 text-slate-900" : "bg-white/10 hover:bg-white/20 text-white"}`}
-                        >
-                          {s.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
               )}
 
               <div className="h-px bg-white/10 my-0.5" />

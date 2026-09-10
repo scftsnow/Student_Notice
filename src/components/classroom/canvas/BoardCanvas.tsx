@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo, MouseEvent as ReactMouseEvent } from "react";
-import { ClipboardList, FastForward, GripHorizontal, Minus, Plus } from "lucide-react";
+import { ClipboardList, FastForward, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
@@ -29,7 +29,6 @@ interface BoardCanvasProps {
   students?: ClassroomStudent[];
   currencyName?: string;
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
-  onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
   onAdvanceAllRoutines?: () => void;
@@ -45,16 +44,18 @@ interface BoardCanvasProps {
     target: BoardTargetElement; color?: string; fontSize?: number; align?: "left" | "center" | "right";
     lineHeight?: number; fontFamily?: string; timestamp: number;
   } | null;
+  previewScale?: number;
 }
 
 export default function BoardCanvas({
   theme, fontSize, noticeText, onNoticeTextChange,
   routines, freeCards, onAddFreeCard, onRemoveFreeCard, onUpdateFreeCard,
   students = [], currencyName = "원",
-  onPayRoutineToday, onPayAllRoutinesToday, onUpdateRoutine,
+  onPayRoutineToday, onUpdateRoutine,
   onAdvanceRoutine, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
+  previewScale = 75,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
@@ -63,24 +64,8 @@ export default function BoardCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 1000, height: 562.5 });
 
-  const [previewScale, setPreviewScale] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem("classroom_preview_scale");
-      if (saved) {
-        const n = parseInt(saved, 10);
-        if (!isNaN(n) && n >= 50 && n <= 100) return n;
-      }
-    } catch {}
-    return 75;
-  });
-  const [scaleInput, setScaleInput] = useState<string>(String(previewScale));
 
-  const updateScale = useCallback((next: number) => {
-    const clamped = Math.max(50, Math.min(100, Math.round(next)));
-    setPreviewScale(clamped);
-    setScaleInput(String(clamped));
-    try { localStorage.setItem("classroom_preview_scale", String(clamped)); } catch {}
-  }, []);
+
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -226,68 +211,7 @@ export default function BoardCanvas({
   const scaleFont = (size: number) => Math.round(size * (previewScale / 100));
 
   return (
-    <div className="space-y-2">
-      {/* 미리보기 배율 조절 바 (최소 50%, 최대 100%) */}
-      <div className="flex items-center justify-between px-2 text-xs text-slate-500 max-w-[1200px] mx-auto">
-        <span className="font-semibold text-slate-600">미리보기 (학생 화면 대비)</span>
-        <div className="flex items-center gap-1 bg-slate-100/90 rounded-lg p-0.5 border border-slate-200/80 select-none">
-          <button
-            type="button"
-            onClick={() => updateScale(previewScale - 5)}
-            disabled={previewScale <= 50}
-            className="w-6 h-6 rounded flex items-center justify-center hover:bg-white active:scale-95 disabled:opacity-30 text-slate-700 font-bold transition-all cursor-pointer"
-            title="배율 축소 (-5%)"
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex items-center">
-            <input
-              type="text"
-              value={scaleInput}
-              onChange={(e) => setScaleInput(e.target.value)}
-              onBlur={() => {
-                const n = parseInt(scaleInput, 10);
-                isNaN(n) ? setScaleInput(String(previewScale)) : updateScale(n);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                if (e.key === "Escape") { setScaleInput(String(previewScale)); (e.target as HTMLInputElement).blur(); }
-                if (e.key === "ArrowUp") { e.preventDefault(); updateScale(previewScale + 5); }
-                if (e.key === "ArrowDown") { e.preventDefault(); updateScale(previewScale - 5); }
-              }}
-              className="w-9 text-center font-bold text-slate-800 bg-white border border-slate-200 rounded px-1 py-0.5 text-xs focus:outline-indigo-500 font-mono"
-            />
-            <span className="text-[11px] font-bold text-slate-500 ml-0.5 mr-1">%</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => updateScale(previewScale + 5)}
-            disabled={previewScale >= 100}
-            className="w-6 h-6 rounded flex items-center justify-center hover:bg-white active:scale-95 disabled:opacity-30 text-slate-700 font-bold transition-all cursor-pointer"
-            title="배율 확대 (+5%)"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-          <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
-          <button
-            type="button"
-            onClick={() => updateScale(75)}
-            className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
-            title="기본 배율 (75%) 복원"
-          >
-            기본
-          </button>
-          <button
-            type="button"
-            onClick={() => updateScale(100)}
-            className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`}
-            title="100% 원본 배율"
-          >
-            100%
-          </button>
-        </div>
-      </div>
-
+    <div>
       {/* 16:9 캔버스 본체 */}
       <div className="flex justify-center w-full">
         <div
@@ -396,6 +320,7 @@ export default function BoardCanvas({
               color: layouts.noticeBox.color,
               align: layouts.noticeBox.align,
               fontFamily: layouts.noticeBox.fontFamily,
+              lineHeight: layouts.noticeBox.lineHeight,
             }}
             containerSize={containerSize}
             isSelected={targetElement === "noticeBox"}
@@ -478,7 +403,7 @@ export default function BoardCanvas({
                     <RoutineElementInCanvas
                       key={r.id} routine={r} students={students} currencyName={currencyName}
                       theme={theme} customColor={layouts.routineBox.color}
-                      onPayRoutineToday={onPayRoutineToday} onPayAllRoutinesToday={onPayAllRoutinesToday}
+                      onPayRoutineToday={onPayRoutineToday}
                       onUpdateRoutine={onUpdateRoutine} onAdvanceRoutine={onAdvanceRoutine}
                       onSelect={() => onSelectElement?.("routineBox")}
                     />
