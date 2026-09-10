@@ -26,14 +26,26 @@ const RESIZE_ENABLE = {
 };
 
 const RESIZE_HANDLES = {
-  top: <div title="크기 조절 핸들" data-handle="top" className="w-full h-full" />,
-  right: <div title="크기 조절 핸들" data-handle="right" className="w-full h-full" />,
-  bottom: <div title="크기 조절 핸들" data-handle="bottom" className="w-full h-full" />,
-  left: <div title="크기 조절 핸들" data-handle="left" className="w-full h-full" />,
-  topLeft: <div title="크기 조절 핸들" data-handle="topLeft" className="w-full h-full" />,
-  topRight: <div title="크기 조절 핸들" data-handle="topRight" className="w-full h-full" />,
-  bottomLeft: <div title="크기 조절 핸들" data-handle="bottomLeft" className="w-full h-full" />,
-  bottomRight: <div title="크기 조절 핸들" data-handle="bottomRight" className="w-full h-full" />,
+  top: <div title="크기 조절" data-handle="top" className="w-full h-full cursor-ns-resize" />,
+  right: (
+    <div title="크기 조절" data-handle="right" className="w-full h-full flex items-center justify-end cursor-ew-resize">
+      <div className="w-1 h-8 rounded-full bg-white/40 group-hover:bg-indigo-400 transition-colors mr-0.5" />
+    </div>
+  ),
+  bottom: (
+    <div title="크기 조절" data-handle="bottom" className="w-full h-full flex items-end justify-center cursor-ns-resize pb-0.5">
+      <div className="w-8 h-1 rounded-full bg-white/40 group-hover:bg-indigo-400 transition-colors" />
+    </div>
+  ),
+  left: <div title="크기 조절" data-handle="left" className="w-full h-full cursor-ew-resize" />,
+  topLeft: <div title="크기 조절" data-handle="topLeft" className="w-full h-full cursor-nwse-resize" />,
+  topRight: <div title="크기 조절" data-handle="topRight" className="w-full h-full cursor-nesw-resize" />,
+  bottomLeft: <div title="크기 조절" data-handle="bottomLeft" className="w-full h-full cursor-nesw-resize" />,
+  bottomRight: (
+    <div title="크기 조절" data-handle="bottomRight" className="w-full h-full flex items-end justify-end p-1 cursor-nwse-resize">
+      <div className="w-3 h-3 border-r-2 border-b-2 border-white/70 group-hover:border-indigo-400 transition-colors rounded-br-xs" />
+    </div>
+  ),
 };
 
 export default function FreeCardItem({
@@ -163,12 +175,16 @@ export default function FreeCardItem({
           }, 30);
         }
       }}
-      className={`z-20 group rounded-2xl border transition-colors flex flex-col bg-transparent ${
+      className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden ${
+        isSelected
+          ? "border-indigo-400 ring-2 ring-indigo-400/40 bg-white/5"
+          : isMainNotice
+          ? "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
+          : "border-dashed border-white/20 hover:border-white/40 bg-transparent"
+      } ${
         isEditing
-          ? "border-indigo-400/60 ring-1 ring-indigo-400/40 cursor-text"
-          : isSelected
-          ? "border-transparent hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 cursor-grab active:cursor-grabbing"
-          : "border-transparent hover:border-white/30 cursor-grab active:cursor-grabbing"
+          ? "cursor-text"
+          : "cursor-grab active:cursor-grabbing"
       }`}
     >
       {/* 상단 드래그 핸들 및 닫기 버튼 바 */}
@@ -200,7 +216,7 @@ export default function FreeCardItem({
       </div>
 
       {/* 자유 글상자 본문 */}
-      <div className="p-2 flex-1 w-full h-full">
+      <div className="p-2 flex-1 w-full min-h-0 overflow-hidden">
         <div
           ref={editorRef}
           contentEditable={isEditing}

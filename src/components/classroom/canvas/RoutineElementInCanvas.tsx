@@ -16,6 +16,7 @@ interface RoutineElementInCanvasProps {
   onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
+  onSelect?: () => void;
 }
 
 export default function RoutineElementInCanvas({
@@ -28,6 +29,7 @@ export default function RoutineElementInCanvas({
   onPayAllRoutinesToday,
   onUpdateRoutine,
   onAdvanceRoutine,
+  onSelect,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [workerPopupPos, setWorkerPopupPos] = useState<{ x: number; y: number } | null>(null);
@@ -200,6 +202,7 @@ export default function RoutineElementInCanvas({
 
     // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
     if (!isFocusedRef.current) {
+      onSelect?.();
       setIsEditing(true);
       isFocusedRef.current = true;
       setTimeout(() => {
@@ -255,9 +258,9 @@ export default function RoutineElementInCanvas({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
-        className={`outline-none rounded px-1 inline-flex items-center flex-wrap gap-0 transition-all ${
+        className={`outline-none rounded px-0.5 inline-flex items-center flex-wrap gap-0 transition-all ${
           isEditing
-            ? "cursor-text select-text ring-1 ring-indigo-400/50 bg-black/10"
+            ? "cursor-text select-text"
             : "cursor-pointer select-none"
         } ${customColor ? "" : routineTextColor}`}
         style={customColor ? { color: customColor } : undefined}

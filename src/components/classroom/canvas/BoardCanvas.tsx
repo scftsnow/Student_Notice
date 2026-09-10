@@ -321,7 +321,7 @@ export default function BoardCanvas({
               <span className="text-[10px] font-bold tracking-tight text-white/70">날짜</span>
             </div>
             <div className="px-2 py-1">
-              <span id="canvas-date-text">
+              <span id="canvas-date-text" className="select-text cursor-text">
                 {liveDateStr || "오늘 날짜"}
               </span>
             </div>
@@ -474,6 +474,7 @@ export default function BoardCanvas({
                       onPayAllRoutinesToday={onPayAllRoutinesToday}
                       onUpdateRoutine={onUpdateRoutine}
                       onAdvanceRoutine={onAdvanceRoutine}
+                      onSelect={() => onSelectElement?.("routineBox")}
                     />
                   ))}
                   <div className="flex items-center gap-1.5 ml-auto shrink-0">

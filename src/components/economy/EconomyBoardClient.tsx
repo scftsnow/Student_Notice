@@ -21,7 +21,7 @@ export default function EconomyBoardClient({
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<"name" | "balance_desc">("name");
+  const [sortBy, setSortBy] = useState<"input" | "name" | "balance_desc">("input");
 
   // 실시간 시계 및 날짜
   useEffect(() => {
@@ -87,13 +87,16 @@ export default function EconomyBoardClient({
     }
   };
 
-  // 정렬된 학생 목록 (이름순 / 잔액순)
-  const sortedStudents = [...students].sort((a, b) => {
-    if (sortBy === "balance_desc") {
-      return b.balance - a.balance || a.name.localeCompare(b.name, "ko");
-    }
-    return a.name.localeCompare(b.name, "ko");
-  });
+  // 정렬된 학생 목록 (입력순 / 이름순 / 잔액순)
+  const sortedStudents =
+    sortBy === "input"
+      ? [...students]
+      : [...students].sort((a, b) => {
+          if (sortBy === "balance_desc") {
+            return b.balance - a.balance || a.name.localeCompare(b.name, "ko");
+          }
+          return a.name.localeCompare(b.name, "ko");
+        });
 
   const totalCirculation = students.reduce((acc, s) => acc + s.balance, 0);
 
@@ -180,6 +183,15 @@ export default function EconomyBoardClient({
 
           {/* 정렬 토글 */}
           <div className="inline-flex p-0.5 rounded-lg bg-black/20 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setSortBy("input")}
+              className={`px-2.5 py-1 rounded-md transition-all ${
+                sortBy === "input" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+              }`}
+            >
+              입력 순
+            </button>
             <button
               type="button"
               onClick={() => setSortBy("name")}
