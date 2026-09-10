@@ -11,8 +11,10 @@ import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
+  BoardTargetElement,
 } from "@/types/classroom";
 import { DEFAULT_LAYOUTS, isBoxVisibleToday } from "@/lib/boardDefaults";
+import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler, selectedBorderClass } from "@/lib/canvasUtils";
 
 interface BoardCanvasProps {
   theme: BoardTheme;
@@ -32,15 +34,15 @@ interface BoardCanvasProps {
   onAdvanceRoutine?: (id: string) => void;
   onAdvanceAllRoutines?: () => void;
   onOpenRoutineNoticeSettings?: () => void;
-  targetElement?: string;
-  onSelectElement?: (elem: string) => void;
+  targetElement?: BoardTargetElement;
+  onSelectElement?: (elem: BoardTargetElement) => void;
   onCurrentFontSize?: (size: number) => void;
   onCurrentLineHeight?: (lineHeight: number) => void;
   showEconomyShortcut?: boolean;
   layouts?: BoardElementLayouts;
   onUpdateLayouts?: (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => void;
   appliedStyle?: {
-    target: string; color?: string; fontSize?: number; align?: "left" | "center" | "right";
+    target: BoardTargetElement; color?: string; fontSize?: number; align?: "left" | "center" | "right";
     lineHeight?: number; fontFamily?: string; timestamp: number;
   } | null;
 }
@@ -79,12 +81,6 @@ export default function BoardCanvas({
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
-
-  const parsePercent = (val: string | undefined, fallback: number) => {
-    if (!val) return fallback;
-    const num = parseFloat(val);
-    return isNaN(num) ? fallback : num;
-  };
 
   // Load layout and default font from localStorage
   useEffect(() => {
@@ -264,20 +260,16 @@ export default function BoardCanvas({
                 ? (parsePercent(layouts.dateBox.height, 10) / 100) * containerSize.height
                 : "auto",
             }}
-            onDragStop={(_e, d) => {
-              const clampedX = Math.max(-containerSize.width * 0.8, Math.min(d.x, containerSize.width - 40));
-              const clampedY = Math.max(-containerSize.height * 0.8, Math.min(d.y, containerSize.height - 40));
-              const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
-              updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, left, top } }));
-            }}
-            onResizeStop={(_e, _dir, ref, _delta, position) => {
-              const width = `${((parseFloat(ref.style.width) / containerSize.width) * 100).toFixed(1)}%`;
-              const height = `${((parseFloat(ref.style.height) / containerSize.height) * 100).toFixed(1)}%`;
-              const left = `${((position.x / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
-              updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, width, height, left, top } }));
-            }}
+            onDragStop={makeDragSaveHandler(
+              containerSize,
+              containerSize.width * 0.2,
+              40,
+              (left, top) => updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, left, top } })),
+            )}
+            onResizeStop={makeResizeSaveHandler(
+              containerSize,
+              (width, height, left, top) => updateLayouts((p) => ({ ...p, dateBox: { ...p.dateBox, width, height, left, top } })),
+            )}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={(e: ReactMouseEvent<HTMLElement>) => {
@@ -303,11 +295,7 @@ export default function BoardCanvas({
                 }
               }
             }}
-            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${
-              targetElement === "dateBox"
-                ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
-                : "border-transparent hover:border-white/30 bg-transparent"
-            }`}
+            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${selectedBorderClass(targetElement === "dateBox")}`}
             style={{
               fontSize: `${scaleFont(layouts.dateBox.fontSize || fontPx)}px`,
               color: layouts.dateBox.color || "inherit",
@@ -400,28 +388,22 @@ export default function BoardCanvas({
                 ? (parsePercent(layouts.routineBox.height, 10) / 100) * containerSize.height
                 : "auto",
             }}
-            onDragStop={(_e, d) => {
-              const clampedX = Math.max(-containerSize.width * 0.8, Math.min(d.x, containerSize.width - 40));
-              const clampedY = Math.max(-containerSize.height * 0.8, Math.min(d.y, containerSize.height - 40));
-              const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
-              updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, left, top } }));
-            }}
-            onResizeStop={(_e, _dir, ref, _delta, position) => {
-              const width = `${((parseFloat(ref.style.width) / containerSize.width) * 100).toFixed(1)}%`;
-              const height = `${((parseFloat(ref.style.height) / containerSize.height) * 100).toFixed(1)}%`;
-              const left = `${((position.x / containerSize.width) * 100).toFixed(1)}%`;
-              const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
-              updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, width, height, left, top } }));
-            }}
+            onDragStop={makeDragSaveHandler(
+              containerSize,
+              containerSize.width * 0.5,
+              40,
+              (left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, left, top } })),
+            )}
+            onResizeStop={makeResizeSaveHandler(
+              containerSize,
+              (width, height, left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, width, height, left, top } })),
+            )}
             enableResizing={RESIZE_ENABLE}
             resizeHandleComponent={RESIZE_HANDLES}
             onClick={() => onSelectElement?.("routineBox")}
             className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing flex flex-col ${
-              targetElement === "routineBox"
-                ? "z-30 border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
-                : "z-10 border-transparent hover:border-white/30 bg-transparent"
-            }`}
+              targetElement === "routineBox" ? "z-30" : "z-10"
+            } ${selectedBorderClass(targetElement === "routineBox")}`}
             style={{
               fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
               color: layouts.routineBox.color || "inherit",

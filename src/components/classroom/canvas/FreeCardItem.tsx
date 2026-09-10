@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, MouseEvent as ReactMouseEvent } from "reac
 import { X, GripHorizontal } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { FreeCardData } from "@/types/classroom";
+import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
+import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler } from "@/lib/canvasUtils";
 
 interface FreeCardItemProps {
   card: FreeCardData;
@@ -13,40 +15,6 @@ interface FreeCardItemProps {
   placeholder?: string;
   isMainNotice?: boolean;
 }
-
-const RESIZE_ENABLE = {
-  top: true,
-  right: true,
-  bottom: true,
-  left: true,
-  topLeft: true,
-  topRight: true,
-  bottomLeft: true,
-  bottomRight: true,
-};
-
-const RESIZE_HANDLES = {
-  top: <div title="크기 조절" data-handle="top" className="w-full h-full cursor-ns-resize" />,
-  right: (
-    <div title="크기 조절" data-handle="right" className="w-full h-full flex items-center justify-end cursor-ew-resize">
-      <div className="w-1 h-8 rounded-full bg-white/40 group-hover:bg-indigo-400 transition-colors mr-0.5" />
-    </div>
-  ),
-  bottom: (
-    <div title="크기 조절" data-handle="bottom" className="w-full h-full flex items-end justify-center cursor-ns-resize pb-0.5">
-      <div className="w-8 h-1 rounded-full bg-white/40 group-hover:bg-indigo-400 transition-colors" />
-    </div>
-  ),
-  left: <div title="크기 조절" data-handle="left" className="w-full h-full cursor-ew-resize" />,
-  topLeft: <div title="크기 조절" data-handle="topLeft" className="w-full h-full cursor-nwse-resize" />,
-  topRight: <div title="크기 조절" data-handle="topRight" className="w-full h-full cursor-nesw-resize" />,
-  bottomLeft: <div title="크기 조절" data-handle="bottomLeft" className="w-full h-full cursor-nesw-resize" />,
-  bottomRight: (
-    <div title="크기 조절" data-handle="bottomRight" className="w-full h-full flex items-end justify-end p-1 cursor-nwse-resize">
-      <div className="w-3 h-3 border-r-2 border-b-2 border-white/70 group-hover:border-indigo-400 transition-colors rounded-br-xs" />
-    </div>
-  ),
-};
 
 export default function FreeCardItem({
   card,
@@ -60,17 +28,9 @@ export default function FreeCardItem({
 }: FreeCardItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-  // isFocused: 텍스트 에디터 브라우저 포커스 여부
   const isFocused = useRef(false);
   const wasFocusedRef = useRef(false);
-  // isDraggingRef: 드래그 이동과 단순 클릭을 구별하기 위한 플래그
   const isDraggingRef = useRef(false);
-
-  const parsePercent = (val: string | undefined, fallback: number) => {
-    if (!val) return fallback;
-    const num = parseFloat(val);
-    return isNaN(num) ? fallback : num;
-  };
 
   // Sync external card.html when editor is not focused
   useEffect(() => {
@@ -144,25 +104,21 @@ export default function FreeCardItem({
       onDragStart={() => {
         isDraggingRef.current = true;
       }}
-      onDragStop={(_e, d) => {
-        setTimeout(() => {
-          isDraggingRef.current = false;
-        }, 150);
+      onDragStop={(e, d) => {
+        setTimeout(() => { isDraggingRef.current = false; }, 150);
         const cardW = typeof width === "number" ? width : 160;
         const cardH = typeof height === "number" ? height : 80;
-        const clampedX = Math.max(-cardW + 40, Math.min(d.x, containerSize.width - 40));
-        const clampedY = Math.max(-cardH + 40, Math.min(d.y, containerSize.height - 40));
-        const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
-        const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
-        onUpdate(card.id, card.html, { left, top });
+        makeDragSaveHandler(
+          containerSize,
+          cardW,
+          cardH,
+          (left, top) => onUpdate(card.id, card.html, { left, top }),
+        )(e, d);
       }}
-      onResizeStop={(_e, _dir, ref, _delta, position) => {
-        const w = `${((parseFloat(ref.style.width) / containerSize.width) * 100).toFixed(1)}%`;
-        const h = `${((parseFloat(ref.style.height) / containerSize.height) * 100).toFixed(1)}%`;
-        const left = `${((position.x / containerSize.width) * 100).toFixed(1)}%`;
-        const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
-        onUpdate(card.id, card.html, { width: w, height: h, left, top });
-      }}
+      onResizeStop={makeResizeSaveHandler(
+        containerSize,
+        (w, h, left, top) => onUpdate(card.id, card.html, { width: w, height: h, left, top }),
+      )}
       onClick={(e: ReactMouseEvent<HTMLElement>) => {
         // 드래그 이동 직후에 발생하는 클릭 이벤트는 무시
         if (isDraggingRef.current) return;

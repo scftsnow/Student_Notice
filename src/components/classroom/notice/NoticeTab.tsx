@@ -4,6 +4,8 @@ import { useRef, useEffect, useState } from "react";
 import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
+import { useSelectionRange } from "@/hooks/useSelectionRange";
+import { getTargetLabel } from "@/lib/boardLabels";
 import FontSelectorDropdown from "./FontSelectorDropdown";
 import NoticeBoxVisibilityBar from "./NoticeBoxVisibilityBar";
 
@@ -65,42 +67,18 @@ export default function NoticeTab({
   onUpdateFreeCard,
   onAddFreeCard,
 }: NoticeTabProps) {
-  const lastRangeRef = useRef<Range | null>(null);
-  const lastEditableRef = useRef<HTMLElement | null>(null);
+  const {
+    getEffectiveRange,
+    getTargetEl,
+    dispatchInput,
+    selectAndCacheNode,
+    lastRangeRef,
+    lastEditableRef,
+  } = useSelectionRange(targetElement);
 
   const selectedFontId =
     CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id ||
     "pretendard";
-
-  useEffect(() => {
-    lastRangeRef.current = null;
-    lastEditableRef.current = null;
-  }, [targetElement]);
-
-  const getEffectiveRange = (): { range: Range | null; sel: Selection | null } => {
-    const isTextCard = targetElement === "noticeBox" || Boolean(targetElement?.startsWith("free-"));
-    const sel = typeof window !== "undefined" ? window.getSelection() : null;
-    if (!isTextCard) return { range: null, sel };
-    if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-      return { range: sel.getRangeAt(0), sel };
-    }
-    return { range: lastRangeRef.current, sel };
-  };
-
-  const getTargetEl = (range: Range | null): HTMLElement | null => {
-    if (!range) return lastEditableRef.current || (document.activeElement as HTMLElement | null);
-    const container = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-      ? (range.commonAncestorContainer as HTMLElement)
-      : range.commonAncestorContainer.parentElement;
-    return container?.closest<HTMLElement>("[contenteditable='true']") || lastEditableRef.current || (document.activeElement as HTMLElement | null);
-  };
-
-  const dispatchInput = (el?: HTMLElement | null) => {
-    if (el && (el.getAttribute("contenteditable") === "true" || el.hasAttribute("contenteditable"))) {
-      el.focus();
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  };
 
   const applyFontFamilyToSelectionOrTarget = (fontId: string) => {
     const fontObj = CLASSROOM_FONTS.find((f) => f.id === fontId);
@@ -114,11 +92,7 @@ export default function NoticeTab({
         span.appendChild(range.extractContents());
         range.insertNode(span);
         if (sel) {
-          sel.removeAllRanges();
-          const newRange = document.createRange();
-          newRange.selectNodeContents(span);
-          sel.addRange(newRange);
-          lastRangeRef.current = newRange.cloneRange();
+          selectAndCacheNode(span, sel);
         }
         dispatchInput(getTargetEl(range));
         return;
@@ -179,37 +153,6 @@ export default function NoticeTab({
     onApplyLineHeight?.(next);
   };
 
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed && sel.rangeCount > 0 && sel.toString().trim().length > 0) {
-        const r = sel.getRangeAt(0);
-        lastRangeRef.current = r.cloneRange();
-        const container =
-          r.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-            ? (r.commonAncestorContainer as HTMLElement)
-            : r.commonAncestorContainer.parentElement;
-        const editable = container?.closest<HTMLElement>("[contenteditable='true']");
-        if (editable) {
-          lastEditableRef.current = editable;
-        }
-      }
-    };
-    document.addEventListener("selectionchange", handleSelectionChange);
-    return () => document.removeEventListener("selectionchange", handleSelectionChange);
-  }, []);
-
-  const getTargetLabel = (target?: BoardTargetElement) => {
-    if (!target || target === "all") return "전체 일괄";
-    if (target === "noticeBox") return "알림장 본문";
-    if (target === "dateBox") return "날짜";
-    if (target === "clockBox") return "시간";
-    if (target === "routineBox") return "학생 업무";
-    if (target === "accountBox") return "계좌 아이콘";
-    if (target.startsWith("free-") || target === "freeCard") return "자유 글상자";
-    return "선택 요소";
-  };
-
   const execCmd = (cmd: string, value?: string) => {
     const sel = window.getSelection();
     if ((!sel || sel.isCollapsed || sel.rangeCount === 0) && lastRangeRef.current) {
@@ -259,11 +202,7 @@ export default function NoticeTab({
         span.appendChild(range.extractContents());
         range.insertNode(span);
         if (sel) {
-          sel.removeAllRanges();
-          const newRange = document.createRange();
-          newRange.selectNodeContents(span);
-          sel.addRange(newRange);
-          lastRangeRef.current = newRange.cloneRange();
+          selectAndCacheNode(span, sel);
         }
         dispatchInput(targetEl);
         return;

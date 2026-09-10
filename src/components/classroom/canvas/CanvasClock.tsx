@@ -4,40 +4,25 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Rnd } from "react-rnd";
 import { Clock, Check, GripHorizontal } from "lucide-react";
-import { ElementLayout } from "@/types/classroom";
+import { ElementLayout, BoardTargetElement } from "@/types/classroom";
 import AnalogClock from "./AnalogClock";
+import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
+import {
+  parsePercent,
+  makeDragSaveHandler,
+  makeResizeSaveHandler,
+  selectedBorderClass,
+} from "@/lib/canvasUtils";
 
 interface CanvasClockProps {
   layout: ElementLayout;
   containerSize: { width: number; height: number };
-  targetElement?: string;
-  onSelectElement?: (elem: string) => void;
+  targetElement?: BoardTargetElement;
+  onSelectElement?: (elem: BoardTargetElement) => void;
   onUpdateLayout: (updater: (prev: ElementLayout) => ElementLayout) => void;
   scaleFont: (size: number) => number;
   fontPx: number;
 }
-
-const RESIZE_ENABLE = {
-  top: true,
-  right: true,
-  bottom: true,
-  left: true,
-  topLeft: true,
-  topRight: true,
-  bottomLeft: true,
-  bottomRight: true,
-};
-
-const RESIZE_HANDLES = {
-  top: <div title="크기 조절 핸들" data-handle="top" className="w-full h-full" />,
-  right: <div title="크기 조절 핸들" data-handle="right" className="w-full h-full" />,
-  bottom: <div title="크기 조절 핸들" data-handle="bottom" className="w-full h-full" />,
-  left: <div title="크기 조절 핸들" data-handle="left" className="w-full h-full" />,
-  topLeft: <div title="크기 조절 핸들" data-handle="topLeft" className="w-full h-full" />,
-  topRight: <div title="크기 조절 핸들" data-handle="topRight" className="w-full h-full" />,
-  bottomLeft: <div title="크기 조절 핸들" data-handle="bottomLeft" className="w-full h-full" />,
-  bottomRight: <div title="크기 조절 핸들" data-handle="bottomRight" className="w-full h-full" />,
-};
 
 export default function CanvasClock({
   layout,
@@ -59,12 +44,6 @@ export default function CanvasClock({
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const parsePercent = (val: string | undefined, fallback: number) => {
-    if (!val) return fallback;
-    const num = parseFloat(val);
-    return isNaN(num) ? fallback : num;
-  };
 
   const isAnalog = layout.clockType === "analog";
   const is12h = layout.clockFormat === "12h";
@@ -113,33 +92,23 @@ export default function CanvasClock({
             ? analogClockPx + 24
             : "auto",
         }}
-        onDragStop={(_e, d) => {
-          const clockW = isAnalog ? analogClockPx : 120;
-          const clockH = isAnalog ? analogClockPx : 40;
-          const clampedX = Math.max(-clockW + 40, Math.min(d.x, containerSize.width - 40));
-          const clampedY = Math.max(-clockH + 40, Math.min(d.y, containerSize.height - 40));
-          const left = `${((clampedX / containerSize.width) * 100).toFixed(1)}%`;
-          const top = `${((clampedY / containerSize.height) * 100).toFixed(1)}%`;
-          onUpdateLayout((p) => ({ ...p, left, top }));
-        }}
-        onResizeStop={(_e, _dir, ref, _delta, position) => {
-          const width = `${((parseFloat(ref.style.width) / containerSize.width) * 100).toFixed(1)}%`;
-          const height = `${((parseFloat(ref.style.height) / containerSize.height) * 100).toFixed(1)}%`;
-          const left = `${((position.x / containerSize.width) * 100).toFixed(1)}%`;
-          const top = `${((position.y / containerSize.height) * 100).toFixed(1)}%`;
-          onUpdateLayout((p) => ({ ...p, width, height, left, top }));
-        }}
+        onDragStop={makeDragSaveHandler(
+          containerSize,
+          isAnalog ? analogClockPx : 120,
+          isAnalog ? analogClockPx : 40,
+          (left, top) => onUpdateLayout((p) => ({ ...p, left, top })),
+        )}
+        onResizeStop={makeResizeSaveHandler(
+          containerSize,
+          (width, height, left, top) => onUpdateLayout((p) => ({ ...p, width, height, left, top })),
+        )}
         enableResizing={RESIZE_ENABLE}
         resizeHandleComponent={RESIZE_HANDLES}
         onClick={() => onSelectElement?.("clockBox")}
         onContextMenu={handleContextMenu}
         className={`z-10 group rounded-xl border transition-all cursor-grab active:cursor-grabbing flex flex-col ${
           isAnalog ? "" : "font-mono font-black tracking-wider whitespace-nowrap opacity-90"
-        } ${
-          targetElement === "clockBox"
-            ? "border-indigo-400/90 ring-2 ring-indigo-400/40 bg-white/5"
-            : "border-transparent hover:border-white/30 bg-transparent"
-        }`}
+        } ${selectedBorderClass(targetElement === "clockBox")}`}
         style={{
           fontSize: `${scaleFont(layout.fontSize || fontPx)}px`,
           color: layout.color || "inherit",
