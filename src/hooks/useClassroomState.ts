@@ -14,7 +14,7 @@ import {
 } from "@/types/classroom";
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
-import { DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
+import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
 
 export interface ClassroomStateOptions {
@@ -36,11 +36,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
 
   // Notice Board state
-  const [noticeText, setNoticeText] = useState("");
   const [noticeTarget, setNoticeTarget] = useState<"today" | "tomorrow">("today");
   const [theme, setTheme] = useState<BoardTheme>("chalkboard");
   const [fontSize, setFontSize] = useState<NoticeFontSize>("42");
-  const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
+  const [freeCards, setFreeCards] = useState<FreeCardData[]>([DEFAULT_NOTICE_CARD]);
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
 
   // Toast message state
@@ -69,10 +68,37 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       setCustomBundles((parsed.customBundles as CustomBundle[]).filter((b) => !MOCK_BUNDLE_IDS.includes(b.id)));
     }
     if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory as LedgerRecord[]);
-    if (typeof parsed.noticeText === "string") setNoticeText(parsed.noticeText);
     if (parsed.theme) setTheme(parsed.theme as BoardTheme);
     if (parsed.fontSize) setFontSize(parsed.fontSize as NoticeFontSize);
-    if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards as FreeCardData[]);
+    if (Array.isArray(parsed.freeCards)) {
+      const loaded = parsed.freeCards as FreeCardData[];
+      const hasNoticeBox = loaded.some((c) => c.id === "noticeBox");
+      if (!hasNoticeBox) {
+        const oldLayout = (parsed.layouts as Record<string, unknown> | undefined)?.noticeBox as Partial<FreeCardData> | undefined;
+        const migratedCard: FreeCardData = {
+          ...DEFAULT_NOTICE_CARD,
+          html: typeof parsed.noticeText === "string" ? parsed.noticeText : "",
+          ...(oldLayout ? {
+            left: (oldLayout.left as string) || DEFAULT_NOTICE_CARD.left,
+            top: (oldLayout.top as string) || DEFAULT_NOTICE_CARD.top,
+            width: (oldLayout.width as string) || DEFAULT_NOTICE_CARD.width,
+            height: (oldLayout.height as string) || DEFAULT_NOTICE_CARD.height,
+            fontSize: (oldLayout.fontSize as number) || DEFAULT_NOTICE_CARD.fontSize,
+            color: oldLayout.color as string | undefined,
+            align: oldLayout.align as FreeCardData["align"],
+            fontFamily: oldLayout.fontFamily as string | undefined,
+            lineHeight: oldLayout.lineHeight as number | undefined,
+            visible: oldLayout.visible !== false,
+            visibleDays: oldLayout.visibleDays as number[] | undefined,
+          } : {}),
+        };
+        setFreeCards([migratedCard, ...loaded]);
+      } else {
+        setFreeCards(loaded);
+      }
+    } else if (typeof parsed.noticeText === "string") {
+      setFreeCards([{ ...DEFAULT_NOTICE_CARD, html: parsed.noticeText }]);
+    }
     if (parsed.layouts) setLayouts(parsed.layouts as BoardElementLayouts);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -85,7 +111,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         const savedLayouts = localStorage.getItem("classroom_board_layouts");
         if (savedLayouts) {
           const parsedLayouts = JSON.parse(savedLayouts);
-          if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.noticeBox && parsedLayouts.routineBox) {
+          if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.routineBox) {
             setLayouts({ ...DEFAULT_LAYOUTS, ...parsedLayouts, accountBox: parsedLayouts.accountBox || DEFAULT_LAYOUTS.accountBox });
           }
         }
@@ -138,6 +164,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   // Save to localStorage (instant) & schedule debounced DB save & Broadcast to student window
   useEffect(() => {
     if (!isMounted) return;
+    const primaryNoticeHtml = freeCards.find((c) => c.id === "noticeBox")?.html || "";
     const payload = {
       className,
       currencyName,
@@ -148,7 +175,6 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       taxConfig,
       customBundles,
       ledgerHistory,
-      noticeText,
       theme,
       fontSize,
       freeCards,
@@ -171,8 +197,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const channel = new BroadcastChannel("classroom_os_sync");
       channel.postMessage({
         className,
-        noticeText,
-        content: noticeText,
+        noticeText: primaryNoticeHtml,
+        content: primaryNoticeHtml,
         fontSize,
         theme,
         targetLabel: noticeTarget === "today" ? "오늘" : "내일",
@@ -194,7 +220,6 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     taxConfig,
     customBundles,
     ledgerHistory,
-    noticeText,
     theme,
     fontSize,
     freeCards,
@@ -754,8 +779,6 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     updateTaxConfig,
     customBundles,
     ledgerHistory,
-    noticeText,
-    setNoticeText,
     noticeTarget,
     setNoticeTarget,
     theme,

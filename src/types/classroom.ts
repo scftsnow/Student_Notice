@@ -105,14 +105,12 @@ export interface ElementLayout {
 export interface BoardElementLayouts {
   dateBox: ElementLayout;
   clockBox: ElementLayout;
-  noticeBox: ElementLayout;
   routineBox: ElementLayout;
   accountBox?: ElementLayout;
 }
 
 export type BoardTargetElement =
   | "all"
-  | "noticeBox"
   | "dateBox"
   | "clockBox"
   | "routineBox"

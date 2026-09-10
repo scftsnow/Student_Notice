@@ -73,7 +73,7 @@ export default function FontSelectorDropdown({
       {/* 펼쳐진 서체 목록 (분류 없는 단일 플랫 리스트 + 서체 이름 SVG 미리보기) */}
       {isOpen && (
         <div
-          className="absolute left-0 top-full mt-1.5 z-50 w-64 max-h-72 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-xl p-1.5 space-y-0.5"
+          className="absolute left-0 top-full mt-1.5 z-[100] w-64 max-h-72 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-xl p-1.5 space-y-0.5"
           role="listbox"
         >
           <div className="px-2 py-1 text-[10px] font-bold text-slate-400 select-none border-b border-slate-100 mb-1">

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus } from "lucide-react";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus, Undo2, Redo2 } from "lucide-react";
 import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import { useSelectionRange } from "@/hooks/useSelectionRange";
@@ -46,33 +46,12 @@ interface NoticeTabProps {
 }
 
 export default function NoticeTab({
-  fontSize,
-  onFontSizeChange,
-  theme,
-  onThemeChange,
-  targetElement = "noticeBox",
-  onTargetElementChange,
-  onApplyColor,
-  onApplyFontSize,
-  onApplyAlign,
-  currentFontSize,
-  currentFontFamily,
-  onApplyFontFamily,
-  lineHeight = 140,
-  onApplyLineHeight,
-  showEconomyShortcut = false,
-  onToggleEconomyShortcut,
-  onOpenRoutineNoticeSettings,
-  layouts,
-  onUpdateLayouts,
-  freeCards,
-  onToggleFreeCardVisibility,
-  onUpdateFreeCard,
-  onAddFreeCard,
-  previewScale = 75,
-  onPreviewScaleChange,
-  routines,
-  onUpdateRoutine,
+  fontSize, onFontSizeChange, theme, onThemeChange,
+  targetElement = "noticeBox", onTargetElementChange, onApplyColor, onApplyFontSize, onApplyAlign,
+  currentFontSize, currentFontFamily, onApplyFontFamily, lineHeight = 140, onApplyLineHeight,
+  showEconomyShortcut = false, onToggleEconomyShortcut, onOpenRoutineNoticeSettings,
+  layouts, onUpdateLayouts, freeCards, onToggleFreeCardVisibility, onUpdateFreeCard, onAddFreeCard,
+  previewScale = 75, onPreviewScaleChange, routines, onUpdateRoutine,
 }: NoticeTabProps) {
   const {
     getEffectiveRange,
@@ -81,18 +60,47 @@ export default function NoticeTab({
     selectAndCacheNode,
     lastRangeRef,
     lastEditableRef,
+    applyInlineFontSize,
   } = useSelectionRange(targetElement);
 
+  const handleUndo = useCallback(() => {
+    const el = lastEditableRef.current ?? document.querySelector<HTMLElement>("[contenteditable='true']");
+    if (el) {
+      el.focus();
+      document.execCommand("undo");
+      dispatchInput(el);
+    }
+  }, [lastEditableRef, dispatchInput]);
+
+  const handleRedo = useCallback(() => {
+    const el = lastEditableRef.current ?? document.querySelector<HTMLElement>("[contenteditable='true']");
+    if (el) {
+      el.focus();
+      document.execCommand("redo");
+      dispatchInput(el);
+    }
+  }, [lastEditableRef, dispatchInput]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault(); handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+        e.preventDefault(); handleRedo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
   const selectedFontId =
-    CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id ||
-    "pretendard";
+    CLASSROOM_FONTS.find((f) => f.family === currentFontFamily || f.id === currentFontFamily)?.id || "pretendard";
 
   const [scaleInput, setScaleInput] = useState<string>(String(previewScale));
   useEffect(() => { setScaleInput(String(previewScale)); }, [previewScale]);
 
   const handleScaleChange = (next: number) => {
-    const clamped = Math.max(50, Math.min(100, Math.round(next)));
-    onPreviewScaleChange?.(clamped);
+    onPreviewScaleChange?.(Math.max(50, Math.min(100, Math.round(next))));
   };
 
   const applyFontFamilyToSelectionOrTarget = (fontId: string) => {
@@ -106,9 +114,7 @@ export default function NoticeTab({
         span.style.fontFamily = fontFamily;
         span.appendChild(range.extractContents());
         range.insertNode(span);
-        if (sel) {
-          selectAndCacheNode(span, sel);
-        }
+        if (sel) selectAndCacheNode(span, sel);
         dispatchInput(getTargetEl(range));
         return;
       } catch {
@@ -118,16 +124,11 @@ export default function NoticeTab({
     onApplyFontFamily?.(fontFamily);
   };
 
-  // 구글 독스 스타일 글자 크기 숫자 입력 및 +/- 스테퍼 로직
+  // 글자 크기/행간 직접 입력 및 스테퍼 로직
   const effectiveFontSize = currentFontSize ?? (Number(fontSize) || 42);
   const [fontSizeInput, setFontSizeInput] = useState<string>(String(effectiveFontSize));
   const isFontSizeFocused = useRef(false);
-
-  useEffect(() => {
-    if (!isFontSizeFocused.current) {
-      setFontSizeInput(String(effectiveFontSize));
-    }
-  }, [effectiveFontSize]);
+  useEffect(() => { if (!isFontSizeFocused.current) setFontSizeInput(String(effectiveFontSize)); }, [effectiveFontSize]);
 
   const commitFontSize = (valStr: string) => {
     let num = parseInt(valStr.replace(/[^0-9]/g, ""), 10);
@@ -143,16 +144,10 @@ export default function NoticeTab({
     applyFontSizeToSelectionOrTarget(String(next) as NoticeFontSize);
   };
 
-  // 구글 독스 스타일 줄간격 숫자 입력 및 +/- 스테퍼 로직
   const effectiveLineHeight = lineHeight ?? 140;
   const [lineHeightInput, setLineHeightInput] = useState<string>(String(effectiveLineHeight));
   const isLineHeightFocused = useRef(false);
-
-  useEffect(() => {
-    if (!isLineHeightFocused.current) {
-      setLineHeightInput(String(effectiveLineHeight));
-    }
-  }, [effectiveLineHeight]);
+  useEffect(() => { if (!isLineHeightFocused.current) setLineHeightInput(String(effectiveLineHeight)); }, [effectiveLineHeight]);
 
   const commitLineHeight = (valStr: string) => {
     let num = parseInt(valStr.replace(/[^0-9]/g, ""), 10);
@@ -182,10 +177,7 @@ export default function NoticeTab({
   const applyColorToSelectionOrTarget = (color: string) => {
     const { range, sel } = getEffectiveRange();
     if (range) {
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
+      if (sel) { sel.removeAllRanges(); sel.addRange(range); }
       lastEditableRef.current?.focus();
       document.execCommand("styleWithCSS", false, "true");
       document.execCommand("foreColor", false, color);
@@ -198,51 +190,20 @@ export default function NoticeTab({
   const applyFontSizeToSelectionOrTarget = (sz: NoticeFontSize) => {
     onFontSizeChange(sz);
     const numSz = Number(sz);
-
-    // 전체 일괄 적용 대상이면 layout 즉시 반영
     if (targetElement === "all") {
       onApplyFontSize?.(numSz);
       return;
     }
-
-    const { range, sel } = getEffectiveRange();
-
-    if (range) {
-      try {
-        const targetEl = getTargetEl(range);
-        const targetText = targetEl ? (targetEl.innerText || targetEl.textContent || "") : "";
-        const rangeText = range.toString();
-        // 전체 텍스트 선택이거나 개행 차이로 동등한 경우 layout 반영
-        const isFullSelection = !targetText || !rangeText ||
-          targetText.replace(/\s/g, "") === rangeText.replace(/\s/g, "");
-        if (isFullSelection) {
-          onApplyFontSize?.(numSz);
-          dispatchInput(targetEl);
-          return;
-        }
-
-        const baseSize = effectiveFontSize || 42;
-        const emRatio = (numSz / baseSize).toFixed(3);
-        const span = document.createElement("span");
-        span.style.fontSize = `${emRatio}em`;
-        span.appendChild(range.extractContents());
-        range.insertNode(span);
-        if (sel) {
-          selectAndCacheNode(span, sel);
-        }
-        dispatchInput(targetEl);
-        return;
-      } catch {
-        // Fallback to target
-      }
+    const handledInline = applyInlineFontSize(numSz);
+    if (!handledInline) {
+      onApplyFontSize?.(numSz);
     }
-    onApplyFontSize?.(numSz);
   };
 
   return (
-    <div className="rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs overflow-hidden divide-y divide-slate-200/80">
+    <div className="rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs divide-y divide-slate-200/80">
       {/* 1행: 상단 서식 편집 툴바 */}
-      <div className="p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="p-2.5 rounded-t-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           {/* 서식 적용 대상 선택 드롭다운 */}
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
@@ -265,10 +226,32 @@ export default function NoticeTab({
               {(showEconomyShortcut || targetElement === "accountBox") && (
                 <option value="accountBox">학생 계좌</option>
               )}
-              {freeCards && freeCards.map((card, idx) => (
-                <option key={card.id} value={card.id}>자유 글상자 {idx + 1}</option>
+              {freeCards && freeCards.filter((c) => c.id !== "noticeBox").map((card, idx) => (
+                <option key={card.id} value={card.id}>{card.label?.trim() || `자유 글상자 ${idx + 1}`}</option>
               ))}
             </select>
+          </div>
+
+          <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
+
+          {/* 실행 취소 / 다시 실행 (Undo / Redo) */}
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleUndo(); }}
+              title="실행 취소 (Ctrl+Z)"
+              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); handleRedo(); }}
+              title="다시 실행 (Ctrl+Y / Ctrl+Shift+Z)"
+              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />

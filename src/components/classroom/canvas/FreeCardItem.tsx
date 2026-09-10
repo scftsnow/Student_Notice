@@ -16,6 +16,24 @@ interface FreeCardItemProps {
   scale?: number;
 }
 
+/** 컨테이너 내부의 모든 인라인 font-size 스타일을 제거하여 컨테이너의 font-size 상속을 복원한다 */
+function removeChildFontSizes(container: HTMLElement): boolean {
+  let changed = false;
+  const styled = container.querySelectorAll<HTMLElement>("[style]");
+  styled.forEach((el) => {
+    if (el.style.fontSize) {
+      el.style.fontSize = "";
+      changed = true;
+    }
+    // font[size] 속성 레거시 제거
+    if (el.tagName.toLowerCase() === "font" && el.getAttribute("size")) {
+      el.removeAttribute("size");
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 export default function FreeCardItem({
   card,
   containerSize,
@@ -31,6 +49,7 @@ export default function FreeCardItem({
   const isFocused = useRef(false);
   const wasFocusedRef = useRef(false);
   const isDraggingRef = useRef(false);
+  const prevFontSizeRef = useRef<number | undefined>(card.fontSize);
 
   // Sync external card.html when editor is not focused
   useEffect(() => {
@@ -40,6 +59,19 @@ export default function FreeCardItem({
       }
     }
   }, [card.html]);
+
+  // card.fontSize가 외부에서 변경되면 내부 인라인 font-size 오버라이드를 제거하여
+  // 컨테이너 style.fontSize(= card.fontSize px)가 즉각 반영되도록 한다.
+  useEffect(() => {
+    if (prevFontSizeRef.current === card.fontSize) return;
+    prevFontSizeRef.current = card.fontSize;
+    if (!editorRef.current || isFocused.current) return;
+    const changed = removeChildFontSizes(editorRef.current);
+    if (changed) {
+      // 정리된 HTML을 React 상태와 동기화
+      onUpdate(card.id, editorRef.current.innerHTML);
+    }
+  }, [card.fontSize, card.id, onUpdate]);
 
   // Exit edit mode when deselected from outside
   useEffect(() => {
@@ -169,25 +201,30 @@ export default function FreeCardItem({
           title="드래그하여 글상자 이동"
         >
           <GripHorizontal className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-bold tracking-tight opacity-75">글상자</span>
+          <span className="text-[10px] font-bold tracking-tight opacity-75">
+            {card.label || (card.id === "noticeBox" ? "알림장 본문" : "글상자")}
+          </span>
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(card.id);
-          }}
-          className="text-white/50 hover:text-rose-400 p-0.5 rounded transition-colors"
-          title="글상자 삭제"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        {card.id !== "noticeBox" && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(card.id);
+            }}
+            className="text-white/50 hover:text-rose-400 p-0.5 rounded transition-colors"
+            title="글상자 삭제"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* 자유 글상자 본문 */}
       <div className="p-2 flex-1 w-full min-h-0 overflow-hidden cursor-grab active:cursor-grabbing">
         <div
           ref={editorRef}
+          data-card-id={card.id}
           contentEditable={true}
           suppressContentEditableWarning
           onClick={(e) => {

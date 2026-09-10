@@ -19,8 +19,6 @@ import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler, selectedBorde
 interface BoardCanvasProps {
   theme: BoardTheme;
   fontSize: NoticeFontSize;
-  noticeText: string;
-  onNoticeTextChange: (text: string) => void;
   routines: ClassroomRoutine[];
   freeCards: FreeCardData[];
   onAddFreeCard: () => void;
@@ -48,7 +46,7 @@ interface BoardCanvasProps {
 }
 
 export default function BoardCanvas({
-  theme, fontSize, noticeText, onNoticeTextChange,
+  theme, fontSize,
   routines, freeCards, onAddFreeCard, onRemoveFreeCard, onUpdateFreeCard,
   students = [], currencyName = "원",
   onPayRoutineToday, onUpdateRoutine,
@@ -88,7 +86,7 @@ export default function BoardCanvas({
         const saved = localStorage.getItem("classroom_board_layouts");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.dateBox && parsed.clockBox && parsed.noticeBox && parsed.routineBox) {
+          if (parsed.dateBox && parsed.clockBox && parsed.routineBox) {
             setInternalLayouts({ ...DEFAULT_LAYOUTS, ...parsed, accountBox: parsed.accountBox || DEFAULT_LAYOUTS.accountBox });
           }
         }
@@ -145,11 +143,10 @@ export default function BoardCanvas({
           ...prev,
           dateBox: { ...prev.dateBox, ...stylePatch },
           clockBox: { ...prev.clockBox, ...stylePatch },
-          noticeBox: { ...prev.noticeBox, ...stylePatch },
           routineBox: { ...prev.routineBox, ...stylePatch },
         };
       }
-      if (target === "noticeBox" || target === "dateBox" || target === "clockBox" || target === "routineBox" || target === "accountBox") {
+      if (target === "dateBox" || target === "clockBox" || target === "routineBox" || target === "accountBox") {
         return { ...prev, [target]: { ...prev[target as keyof BoardElementLayouts], ...stylePatch } };
       }
       return prev;
@@ -164,7 +161,7 @@ export default function BoardCanvas({
       if (onUpdateRoutine) {
         routines.forEach((r) => onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } }));
       }
-    } else if (target.startsWith("free-")) {
+    } else if (target === "noticeBox" || target.startsWith("free-")) {
       const fc = freeCards.find((c) => c.id === target);
       if (fc) onUpdateFreeCard(fc.id, fc.html, stylePatch);
     } else if (target.startsWith("routine-") && onUpdateRoutine) {
@@ -176,7 +173,10 @@ export default function BoardCanvas({
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
     const fontPxCurrent = Number(fontSize) || 42;
-    if (targetElement === "all" || targetElement === "noticeBox") return layouts.noticeBox.fontSize || fontPxCurrent;
+    if (targetElement === "all" || targetElement === "noticeBox") {
+      const nb = freeCards.find((c) => c.id === "noticeBox");
+      return nb?.fontSize || fontPxCurrent;
+    }
     if (targetElement === "dateBox") return layouts.dateBox.fontSize || fontPxCurrent;
     if (targetElement === "clockBox") return layouts.clockBox.fontSize || fontPxCurrent;
     if (targetElement === "routineBox") return layouts.routineBox.fontSize || fontPxCurrent;
@@ -188,7 +188,7 @@ export default function BoardCanvas({
       return r?.layout?.fontSize || layouts.routineBox.fontSize || fontPxCurrent;
     }
     return fontPxCurrent;
-  }, [targetElement, layouts.noticeBox.fontSize, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, routines, fontSize]);
+  }, [targetElement, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, routines, fontSize]);
 
   const targetLineHeight = useMemo(() => {
     const getLh = (lh: number | string | undefined) => {
@@ -196,7 +196,10 @@ export default function BoardCanvas({
       const n = typeof lh === "number" ? lh : parseFloat(lh);
       return isNaN(n) ? 140 : n < 10 ? Math.round(n * 100) : Math.round(n);
     };
-    if (targetElement === "all" || targetElement === "noticeBox") return getLh(layouts.noticeBox.lineHeight);
+    if (targetElement === "all" || targetElement === "noticeBox") {
+      const nb = freeCards.find((c) => c.id === "noticeBox");
+      return getLh(nb?.lineHeight);
+    }
     if (targetElement === "routineBox") return getLh(layouts.routineBox.lineHeight);
     if (targetElement && targetElement.startsWith("free-")) {
       return getLh(freeCards.find((c) => c.id === targetElement)?.lineHeight);
@@ -206,7 +209,7 @@ export default function BoardCanvas({
       return getLh(r?.layout?.lineHeight || layouts.routineBox.lineHeight);
     }
     return 140;
-  }, [targetElement, layouts.noticeBox.lineHeight, layouts.routineBox.lineHeight, freeCards, routines]);
+  }, [targetElement, layouts.routineBox.lineHeight, freeCards, routines]);
 
   useEffect(() => { onCurrentFontSize?.(targetFontSize); }, [targetFontSize, onCurrentFontSize]);
   useEffect(() => { onCurrentLineHeight?.(targetLineHeight); }, [targetLineHeight, onCurrentLineHeight]);
@@ -336,35 +339,6 @@ export default function BoardCanvas({
           />
           )}
 
-          {/* 요소 3: 알림장 본문 — 자유 글상자(FreeCardItem) 컴포넌트로 완전 일원화 */}
-          {isBoxVisibleToday(layouts.noticeBox.visible, layouts.noticeBox.visibleDays) && (
-          <FreeCardItem
-            scale={scale}
-            card={{
-              id: "noticeBox",
-              html: noticeText,
-              left: layouts.noticeBox.left,
-              top: layouts.noticeBox.top,
-              width: layouts.noticeBox.width || "95.0%",
-              height: layouts.noticeBox.height || "62.0%",
-              fontSize: layouts.noticeBox.fontSize || fontPx,
-              color: layouts.noticeBox.color,
-              align: layouts.noticeBox.align,
-              fontFamily: layouts.noticeBox.fontFamily,
-              lineHeight: layouts.noticeBox.lineHeight,
-            }}
-            containerSize={containerSize}
-            isSelected={targetElement === "noticeBox"}
-            onSelect={() => onSelectElement?.("noticeBox")}
-            onUpdate={(_id, html, updates) => {
-              if (html !== undefined && html !== noticeText) onNoticeTextChange(html);
-              if (updates) updateLayouts((p) => ({ ...p, noticeBox: { ...p.noticeBox, ...updates } }));
-            }}
-            onRemove={() => onNoticeTextChange("")}
-            placeholder="전달할 알림장 내용을 입력하세요..."
-          />
-          )}
-
           {/* 요소 4: 루틴 당번 목록 글상자 (각 업무별 독립 캔버스 요소) */}
           {isBoxVisibleToday(layouts.routineBox.visible, layouts.routineBox.visibleDays) && (
             <>
@@ -490,6 +464,7 @@ export default function BoardCanvas({
               onSelect={() => onSelectElement?.(card.id)}
               onUpdate={onUpdateFreeCard}
               onRemove={onRemoveFreeCard}
+              placeholder={card.id === "noticeBox" ? "전달할 알림장 내용을 입력하세요..." : "메모를 입력하세요..."}
             />
           ))}
           {showEconomyShortcut && (

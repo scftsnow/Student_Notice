@@ -80,6 +80,7 @@ export default function NoticePageClient() {
   };
 
   const handleRemoveFreeCard = (id: string) => {
+    if (id === "noticeBox") return;
     state.setFreeCards((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -178,8 +179,6 @@ export default function NoticePageClient() {
         <BoardCanvas
           theme={state.theme}
           fontSize={state.fontSize}
-          noticeText={state.noticeText}
-          onNoticeTextChange={state.setNoticeText}
           routines={state.routines}
           freeCards={state.freeCards}
           onAddFreeCard={handleAddFreeCard}

@@ -30,7 +30,7 @@ interface NoticeBoxVisibilityBarProps {
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
 }
 
-type StandardBoxKey = "dateBox" | "clockBox" | "noticeBox";
+type StandardBoxKey = "dateBox" | "clockBox";
 
 const DAYS_BUTTONS = [
   { day: 1, label: "월" }, { day: 2, label: "화" }, { day: 3, label: "수" },
@@ -182,7 +182,6 @@ export default function NoticeBoxVisibilityBar({
   }[] = [
     { key: "dateBox", defaultName: "날짜", icon: Calendar, colorClass: "text-indigo-500" },
     { key: "clockBox", defaultName: "시각", icon: Clock, colorClass: "text-blue-500" },
-    { key: "noticeBox", defaultName: "알림장 본문", icon: FileText, colorClass: "text-emerald-500" },
   ];
 
   return (
@@ -356,10 +355,10 @@ export default function NoticeBoxVisibilityBar({
           </label>
         )}
 
-        {/* 6. 자유 글상자들 */}
+        {/* 6. 자유 글상자들 (알림장 본문 포함 완전 일원화) */}
         {freeCards.map((card, idx) => {
           const preview = card.html ? card.html.replace(/<[^>]+>/g, "").trim().slice(0, 8) : "";
-          const defaultTitle = preview ? `자유: ${preview}` : `자유 ${idx + 1}`;
+          const defaultTitle = card.id === "noticeBox" ? "알림장 본문" : (preview ? `자유: ${preview}` : `자유 ${idx + 1}`);
           const displayName = card.label?.trim() || defaultTitle;
           const isVisible = card.visible !== false;
           const isEditing = editingKey === card.id;
@@ -381,7 +380,11 @@ export default function NoticeBoxVisibilityBar({
                 className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
                 title={`${displayName} 표시/숨김 토글`}
               />
-              <SquarePen className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+              {card.id === "noticeBox" ? (
+                <FileText className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              ) : (
+                <SquarePen className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+              )}
 
               {isEditing ? (
                 <input

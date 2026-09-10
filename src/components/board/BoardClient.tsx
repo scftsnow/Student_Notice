@@ -84,7 +84,7 @@ export default function BoardClient({
       const savedLayouts = localStorage.getItem("classroom_board_layouts");
       if (savedLayouts) {
         const parsedLayouts = JSON.parse(savedLayouts);
-        if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.noticeBox && parsedLayouts.routineBox) {
+        if (parsedLayouts.dateBox && parsedLayouts.clockBox && parsedLayouts.routineBox) {
           setLayouts(parsedLayouts);
         }
       }
@@ -265,39 +265,6 @@ export default function BoardClient({
       </div>
       )}
 
-      {/* 글상자 3: 알림장 본문 글상자 (자유 글상자 형식 연동) */}
-      {isBoxVisibleToday(layouts.noticeBox?.visible, layouts.noticeBox?.visibleDays) && (
-      <div
-        className="absolute z-10 overflow-y-auto"
-        style={{
-          left: layouts.noticeBox.left,
-          top: layouts.noticeBox.top,
-          width: layouts.noticeBox.width || "95.0%",
-          height: layouts.noticeBox.height || "62.0%",
-          color: layouts.noticeBox.color || "inherit",
-        }}
-      >
-        <div
-          className="font-bold tracking-tight leading-relaxed transition-all p-2"
-          style={{
-            fontSize: `${layouts.noticeBox.fontSize || fontSize || 42}px`,
-            color: layouts.noticeBox.color || "inherit",
-            textAlign: layouts.noticeBox.align || "left",
-            lineHeight: layouts.noticeBox.lineHeight
-              ? typeof layouts.noticeBox.lineHeight === "number"
-                ? layouts.noticeBox.lineHeight > 10 ? `${layouts.noticeBox.lineHeight / 100}` : `${layouts.noticeBox.lineHeight}`
-                : layouts.noticeBox.lineHeight
-              : "1.4",
-            fontFamily: layouts.noticeBox.fontFamily || undefined,
-            letterSpacing: "-0.02em",
-          }}
-          dangerouslySetInnerHTML={{
-            __html: contentHtml || "<span class='opacity-25 italic'>등록된 알림장 내용이 없습니다.</span>",
-          }}
-        />
-      </div>
-      )}
-
       {/* 글상자 4: 루틴 당번 글상자 (각 업무별 독립 요소) */}
       {isBoxVisibleToday(layouts.routineBox?.visible, layouts.routineBox?.visibleDays) &&
         routines.filter((r) => r.visibleInNotice !== false).map((r, idx) => {
@@ -392,6 +359,11 @@ export default function BoardClient({
             textAlign: card.align || "left",
             color: card.color || "inherit",
             fontFamily: card.fontFamily || undefined,
+            lineHeight: card.lineHeight
+              ? (typeof card.lineHeight === "number"
+                ? card.lineHeight > 10 ? `${card.lineHeight / 100}` : `${card.lineHeight}`
+                : card.lineHeight)
+              : undefined,
           }}
           dangerouslySetInnerHTML={{ __html: card.html }}
         />

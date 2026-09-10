@@ -1,11 +1,23 @@
-import { BoardElementLayouts } from "@/types/classroom";
+import { BoardElementLayouts, FreeCardData } from "@/types/classroom";
 
 export const DEFAULT_LAYOUTS: BoardElementLayouts = {
   dateBox: { left: "2.5%", top: "3.0%", align: "left", visible: true },
   clockBox: { left: "75.0%", top: "3.0%", align: "right", clockType: "digital", clockFormat: "24h", visible: true },
-  noticeBox: { left: "2.5%", top: "15.0%", width: "95.0%", height: "62.0%", align: "left", visible: true },
   routineBox: { left: "2.5%", top: "82.0%", width: "95.0%", height: "10.0%", align: "left", visible: true },
   accountBox: { left: "93.0%", top: "89.0%", width: "5.0%", height: "8.0%", align: "center", visible: false },
+};
+
+export const DEFAULT_NOTICE_CARD: FreeCardData = {
+  id: "noticeBox",
+  html: "",
+  left: "2.5%",
+  top: "15.0%",
+  width: "95.0%",
+  height: "62.0%",
+  fontSize: 42,
+  align: "left",
+  visible: true,
+  label: "알림장 본문",
 };
 
 export const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
