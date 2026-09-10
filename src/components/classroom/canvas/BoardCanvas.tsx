@@ -170,19 +170,9 @@ export default function BoardCanvas({
     }
   }, [appliedStyle, updateLayouts, freeCards, onUpdateFreeCard]);
 
-  // 상단 툴바 fontSize prop 변경 시 noticeBox 기본 크기 동기화
-  useEffect(() => {
-    const num = Number(fontSize);
-    if (!isNaN(num) && num > 0) {
-      updateLayouts((prev) => {
-        if (prev.noticeBox.fontSize === num) return prev;
-        return {
-          ...prev,
-          noticeBox: { ...prev.noticeBox, fontSize: num },
-        };
-      });
-    }
-  }, [fontSize, updateLayouts]);
+  // NOTE: state.fontSize는 새 요소 생성 시 폴백 기본값(fontPx)으로만 사용.
+  // layouts 각 요소별 fontSize는 이미 localStorage/DB에서 복원되므로
+  // 전역 fontSize로 강제 덮어쓰기 하지 않음.
 
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
