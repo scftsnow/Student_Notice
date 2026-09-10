@@ -102,9 +102,9 @@ export default function Navbar({
               </div>
               <div>
                 <span className="font-bold text-lg text-slate-800 tracking-tight flex items-center gap-1.5">
-                  {liveClassName || "우리 반"}
+                  Teacher Helper-학급 운영
                 </span>
-                <span className="text-xs text-slate-400 block -mt-1 font-medium">Teacher Helper-학급 운영</span>
+                <span className="text-xs text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
               </div>
             </Link>
           </div>

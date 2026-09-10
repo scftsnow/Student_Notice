@@ -36,11 +36,14 @@ export default function ClassroomHeader({
           <GraduationCap className="w-4 h-4 text-white" />
         </span>
         <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-slate-900 px-1 py-0.5">
+            Teacher Helper-학급 운영
+          </span>
           <input
             type="text"
             value={className}
             onChange={(e) => onClassNameChange(e.target.value)}
-            className="text-sm font-bold text-slate-900 border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none bg-transparent px-1 py-0.5 rounded transition-all"
+            className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:border-indigo-300 focus:border-indigo-500 focus:outline-none px-2 py-0.5 rounded-md transition-all"
             title="클릭하여 학급 이름 수정"
             placeholder="학급 이름"
           />
