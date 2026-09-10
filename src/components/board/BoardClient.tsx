@@ -277,26 +277,9 @@ export default function BoardClient({
       </div>
       )}
 
-      {/* 글상자 4: 루틴 당번 글상자 */}
-      {isBoxVisibleToday(layouts.routineBox?.visible, layouts.routineBox?.visibleDays) && (
-      <div
-        className="absolute z-10 flex items-center gap-6 sm:gap-8 flex-wrap font-bold opacity-95 leading-snug"
-        style={{
-          left: layouts.routineBox.left,
-          top: layouts.routineBox.top,
-          width: layouts.routineBox.width || "95.0%",
-          height: layouts.routineBox.height,
-          fontSize: `${layouts.routineBox.fontSize || fontSize || 42}px`,
-          color: layouts.routineBox.color || "inherit",
-          fontFamily: layouts.routineBox.fontFamily || undefined,
-          lineHeight: layouts.routineBox.lineHeight
-            ? typeof layouts.routineBox.lineHeight === "number"
-              ? layouts.routineBox.lineHeight > 10 ? `${layouts.routineBox.lineHeight / 100}` : `${layouts.routineBox.lineHeight}`
-              : layouts.routineBox.lineHeight
-            : "1.4",
-        }}
-      >
-        {routines.filter((r) => r.visibleInNotice !== false).map((r) => {
+      {/* 글상자 4: 루틴 당번 글상자 (각 업무별 독립 요소) */}
+      {isBoxVisibleToday(layouts.routineBox?.visible, layouts.routineBox?.visibleDays) &&
+        routines.filter((r) => r.visibleInNotice !== false).map((r, idx) => {
           const rawWorkers =
             r.order.length > 0
               ? Array.from({ length: r.slots }, (_, i) => {
@@ -308,8 +291,8 @@ export default function BoardClient({
             r.pinchHitterStudent && r.pinchHitterStudent !== "none"
               ? resolveStudentName(r.pinchHitterStudent, students)
               : "";
-          const workerList = rawWorkers.map((originalName, idx) => {
-            const isSubstituted = Boolean(pinchHitter && idx === 0);
+          const workerList = rawWorkers.map((originalName, wIdx) => {
+            const isSubstituted = Boolean(pinchHitter && wIdx === 0);
             return isSubstituted ? `${pinchHitter} (대타)` : originalName;
           });
 
@@ -320,15 +303,40 @@ export default function BoardClient({
             r.icon
           );
 
+          const left = r.layout?.left || `${2.5 + ((idx * 26.0) % 75)}%`;
+          const top = r.layout?.top || `${82.0 + Math.floor((idx * 26.0) / 75) * 8.0}%`;
+          const width = r.layout?.width || "auto";
+          const height = r.layout?.height || "auto";
+          const routineFontSize = r.layout?.fontSize || layouts.routineBox.fontSize || fontSize || 42;
+          const routineColor = r.layout?.color || layouts.routineBox.color || "inherit";
+          const routineLh = r.layout?.lineHeight || layouts.routineBox.lineHeight;
+
           return (
-            <div key={r.id} className="flex items-center gap-1 flex-wrap leading-snug">
+            <div
+              key={r.id}
+              className="absolute z-10 flex items-center gap-1 flex-wrap font-bold opacity-95 leading-snug"
+              style={{
+                left,
+                top,
+                width,
+                height,
+                fontSize: `${routineFontSize}px`,
+                color: routineColor,
+                fontFamily: r.layout?.fontFamily || layouts.routineBox.fontFamily || undefined,
+                lineHeight: routineLh
+                  ? typeof routineLh === "number"
+                    ? routineLh > 10 ? `${routineLh / 100}` : `${routineLh}`
+                    : routineLh
+                  : "1.4",
+              }}
+            >
               {segments.map((seg, sIdx) => {
                 if (seg.type === "text") {
                   return (
                     <span
                       key={`b-text-${sIdx}`}
-                      className={`opacity-80 whitespace-pre ${layouts.routineBox.color ? "" : themeStyle.routineText}`}
-                      style={layouts.routineBox.color ? { color: layouts.routineBox.color } : undefined}
+                      className={`opacity-80 whitespace-pre ${routineColor ? "" : themeStyle.routineText}`}
+                      style={routineColor ? { color: routineColor } : undefined}
                     >
                       {seg.text}
                     </span>
@@ -346,8 +354,6 @@ export default function BoardClient({
             </div>
           );
         })}
-      </div>
-      )}
 
       {/* 자유 글상자 레이어 (무배경·무테두리) */}
       {freeCards

@@ -224,10 +224,11 @@ export default function RoutineElementInCanvas({
       return;
     }
 
-    // 2. 당번 이름 클릭: 미편집 상태일 때만 급여/대타 팝업 오픈
-    if (workerSpan && !isFocusedRef.current) {
+    // 2. 당번 이름 클릭: 즉각 급여/대타 팝업 오픈
+    if (workerSpan) {
       e.stopPropagation();
-      handleWorkerSpanClick(e, parseInt(workerSpan.dataset.workerIndex || "0", 10));
+      onSelect?.();
+      handleWorkerSpanClick(workerSpan, parseInt(workerSpan.dataset.workerIndex || "0", 10));
       return;
     }
 
@@ -258,13 +259,12 @@ export default function RoutineElementInCanvas({
   };
 
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
-  const handleWorkerSpanClick = (e: React.MouseEvent, workerIdx: number) => {
-    e.stopPropagation();
+  const handleWorkerSpanClick = (targetEl: HTMLElement, workerIdx: number) => {
     if (activePopupIndex === workerIdx) {
       setActivePopupIndex(null);
       setWorkerPopupPos(null);
     } else {
-      const rect = e.currentTarget.getBoundingClientRect();
+      const rect = targetEl.getBoundingClientRect();
       const popupWidth = 240;
       const popupHeight = 290;
       let top = rect.top - popupHeight - 8;
@@ -287,6 +287,15 @@ export default function RoutineElementInCanvas({
         contentEditable={true}
         suppressContentEditableWarning
         onMouseDown={(e) => {
+          const workerSpan = (e.target as HTMLElement).closest("[data-worker-index]") as HTMLElement | null;
+          if (workerSpan) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect?.();
+            const workerIdx = parseInt(workerSpan.dataset.workerIndex || "0", 10);
+            handleWorkerSpanClick(workerSpan, workerIdx);
+            return;
+          }
           wasFocusedRef.current = document.activeElement === editableRef.current;
           const containerRect = editableRef.current?.getBoundingClientRect();
           if (containerRect && e.clientX <= containerRect.left + 14) isFocusedRef.current = true;

@@ -323,8 +323,24 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const addRoutine = useCallback(
     (newRoutine: Omit<ClassroomRoutine, "id" | "currentIdx">) => {
       const id = `routine-${Date.now()}`;
-      setRoutines((prev) => [...prev, { ...newRoutine, id, currentIdx: 0 }]);
-      showToast(`"${newRoutine.icon} ${newRoutine.name}" 루틴이 등록되었습니다.`);
+      setRoutines((prev) => {
+        const count = prev.length;
+        const defaultLeft = `${2.5 + ((count * 26.0) % 75)}%`;
+        const defaultTop = `${82.0 + Math.floor((count * 26.0) / 75) * 8.0}%`;
+        const routineWithLayout: ClassroomRoutine = {
+          ...newRoutine,
+          id,
+          currentIdx: 0,
+          layout: newRoutine.layout || {
+            left: defaultLeft,
+            top: defaultTop,
+            width: "auto",
+            height: "auto",
+          },
+        };
+        return [...prev, routineWithLayout];
+      });
+      showToast(`"${newRoutine.icon} ${newRoutine.name}" 업무가 새 요소로 등록되었습니다.`);
     },
     [showToast]
   );

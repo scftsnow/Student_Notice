@@ -18,6 +18,7 @@ export interface ClassroomRoutine {
   pinchHitterStudent?: string;
   displayFormat?: string;
   visibleInNotice?: boolean;
+  layout?: Partial<ElementLayout>;
 }
 
 export interface TaxConfig {

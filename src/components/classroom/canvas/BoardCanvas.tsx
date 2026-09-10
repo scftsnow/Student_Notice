@@ -159,11 +159,21 @@ export default function BoardCanvas({
 
     if (target === "all") {
       freeCards.forEach((c) => onUpdateFreeCard(c.id, c.html, stylePatch));
+      if (onUpdateRoutine) {
+        routines.forEach((r) => onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } }));
+      }
+    } else if (target === "routineBox") {
+      if (onUpdateRoutine) {
+        routines.forEach((r) => onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } }));
+      }
     } else if (target.startsWith("free-")) {
       const fc = freeCards.find((c) => c.id === target);
       if (fc) onUpdateFreeCard(fc.id, fc.html, stylePatch);
+    } else if (target.startsWith("routine-") && onUpdateRoutine) {
+      const r = routines.find((item) => item.id === target);
+      if (r) onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } });
     }
-  }, [appliedStyle, updateLayouts, freeCards, onUpdateFreeCard]);
+  }, [appliedStyle, updateLayouts, freeCards, routines, onUpdateFreeCard, onUpdateRoutine]);
 
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
@@ -175,8 +185,12 @@ export default function BoardCanvas({
     if (targetElement && targetElement.startsWith("free-")) {
       return freeCards.find((c) => c.id === targetElement)?.fontSize || fontPxCurrent;
     }
+    if (targetElement && targetElement.startsWith("routine-")) {
+      const r = routines.find((item) => item.id === targetElement);
+      return r?.layout?.fontSize || layouts.routineBox.fontSize || fontPxCurrent;
+    }
     return fontPxCurrent;
-  }, [targetElement, layouts.noticeBox.fontSize, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, fontSize]);
+  }, [targetElement, layouts.noticeBox.fontSize, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, routines, fontSize]);
 
   const targetLineHeight = useMemo(() => {
     const getLh = (lh: number | string | undefined) => {
@@ -189,8 +203,12 @@ export default function BoardCanvas({
     if (targetElement && targetElement.startsWith("free-")) {
       return getLh(freeCards.find((c) => c.id === targetElement)?.lineHeight);
     }
+    if (targetElement && targetElement.startsWith("routine-")) {
+      const r = routines.find((item) => item.id === targetElement);
+      return getLh(r?.layout?.lineHeight || layouts.routineBox.lineHeight);
+    }
     return 140;
-  }, [targetElement, layouts.noticeBox.lineHeight, layouts.routineBox.lineHeight, freeCards]);
+  }, [targetElement, layouts.noticeBox.lineHeight, layouts.routineBox.lineHeight, freeCards, routines]);
 
   useEffect(() => { onCurrentFontSize?.(targetFontSize); }, [targetFontSize, onCurrentFontSize]);
   useEffect(() => { onCurrentLineHeight?.(targetLineHeight); }, [targetLineHeight, onCurrentLineHeight]);
@@ -335,107 +353,118 @@ export default function BoardCanvas({
           />
           )}
 
-          {/* 요소 4: 루틴 당번 목록 글상자 */}
+          {/* 요소 4: 루틴 당번 목록 글상자 (각 업무별 독립 캔버스 요소) */}
           {isBoxVisibleToday(layouts.routineBox.visible, layouts.routineBox.visibleDays) && (
-          <Rnd
-            cancel="button, select, input, [contenteditable='true'], [role='dialog'], .routine-text-editor, .canvas-text-content"
-            enableUserSelectHack={false}
-            position={{
-              x: (parsePercent(layouts.routineBox.left, 2.5) / 100) * containerSize.width,
-              y: (parsePercent(layouts.routineBox.top, 82.0) / 100) * containerSize.height,
-            }}
-            size={{
-              width: (parsePercent(layouts.routineBox.width, 95.0) / 100) * containerSize.width,
-              height: layouts.routineBox.height ? (parsePercent(layouts.routineBox.height, 10) / 100) * containerSize.height : "auto",
-            }}
-            onDragStop={makeDragSaveHandler(containerSize, containerSize.width * 0.5, 40, (left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, left, top } })))}
-            onResizeStop={makeResizeSaveHandler(containerSize, (width, height, left, top) => updateLayouts((p) => ({ ...p, routineBox: { ...p.routineBox, width, height, left, top } })))}
-            enableResizing={RESIZE_ENABLE}
-            resizeHandleComponent={RESIZE_HANDLES}
-            onClick={() => onSelectElement?.("routineBox")}
-            className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing flex flex-col ${
-              targetElement === "routineBox" ? "z-30" : "z-10"
-            } ${selectedBorderClass(targetElement === "routineBox")}`}
-            style={{
-              fontSize: `${scaleFont(layouts.routineBox.fontSize || fontPx)}px`,
-              color: layouts.routineBox.color || "inherit",
-              textAlign: layouts.routineBox.align || "left",
-              fontFamily: layouts.routineBox.fontFamily || undefined,
-              lineHeight: layouts.routineBox.lineHeight ? `${layouts.routineBox.lineHeight}` : "1.4",
-            }}
-          >
-            {/* 루틴 상단바 */}
-            <div
-              className={`transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
-                targetElement === "routineBox" ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              }`}
-            >
-              <GripHorizontal className="w-3.5 h-3.5 text-white/70" />
-              <span className="text-[10px] font-bold tracking-tight text-white/70">학생 업무</span>
-            </div>
-            <div
-              id="canvas-routine-container"
-              className="flex items-center gap-3 sm:gap-5 flex-wrap w-full px-2 py-1"
-              style={{ fontSize: "inherit" }}
-            >
+            <>
               {routines.filter((r) => r.visibleInNotice !== false).length === 0 ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="opacity-50 italic text-xs">
-                    {routines.length === 0 ? "등록된 학생 업무가 없습니다." : "알림장에 표시 중인 학생 업무가 없습니다."}
-                  </span>
+                <div
+                  className="absolute z-10 opacity-50 italic text-xs px-2 py-1 flex items-center gap-2"
+                  style={{
+                    left: `${parsePercent(layouts.routineBox.left, 2.5)}%`,
+                    top: `${parsePercent(layouts.routineBox.top, 82.0)}%`,
+                  }}
+                >
+                  <span>{routines.length === 0 ? "등록된 학생 업무가 없습니다." : "알림장에 표시 중인 학생 업무가 없습니다."}</span>
                   {routines.length > 0 && onOpenRoutineNoticeSettings && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenRoutineNoticeSettings();
-                      }}
-                      className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold border border-white/25 cursor-pointer transition-all shadow-2xs inline-flex items-center gap-1"
+                      onClick={(e) => { e.stopPropagation(); onOpenRoutineNoticeSettings(); }}
+                      className="text-[11px] px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 text-white font-bold border border-white/25 cursor-pointer"
                     >
-                      <ClipboardList className="w-3 h-3" />
-                      <span>칠판 표시 업무 선택</span>
+                      칠판 표시 업무 선택
                     </button>
                   )}
                 </div>
               ) : (
-                <>
-                  {routines.filter((r) => r.visibleInNotice !== false).map((r) => (
-                    <RoutineElementInCanvas
-                      key={r.id} routine={r} students={students} currencyName={currencyName}
-                      theme={theme} customColor={layouts.routineBox.color}
-                      onPayRoutineToday={onPayRoutineToday}
-                      onUpdateRoutine={onUpdateRoutine} onAdvanceRoutine={onAdvanceRoutine}
-                      onSelect={() => onSelectElement?.("routineBox")}
-                    />
-                  ))}
-                  <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                    {onAdvanceAllRoutines && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onAdvanceAllRoutines(); }}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shrink-0 shadow-xs cursor-pointer inline-flex items-center gap-1"
-                        title="모든 학생 업무의 순번을 다음으로 일괄 넘기기"
+                routines.filter((r) => r.visibleInNotice !== false).map((r, idx) => {
+                  const leftPct = parsePercent(r.layout?.left, 2.5 + ((idx * 26.0) % 75));
+                  const topPct = parsePercent(r.layout?.top, 82.0 + Math.floor((idx * 26.0) / 75) * 8.0);
+                  const widthPx = r.layout?.width
+                    ? (parsePercent(r.layout.width, 24.0) / 100) * containerSize.width
+                    : "auto";
+                  const heightPx = r.layout?.height
+                    ? (parsePercent(r.layout.height, 8.0) / 100) * containerSize.height
+                    : "auto";
+                  const isSelected = targetElement === r.id;
+
+                  return (
+                    <Rnd
+                      key={r.id}
+                      cancel="button, select, input, [contenteditable='true'], [role='dialog'], .routine-text-editor, .canvas-text-content"
+                      enableUserSelectHack={false}
+                      position={{
+                        x: (leftPct / 100) * containerSize.width,
+                        y: (topPct / 100) * containerSize.height,
+                      }}
+                      size={{
+                        width: widthPx,
+                        height: heightPx,
+                      }}
+                      onDragStop={makeDragSaveHandler(
+                        containerSize,
+                        typeof widthPx === "number" ? widthPx : 160,
+                        typeof heightPx === "number" ? heightPx : 40,
+                        (left, top) => onUpdateRoutine?.(r.id, { layout: { ...r.layout, left, top } }),
+                      )}
+                      onResizeStop={makeResizeSaveHandler(
+                        containerSize,
+                        (width, height, left, top) =>
+                          onUpdateRoutine?.(r.id, { layout: { ...r.layout, width, height, left, top } }),
+                      )}
+                      enableResizing={RESIZE_ENABLE}
+                      resizeHandleComponent={RESIZE_HANDLES}
+                      onClick={() => onSelectElement?.(r.id)}
+                      className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing flex flex-col ${
+                        isSelected ? "z-30" : "z-10"
+                      } ${selectedBorderClass(isSelected)}`}
+                      style={{
+                        fontSize: `${scaleFont(r.layout?.fontSize || layouts.routineBox.fontSize || fontPx)}px`,
+                        color: r.layout?.color || layouts.routineBox.color || "inherit",
+                        textAlign: r.layout?.align || layouts.routineBox.align || "left",
+                        fontFamily: r.layout?.fontFamily || layouts.routineBox.fontFamily || undefined,
+                        lineHeight: r.layout?.lineHeight || layouts.routineBox.lineHeight || "1.4",
+                      }}
+                    >
+                      {/* 루틴 개별 상단바 */}
+                      <div
+                        className={`transition-opacity flex items-center justify-between px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+                          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        }`}
                       >
-                        <span>전체 넘기기</span>
-                        <FastForward className="w-3 h-3" />
-                      </button>
-                    )}
-                    {onOpenRoutineNoticeSettings && routines.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpenRoutineNoticeSettings(); }}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 text-white/90 hover:text-white transition-all font-bold select-none border border-white/20 leading-tight shadow-xs cursor-pointer inline-flex items-center gap-1"
-                        title="알림장 칠판에 노출할 학생 업무 및 표시 문구 서식 설정"
-                      >
-                        <ClipboardList className="w-3 h-3" />
-                        <span>칠판 표시 업무</span>
-                      </button>
-                    )}
-                  </div>
-                </>
+                        <div className="flex items-center gap-1.5 text-white/70">
+                          <GripHorizontal className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold tracking-tight">{r.name}</span>
+                        </div>
+                        {onAdvanceRoutine && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onAdvanceRoutine(r.id); }}
+                            className="text-[10px] px-1.5 py-0.2 rounded bg-white/15 hover:bg-white/25 text-white/90 hover:text-white font-bold cursor-pointer"
+                            title="다음 순서로 넘기기"
+                          >
+                            넘기기
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="px-2 py-1 flex items-center">
+                        <RoutineElementInCanvas
+                          routine={r}
+                          students={students}
+                          currencyName={currencyName}
+                          theme={theme}
+                          customColor={r.layout?.color || layouts.routineBox.color}
+                          onPayRoutineToday={onPayRoutineToday}
+                          onUpdateRoutine={onUpdateRoutine}
+                          onAdvanceRoutine={onAdvanceRoutine}
+                          onSelect={() => onSelectElement?.(r.id)}
+                        />
+                      </div>
+                    </Rnd>
+                  );
+                })
               )}
-            </div>
-          </Rnd>
+            </>
           )}
 
           {freeCards.filter((card) => isBoxVisibleToday(card.visible, card.visibleDays)).map((card) => (

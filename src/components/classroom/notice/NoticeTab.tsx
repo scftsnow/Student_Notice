@@ -2,10 +2,9 @@
 
 import { useRef, useEffect, useState } from "react";
 import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus } from "lucide-react";
-import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData } from "@/types/classroom";
+import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import { useSelectionRange } from "@/hooks/useSelectionRange";
-import { getTargetLabel } from "@/lib/boardLabels";
 import FontSelectorDropdown from "./FontSelectorDropdown";
 import NoticeBoxVisibilityBar from "./NoticeBoxVisibilityBar";
 
@@ -42,6 +41,7 @@ interface NoticeTabProps {
   onAddFreeCard?: () => void;
   previewScale?: number;
   onPreviewScaleChange?: (scale: number) => void;
+  routines?: ClassroomRoutine[];
 }
 
 export default function NoticeTab({
@@ -70,6 +70,7 @@ export default function NoticeTab({
   onAddFreeCard,
   previewScale = 75,
   onPreviewScaleChange,
+  routines,
 }: NoticeTabProps) {
   const {
     getEffectiveRange,
@@ -256,6 +257,9 @@ export default function NoticeTab({
               <option value="dateBox">날짜</option>
               <option value="clockBox">시간/시계</option>
               <option value="routineBox">학생 업무</option>
+              {routines && routines.map((r) => (
+                <option key={r.id} value={r.id}>업무: {r.name}</option>
+              ))}
               {(showEconomyShortcut || targetElement === "accountBox") && (
                 <option value="accountBox">학생 계좌</option>
               )}

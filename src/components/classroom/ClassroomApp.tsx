@@ -221,6 +221,7 @@ export default function ClassroomApp() {
               onAddFreeCard={handleAddFreeCard}
               previewScale={previewScale}
               onPreviewScaleChange={handlePreviewScaleChange}
+              routines={state.routines}
             />
             <BoardCanvas
               theme={state.theme}

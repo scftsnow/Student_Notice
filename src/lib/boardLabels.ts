@@ -14,6 +14,7 @@ export function getTargetLabel(target?: BoardTargetElement): string {
   if (target === "clockBox") return "시간/시계";
   if (target === "routineBox") return "학생 업무";
   if (target === "accountBox") return "계좌 아이콘";
+  if (target.startsWith("routine-")) return "업무 요소";
   if (target.startsWith("free-") || target === "freeCard") return "자유 글상자";
   return "선택 요소";
 }
