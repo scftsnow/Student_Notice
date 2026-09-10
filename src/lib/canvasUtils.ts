@@ -54,12 +54,15 @@ export interface ContainerSize {
 export function clampPos(
   pos: { x: number; y: number },
   container: ContainerSize,
-  elW = 40,
-  elH = 40,
+  elW = 60,
+  elH = 60,
+  minVisible = 20,
 ): { x: number; y: number } {
+  const effectiveW = Math.max(elW, minVisible + 10);
+  const effectiveH = Math.max(elH, minVisible + 10);
   return {
-    x: Math.max(-elW + 40, Math.min(pos.x, container.width - 40)),
-    y: Math.max(-elH + 40, Math.min(pos.y, container.height - 40)),
+    x: Math.max(-effectiveW + minVisible, Math.min(pos.x, container.width - minVisible)),
+    y: Math.max(-effectiveH + minVisible, Math.min(pos.y, container.height - minVisible)),
   };
 }
 
@@ -71,15 +74,19 @@ type ResizeSaveFn = (width: string, height: string, left: string, top: string) =
 /**
  * react-rnd onDragStop 핸들러를 생성.
  * 드래그 완료 좌표를 % 문자열로 변환해 onSave 에 전달.
+ * d.node의 실제 렌더링 너비/높이를 우선 감지하여 요소가 화면 밖으로 대부분 나갈 수 있도록 보장.
  */
 export function makeDragSaveHandler(
   container: ContainerSize,
   elW: number,
   elH: number,
   onSave: DragSaveFn,
+  minVisible = 20,
 ): (_e: RndDragEvent, d: DraggableData) => void {
   return (_e, d) => {
-    const clamped = clampPos(d, container, elW, elH);
+    const actualW = (d.node && d.node.offsetWidth) ? d.node.offsetWidth : elW;
+    const actualH = (d.node && d.node.offsetHeight) ? d.node.offsetHeight : elH;
+    const clamped = clampPos(d, container, actualW, actualH, minVisible);
     onSave(toPct(clamped.x, container.width), toPct(clamped.y, container.height));
   };
 }
