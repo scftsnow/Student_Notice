@@ -8,7 +8,7 @@ import TransactionModal from "./TransactionModal";
 import DepositModal from "./DepositModal";
 import UnifiedLedgerModal from "./UnifiedLedgerModal";
 import CreateBundleModal from "./CreateBundleModal";
-import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, User } from "lucide-react";
+import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, User, ArrowUpRight } from "lucide-react";
 
 interface EconomyTabProps {
   students: ClassroomStudent[];
@@ -57,6 +57,7 @@ export default function EconomyTab({
   const [ledgerModalStudent, setLedgerModalStudent] = useState<string | null>(null);
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
   const [editingBundle, setEditingBundle] = useState<CustomBundle | null>(null);
+  const [routineTaxChecked, setRoutineTaxChecked] = useState<Record<string, boolean>>({});
 
   const handleOpenAddBundle = () => {
     setEditingBundle(null);
@@ -171,15 +172,9 @@ export default function EconomyTab({
             {taxConfig.taxMethod !== "TAX_FREE" && (
               <>
                 <div>
-                  <dt className="text-slate-400 font-semibold">소득세율</dt>
+                  <dt className="text-slate-400 font-semibold">학급 세율</dt>
                   <dd className="font-bold text-slate-700">
-                    {taxConfig.incomeTaxValue}{taxConfig.incomeTaxType === "rate" ? "%" : ` ${currencyName}`}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-400 font-semibold">거래세율</dt>
-                  <dd className="font-bold text-slate-700">
-                    {taxConfig.txTaxValue}{taxConfig.txTaxType === "rate" ? "%" : ` ${currencyName}`}
+                    {taxConfig.taxRate ?? taxConfig.incomeTaxValue ?? 10}%
                   </dd>
                 </div>
                 <div>
@@ -194,10 +189,10 @@ export default function EconomyTab({
                     })()}
                   </dd>
                 </div>
-                <div className="col-span-3">
+                <div>
                   <dt className="text-slate-400 font-semibold">벌금 처리</dt>
-                  <dd className="font-bold text-slate-700">
-                    {taxConfig.penaltyDisposition === "void" ? "소멸 (국고 미귀속)" : "국고 세수 귀속"}
+                  <dd className="font-bold text-slate-700 truncate">
+                    {taxConfig.penaltyDisposition === "void" ? "소멸 (미귀속)" : "국고 귀속"}
                   </dd>
                 </div>
               </>
@@ -257,11 +252,22 @@ export default function EconomyTab({
                           {workers.length > 0 ? workers.join(", ") : "당번 없음"} · {r.pay.toLocaleString()} {currencyName}
                         </p>
                       </div>
+                      {taxConfig.taxMethod !== "TAX_FREE" && (
+                        <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer select-none shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(routineTaxChecked[r.id])}
+                            onChange={(e) => setRoutineTaxChecked((p) => ({ ...p, [r.id]: e.target.checked }))}
+                            className="rounded text-indigo-600 w-3 h-3"
+                          />
+                          <span>세금 공제</span>
+                        </label>
+                      )}
                       <button
                         type="button"
                         disabled={workers.length === 0}
                         onClick={() => {
-                          const shouldTax = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
+                          const shouldTax = taxConfig.taxMethod !== "TAX_FREE" && Boolean(routineTaxChecked[r.id]);
                           onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, shouldTax);
                         }}
                         className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
@@ -401,7 +407,8 @@ export default function EconomyTab({
               onClick={() => setLedgerModalStudent("all")}
               className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 transition-all"
             >
-              <span>전체 원장</span><span>↗</span>
+              <span>전체 원장</span>
+              <ArrowUpRight className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -504,6 +511,7 @@ export default function EconomyTab({
         students={students}
         treasuryBalance={treasuryBalance}
         currencyName={currencyName}
+        taxConfig={taxConfig}
         onExecute={onExecuteTransaction}
       />
       <DepositModal

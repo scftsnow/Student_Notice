@@ -21,12 +21,13 @@ export interface ClassroomRoutine {
 }
 
 export interface TaxConfig {
-  txTaxType: "rate" | "fixed";
-  txTaxValue: number;
-  incomeTaxType: "rate" | "fixed";
-  incomeTaxValue: number;
-  otherTaxType: "rate" | "fixed";
-  otherTaxValue: number;
+  taxRate?: number; // 학급 통합 단일 기본 세율 (%) - 기본 10
+  txTaxType?: "rate" | "fixed";
+  txTaxValue?: number;
+  incomeTaxType?: "rate" | "fixed";
+  incomeTaxValue?: number;
+  otherTaxType?: "rate" | "fixed";
+  otherTaxValue?: number;
   penaltyDisposition: "treasury" | "void"; // "treasury": 국고 세수 귀속, "void": 화폐 소각(소멸)
   taxRoundingUnit?: number; // 세금 반올림 단위 (1단위, 10단위, 100단위 등)
   salaryPayoutMode?: "MANUAL_APPROVAL" | "AUTO_ON_CONFIRM";

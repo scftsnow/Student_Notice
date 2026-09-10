@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Coins } from "lucide-react";
 import { ClassroomStudent, TaxConfig } from "@/types/classroom";
-import { calculateTax } from "@/lib/taxEngine";
+import { calculateTax, getEffectiveTaxRate } from "@/lib/taxEngine";
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -27,7 +27,7 @@ export default function DepositModal({
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [amount, setAmount] = useState(200);
   const [desc, setDesc] = useState("담임 특별 입금");
-  const [applyTax, setApplyTax] = useState(true);
+  const [applyTax, setApplyTax] = useState(false);
 
   useEffect(() => {
     if (initialSelectedNames.length > 0) {
@@ -37,13 +37,11 @@ export default function DepositModal({
     }
   }, [initialSelectedNames, students]);
 
-  // 세무 설정에 따라 세금 자동 공제 기본값 동기화
   useEffect(() => {
-    if (taxConfig) {
-      const isTaxActive = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
-      setApplyTax(isTaxActive);
+    if (isOpen) {
+      setApplyTax(false);
     }
-  }, [taxConfig, isOpen]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -72,6 +70,7 @@ export default function DepositModal({
   };
 
   // 예상 세금 계산
+  const effectiveRate = taxConfig ? getEffectiveTaxRate(taxConfig) : 10;
   const previewTax = (applyTax && taxConfig && amount > 0)
     ? calculateTax("income", amount, taxConfig)
     : 0;
@@ -155,10 +154,10 @@ export default function DepositModal({
               className="rounded text-indigo-600"
             />
             <div className="flex flex-col">
-              <span className="font-semibold text-slate-700">세금/벌금 자동 공제 (국고 세수 귀속)</span>
+              <span className="font-semibold text-slate-700">세금 공제 ({effectiveRate}% 국고 귀속)</span>
               {applyTax && previewTax > 0 && (
                 <span className="text-[11px] text-indigo-600 font-bold mt-0.5">
-                  1인당 예상 세액: {previewTax.toLocaleString()} {currencyName} (실지급: {netAmount.toLocaleString()} {currencyName})
+                  1인당 세금 공제: {previewTax.toLocaleString()} {currencyName} (실지급: {netAmount.toLocaleString()} {currencyName})
                 </span>
               )}
             </div>

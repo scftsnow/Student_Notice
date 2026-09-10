@@ -1,5 +1,11 @@
 import { TaxConfig } from "@/types/classroom";
 
+export function getEffectiveTaxRate(config: TaxConfig): number {
+  if (config.taxMethod === "TAX_FREE") return 0;
+  if (typeof config.taxRate === "number") return Math.max(0, config.taxRate);
+  return config.incomeTaxValue ?? config.txTaxValue ?? 10;
+}
+
 export function calculateTax(
   type: "transaction" | "income" | "other" | "penalty",
   amount: number,
@@ -9,30 +15,12 @@ export function calculateTax(
   if (config.taxMethod === "TAX_FREE" && type !== "penalty") return 0;
   let tax = 0;
 
-  if (type === "transaction") {
-    if (config.txTaxType === "rate") {
-      tax = amount * (config.txTaxValue / 100);
-    } else {
-      tax = Math.min(amount, config.txTaxValue);
-    }
-  } else if (type === "income") {
-    if (config.incomeTaxType === "rate") {
-      tax = amount * (config.incomeTaxValue / 100);
-    } else {
-      tax = Math.min(amount, config.incomeTaxValue);
-    }
-  } else if (type === "other") {
-    if (config.otherTaxType === "rate") {
-      tax = amount * (config.otherTaxValue / 100);
-    } else {
-      tax = Math.min(amount, config.otherTaxValue);
-    }
-  } else if (type === "penalty") {
-    if (config.penaltyDisposition === "void") {
-      tax = 0;
-    } else {
-      tax = Math.abs(amount);
-    }
+  if (type === "penalty") {
+    tax = config.penaltyDisposition === "void" ? 0 : Math.abs(amount);
+  } else {
+    // 단일 학급 기본 세율 적용 (기본 10%)
+    const rate = getEffectiveTaxRate(config);
+    tax = amount * (rate / 100);
   }
 
   // 세금 반올림 단위 처리 (정수 단위: 1/10/100, 소수 단위: 0.1/0.01/0.001)
@@ -43,6 +31,7 @@ export function calculateTax(
 }
 
 export const DEFAULT_TAX_CONFIG: TaxConfig = {
+  taxRate: 10,
   txTaxType: "rate",
   txTaxValue: 10,
   incomeTaxType: "rate",

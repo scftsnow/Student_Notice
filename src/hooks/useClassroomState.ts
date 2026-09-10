@@ -343,7 +343,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   );
 
   const payRoutineToday = useCallback(
-    (id: string, customWorkerNames?: string[]) => {
+    (id: string, customWorkerNames?: string[], applyTax: boolean = false) => {
       const r = routines.find((x) => x.id === id);
       if (!r || r.pay <= 0 || r.order.length === 0) return;
 
@@ -359,9 +359,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
           : rawWorkers;
 
-      // 소득세 원천징수 계산
-      const applyIncomeTax = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
-      const taxPerWorker = applyIncomeTax ? calculateTax("income", r.pay, taxConfig) : 0;
+      // 세금 공제: applyTax가 true이고 비과세가 아닐 때 단일 세율 적용
+      const shouldDeductTax = applyTax && taxConfig.taxMethod !== "TAX_FREE";
+      const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
       const netPay = Math.max(0, r.pay - taxPerWorker);
 
       const paidNames: string[] = [];
@@ -402,32 +402,33 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     [routines, taxConfig, currencyName, addLedgerEntry, showToast]
   );
 
-  const payAllRoutinesToday = useCallback(() => {
-    const payable = routines.filter((r) => r.pay > 0 && r.order.length > 0);
-    if (payable.length === 0) {
-      showToast("지급할 급여가 책정된 학생 업무가 없습니다.");
-      return;
-    }
+  const payAllRoutinesToday = useCallback(
+    (applyTax: boolean = false) => {
+      const payable = routines.filter((r) => r.pay > 0 && r.order.length > 0);
+      if (payable.length === 0) {
+        showToast("지급할 급여가 책정된 학생 업무가 없습니다.");
+        return;
+      }
 
-    const applyIncomeTax = taxConfig.taxMethod !== "TAX_FREE" && taxConfig.incomeTaxValue > 0;
-    let totalTaxCollectedNow = 0;
-    let totalWorkersCount = 0;
-    const paidRoutineNames: string[] = [];
+      const shouldDeductTax = applyTax && taxConfig.taxMethod !== "TAX_FREE";
+      let totalTaxCollectedNow = 0;
+      let totalWorkersCount = 0;
+      const paidRoutineNames: string[] = [];
 
-    setStudents((prev) => {
-      const nextStudents = [...prev];
+      setStudents((prev) => {
+        const nextStudents = [...prev];
 
-      for (const r of payable) {
-        const rawWorkers = Array.from(
-          { length: r.slots },
-          (_, i) => r.order[(r.currentIdx + i) % r.order.length]
-        );
-        const targetWorkers =
-          r.pinchHitterStudent && r.pinchHitterStudent !== "none"
-            ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
-            : rawWorkers;
+        for (const r of payable) {
+          const rawWorkers = Array.from(
+            { length: r.slots },
+            (_, i) => r.order[(r.currentIdx + i) % r.order.length]
+          );
+          const targetWorkers =
+            r.pinchHitterStudent && r.pinchHitterStudent !== "none"
+              ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
+              : rawWorkers;
 
-        const taxPerWorker = applyIncomeTax ? calculateTax("income", r.pay, taxConfig) : 0;
+          const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
         const netPay = Math.max(0, r.pay - taxPerWorker);
 
         let countForRoutine = 0;

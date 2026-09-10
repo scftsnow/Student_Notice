@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { X, ArrowRightLeft } from "lucide-react";
-import { ClassroomStudent } from "@/types/classroom";
+import { ClassroomStudent, TaxConfig } from "@/types/classroom";
+import { calculateTax, getEffectiveTaxRate } from "@/lib/taxEngine";
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface TransactionModalProps {
   students: ClassroomStudent[];
   treasuryBalance: number;
   currencyName?: string;
+  taxConfig?: TaxConfig;
   onExecute: (from: string, to: string, amount: number, desc: string, applyTax: boolean) => void;
 }
 
@@ -19,19 +21,26 @@ export default function TransactionModal({
   students,
   treasuryBalance,
   currencyName = "원",
+  taxConfig,
   onExecute,
 }: TransactionModalProps) {
   const [fromVal, setFromVal] = useState("treasury");
   const [toVal, setToVal] = useState(students[0]?.name || "treasury");
   const [amount, setAmount] = useState(100);
   const [desc, setDesc] = useState("학급 화폐 거래");
-  const [applyTax, setApplyTax] = useState(true);
+  const [applyTax, setApplyTax] = useState(false);
 
   useEffect(() => {
     if (students.length > 0 && toVal === "treasury") {
       setToVal(students[0].name);
     }
   }, [students, toVal]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setApplyTax(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -122,15 +131,26 @@ export default function TransactionModal({
             />
           </div>
 
-          <label className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={applyTax}
-              onChange={(e) => setApplyTax(e.target.checked)}
-              className="rounded text-indigo-600"
-            />
-            <span className="font-semibold text-slate-700">거래세 자동 공제 (수취인 납부 및 국고 귀속)</span>
-          </label>
+          {toVal !== "treasury" && (
+            <label className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={applyTax}
+                onChange={(e) => setApplyTax(e.target.checked)}
+                className="rounded text-indigo-600"
+              />
+              <div className="flex flex-col">
+                <span className="font-semibold text-slate-700">
+                  세금 공제 ({taxConfig ? getEffectiveTaxRate(taxConfig) : 10}% 국고 귀속)
+                </span>
+                {applyTax && taxConfig && amount > 0 && (
+                  <span className="text-[11px] text-emerald-600 font-bold mt-0.5">
+                    수취인 세금 공제: {calculateTax("transaction", amount, taxConfig).toLocaleString()} {currencyName} (실수령: {Math.max(0, amount - calculateTax("transaction", amount, taxConfig)).toLocaleString()} {currencyName})
+                  </span>
+                )}
+              </div>
+            </label>
+          )}
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-2">

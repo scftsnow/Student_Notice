@@ -12,7 +12,7 @@ interface RoutineElementInCanvasProps {
   currencyName?: string;
   theme?: BoardTheme;
   customColor?: string;
-  onPayRoutineToday?: (id: string, workers?: string[]) => void;
+  onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
   onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
@@ -32,6 +32,7 @@ export default function RoutineElementInCanvas({
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [pinchSubmenuOpen, setPinchSubmenuOpen] = useState(false);
+  const [applyTax, setApplyTax] = useState(false);
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -107,7 +108,7 @@ export default function RoutineElementInCanvas({
 
   const handlePayWorker = (workerName: string) => {
     if (onPayRoutineToday && workerName) {
-      onPayRoutineToday(routine.id, [workerName]);
+      onPayRoutineToday(routine.id, [workerName], applyTax);
     }
     setActivePopupIndex(null);
   };
@@ -286,7 +287,16 @@ export default function RoutineElementInCanvas({
                       </button>
                     </div>
                   )}
-                  <div className="pt-0.5">
+                  <div className="pt-0.5 space-y-1.5">
+                    <label className="flex items-center gap-1.5 px-0.5 text-[11px] text-slate-300 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={applyTax}
+                        onChange={(e) => setApplyTax(e.target.checked)}
+                        className="rounded text-indigo-500 w-3 h-3"
+                      />
+                      <span>세금 공제</span>
+                    </label>
                     <button type="button" onClick={() => handlePayWorker(currentWorker)}
                       disabled={routine.pay <= 0 || !onPayRoutineToday}
                       className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
@@ -345,7 +355,7 @@ export default function RoutineElementInCanvas({
                   type="button"
                   disabled={routine.pay <= 0 || rawWorkers.length === 0}
                   onClick={() => {
-                    onPayRoutineToday(routine.id);
+                    onPayRoutineToday(routine.id, undefined, false);
                     setContextMenu(null);
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"

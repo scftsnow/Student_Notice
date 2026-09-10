@@ -12,7 +12,7 @@ interface RoutineTabProps {
   onAddRoutine: (routine: Omit<ClassroomRoutine, "id" | "currentIdx">) => void;
   onDeleteRoutine: (id: string) => void;
   onAdvanceRoutine?: (id: string) => void;
-  onPayRoutineToday?: (id: string, customWorkerNames?: string[]) => void;
+  onPayRoutineToday?: (id: string, customWorkerNames?: string[], applyTax?: boolean) => void;
   onUpdateRoutineOrder?: (id: string, newOrder: string[]) => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
 }

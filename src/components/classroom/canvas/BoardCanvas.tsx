@@ -29,7 +29,7 @@ interface BoardCanvasProps {
   ) => void;
   students?: ClassroomStudent[];
   currencyName?: string;
-  onPayRoutineToday?: (id: string, workers?: string[]) => void;
+  onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
   onPayAllRoutinesToday?: () => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
