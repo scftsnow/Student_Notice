@@ -31,8 +31,9 @@ export default async function RootLayout({
   });
 
   return (
-    <html lang="ko">
+    <html lang="ko" translate="no" className="notranslate">
       <head>
+        <meta name="google" content="notranslate" />
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"

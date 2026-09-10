@@ -116,33 +116,6 @@ export default function RoutineElementInCanvas({
     routine.icon
   );
 
-  const editableRef = useRef<HTMLDivElement>(null);
-  const isComposing = useRef(false);
-  const hasInitialSelectionRef = useRef(false);
-
-  // 단일 contentEditable div의 내용에서 displayFormat 템플릿 추출 (\u200B 비가시 문자 정제)
-  const extractTemplateFromDOM = (container: HTMLElement): string => {
-    let result = "";
-    for (const node of Array.from(container.childNodes)) {
-      if (node.nodeType === Node.TEXT_NODE) {
-        result += node.textContent ?? "";
-      } else if (node instanceof HTMLElement && node.dataset.workerIndex !== undefined) {
-        result += "?";
-      } else if (node instanceof HTMLElement) {
-        result += node.innerText ?? node.textContent ?? "";
-      }
-    }
-    return result.replace(/\u200B/g, "");
-  };
-
-  const handleUnifiedBlur = () => {
-    if (!editableRef.current || !onUpdateRoutine) return;
-    const newTemplate = extractTemplateFromDOM(editableRef.current);
-    if (newTemplate !== (routine.displayFormat ?? "")) {
-      onUpdateRoutine(routine.id, { displayFormat: newTemplate });
-    }
-  };
-
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
   const handleWorkerSpanClick = (e: React.MouseEvent, workerIdx: number) => {
     e.stopPropagation();
@@ -163,22 +136,6 @@ export default function RoutineElementInCanvas({
     }
   };
 
-  const selectAllRoutineText = () => {
-    if (!editableRef.current) return;
-    const range = document.createRange();
-    range.selectNodeContents(editableRef.current);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    if (!text) return;
-    document.execCommand("insertText", false, text);
-  };
-
   return (
     <div
       ref={containerRef}
@@ -187,39 +144,18 @@ export default function RoutineElementInCanvas({
       style={{ fontSize: "inherit" }}
     >
       <div
-        ref={editableRef}
-        contentEditable
-        suppressContentEditableWarning
-        onCompositionStart={() => { isComposing.current = true; }}
-        onCompositionEnd={() => { isComposing.current = false; }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !isComposing.current) {
-            e.preventDefault();
-            (e.target as HTMLElement).blur();
-          }
-        }}
-        onFocus={() => {
-          if (!hasInitialSelectionRef.current) {
-            hasInitialSelectionRef.current = true;
-            setTimeout(selectAllRoutineText, 20);
-          }
-        }}
-        onBlur={() => {
-          hasInitialSelectionRef.current = false;
-          handleUnifiedBlur();
-        }}
-        onPaste={handlePaste}
-        className={`outline-none focus:ring-1 focus:ring-indigo-300/40 rounded px-1 inline-flex items-center flex-wrap gap-0 ${
+        className={`outline-none rounded px-1 inline-flex items-center flex-wrap gap-0 select-none ${
           customColor ? "" : routineTextColor
         }`}
         style={customColor ? { color: customColor } : undefined}
-        title="클릭하여 직접 편집 (학생 이름은 커서·블록 단위로 처리됨)"
       >
-        {"\u200B"}
         {segments.map((seg, sIdx) => {
           if (seg.type === "text") {
-            return seg.text;
+            return (
+              <span key={`text-${sIdx}`} className="whitespace-pre">
+                {seg.text}
+              </span>
+            );
           }
 
           const workerIdx = seg.workerIndex ?? 0;
@@ -230,7 +166,6 @@ export default function RoutineElementInCanvas({
           return (
             <span
               key={`worker-${workerIdx}-${sIdx}`}
-              contentEditable={false}
               data-worker-index={workerIdx}
               onClick={(e) => handleWorkerSpanClick(e, workerIdx)}
               className={`font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${
@@ -247,7 +182,6 @@ export default function RoutineElementInCanvas({
             </span>
           );
         })}
-        {"\u200B"}
       </div>
 
       {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
