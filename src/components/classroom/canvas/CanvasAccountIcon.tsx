@@ -77,7 +77,7 @@ export default function CanvasAccountIcon({
       )}
       enableResizing={RESIZE_ENABLE}
       resizeHandleComponent={RESIZE_HANDLES}
-      className={`z-20 group rounded-2xl transition-all cursor-grab active:cursor-grabbing select-none flex items-center justify-center p-1.5 ${
+      className={`z-20 group rounded-2xl transition-all cursor-grab active:cursor-grabbing select-none flex items-center justify-center p-1.5 overflow-hidden box-border ${
         isSelected
           ? "ring-2 ring-amber-400 bg-amber-400/20 shadow-lg"
           : "hover:ring-1 hover:ring-white/40 hover:bg-white/10"
@@ -92,7 +92,7 @@ export default function CanvasAccountIcon({
       }}
       title="학생 계좌 아이콘 (클릭: 선택, 더블클릭: 전광판 열기, 드래그: 이동, 모서리: 크기 조절)"
     >
-      <div className="w-full h-full flex items-center justify-center pointer-events-none">
+      <div className="w-full h-full flex items-center justify-center pointer-events-none overflow-hidden box-border">
         <Coins
           className="w-full h-full text-amber-300 drop-shadow-md transition-transform group-hover:scale-105"
           style={layout?.color ? { color: layout.color } : undefined}

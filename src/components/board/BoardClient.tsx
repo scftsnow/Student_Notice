@@ -343,13 +343,13 @@ export default function BoardClient({
           );
         })}
 
-      {/* 자유 글상자 레이어 (무배경·무테두리) */}
+      {/* 자유 글상자 레이어 (무배경·무테두리, 교사 미리보기와 1:1 완벽 일치) */}
       {freeCards
         .filter((card) => isBoxVisibleToday(card.visible, card.visibleDays))
         .map((card) => (
         <div
           key={card.id}
-          className="absolute z-20 font-bold"
+          className="absolute z-20 font-bold p-2 leading-relaxed tracking-tight overflow-hidden box-border"
           style={{
             left: card.left || "20%",
             top: card.top || "40%",
@@ -363,19 +363,21 @@ export default function BoardClient({
               ? (typeof card.lineHeight === "number"
                 ? card.lineHeight > 10 ? `${card.lineHeight / 100}` : `${card.lineHeight}`
                 : card.lineHeight)
-              : undefined,
+              : "1.4",
+            letterSpacing: "-0.02em",
+            wordBreak: "break-word",
           }}
           dangerouslySetInnerHTML={{ __html: card.html }}
         />
       ))}
 
       {/* 글상자 5: 학생 화폐 바로가기 아이콘 (동전 아이콘) */}
-      {showEconomyShortcut && isBoxVisibleToday(layouts.accountBox?.visible, layouts.accountBox?.visibleDays) && (
+      {showEconomyShortcut && (
         <div
-          className="absolute z-20 cursor-pointer select-none flex items-center justify-center p-1.5 transition-transform hover:scale-110 active:scale-95"
+          className="absolute z-20 cursor-pointer select-none flex items-center justify-center p-1.5 transition-transform hover:scale-110 active:scale-95 overflow-hidden box-border"
           style={{
             left: layouts.accountBox?.left || "93.0%",
-            top: layouts.accountBox?.top || "3.0%",
+            top: layouts.accountBox?.top || "89.0%",
             width: layouts.accountBox?.width || "50px",
             height: layouts.accountBox?.height || "50px",
           }}

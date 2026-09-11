@@ -180,16 +180,18 @@ export default function FreeCardItem({
           }, 30);
         }
       }}
-      className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden ${
+      className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden relative ${
         isSelected
           ? "border-indigo-400 ring-2 ring-indigo-400/40 bg-white/5"
           : "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
       } cursor-grab active:cursor-grabbing`}
     >
-      {/* 상단 드래그 핸들 및 닫기 버튼 바 */}
+      {/* 상단 드래그 핸들 및 닫기 버튼 바 (오버레이로 배치하여 학생 화면과 1:1 레이아웃 일치) */}
       <div
-        className={`transition-opacity flex items-center justify-between px-2.5 py-1 bg-slate-900/40 backdrop-blur-xs rounded-t-2xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
-          isEditing || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        className={`absolute top-0 left-0 right-0 z-30 transition-opacity flex items-center justify-between px-2.5 py-1 bg-slate-900/60 backdrop-blur-xs rounded-t-2xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+          isEditing || isSelected
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
         }`}
         onClick={(e) => {
           e.stopPropagation();
@@ -221,7 +223,7 @@ export default function FreeCardItem({
       </div>
 
       {/* 자유 글상자 본문 */}
-      <div className="p-2 flex-1 w-full min-h-0 overflow-hidden cursor-grab active:cursor-grabbing">
+      <div className="w-full h-full overflow-hidden cursor-grab active:cursor-grabbing flex flex-col">
         <div
           ref={editorRef}
           data-card-id={card.id}
@@ -248,7 +250,7 @@ export default function FreeCardItem({
           }}
           onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
-          className="w-full h-full outline-none font-bold overflow-y-auto leading-relaxed tracking-tight cursor-text select-text freecard-editor-text"
+          className="w-full h-full p-2 outline-none font-bold overflow-y-auto overflow-x-hidden leading-relaxed tracking-tight cursor-text select-text freecard-editor-text box-border"
           style={{
             fontSize: `${card.fontSize || 42}px`,
             textAlign: card.align || "left",
@@ -260,6 +262,7 @@ export default function FreeCardItem({
                 : card.lineHeight
               : "1.4",
             letterSpacing: "-0.02em",
+            wordBreak: "break-word",
           }}
           data-placeholder={placeholder}
         />

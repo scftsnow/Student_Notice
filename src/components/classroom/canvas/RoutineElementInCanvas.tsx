@@ -106,21 +106,13 @@ export default function RoutineElementInCanvas({
   const [isEditing, setIsEditing] = useState(false);
   const editableRef = useRef<HTMLDivElement>(null);
 
-  const escapeHtml = (str: string): string => {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
+  const escapeHtml = (str: string): string =>
+    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
   const ZWSP = "\u200B";
 
   const routineHtml = useMemo(() => {
-    const parts: string[] = [];
-    // 항상 맨 앞에 zero-width space를 배치하여 첫 당번 span 앞에서도 커서가 위치할 수 있도록 보장
-    parts.push(ZWSP);
+    const parts: string[] = [ZWSP];
     segments.forEach((seg) => {
       if (seg.type === "text") {
         parts.push(`<span class="whitespace-pre">${escapeHtml(seg.text)}</span>`);
@@ -129,11 +121,7 @@ export default function RoutineElementInCanvas({
         const originalName = rawWorkers[workerIdx] || "";
         const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
         const currentWorker = isSubstituted ? pinchHitter : originalName;
-        const colorCls = isSubstituted
-          ? "text-amber-400 decoration-amber-400"
-          : customColor
-          ? ""
-          : workerColor;
+        const colorCls = isSubstituted ? "text-amber-400 decoration-amber-400" : customColor ? "" : workerColor;
         const style = customColor && !isSubstituted ? `style="color:${customColor};"` : "";
         parts.push(
           `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
@@ -148,7 +136,6 @@ export default function RoutineElementInCanvas({
 
   const expectedWorkerCount = segments.filter((s) => s.type === "worker").length;
 
-  // 포커스 해제 상태일 때만 DOM innerHTML 동기화
   useEffect(() => {
     if (editableRef.current && !isFocusedRef.current) {
       editableRef.current.innerHTML = routineHtml;
@@ -158,26 +145,18 @@ export default function RoutineElementInCanvas({
 
   // 재귀적 노드 탐색으로 래핑 태그에 상관없이 안전하게 ? 플레이스홀더 템플릿 추출
   const extractTemplateFromNode = (node: Node): string => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      return node.textContent ?? "";
-    }
+    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
     if (node instanceof HTMLElement) {
-      if (node.dataset.workerIndex !== undefined || node.getAttribute("data-worker-index") !== null) {
-        return "?";
-      }
+      if (node.dataset.workerIndex !== undefined || node.getAttribute("data-worker-index") !== null) return "?";
       let acc = "";
-      for (const child of Array.from(node.childNodes)) {
-        acc += extractTemplateFromNode(child);
-      }
+      for (const child of Array.from(node.childNodes)) acc += extractTemplateFromNode(child);
       return acc;
     }
     return "";
   };
 
-  const extractTemplateFromDOM = (container: HTMLElement): string => {
-    const raw = extractTemplateFromNode(container);
-    return raw.replace(/\u200B/g, "").trim();
-  };
+  const extractTemplateFromDOM = (container: HTMLElement): string =>
+    extractTemplateFromNode(container).replace(/\u200B/g, "").trim();
 
   const handleBlur = () => {
     isFocusedRef.current = false;
@@ -204,35 +183,51 @@ export default function RoutineElementInCanvas({
   // 선택 영역에 worker span이 포함되어 있는지 확인
   const isSelectionDamagingWorkers = (sel: Selection): boolean => {
     if (!sel.rangeCount || sel.isCollapsed) return false;
-    const range = sel.getRangeAt(0);
-    const frag = range.cloneContents();
-    return Boolean(frag.querySelector("[data-worker-index]"));
+    return Boolean(sel.getRangeAt(0).cloneContents().querySelector("[data-worker-index]"));
   };
 
-  // 커서 인접 worker span 감지 (Backspace/Delete 차단용)
+  // 커서 바로 앞/뒤에 worker span이 맞닿아 있는지 정확하게 검사 (Backspace/Delete 키용)
   const isWorkerAdjacent = (direction: "before" | "after", sel: Selection): boolean => {
     if (!sel.rangeCount || !editableRef.current) return false;
     const range = sel.getRangeAt(0);
-    const workers = Array.from(editableRef.current.querySelectorAll<HTMLElement>("[data-worker-index]"));
-    for (const w of workers) {
-      const testRange = document.createRange();
-      try {
-        if (direction === "before") {
-          testRange.setStartAfter(w);
-          testRange.setEnd(range.startContainer, range.startOffset);
-        } else {
-          testRange.setStart(range.endContainer, range.endOffset);
-          testRange.setEndBefore(w);
-        }
-        if (testRange.compareBoundaryPoints(Range.START_TO_END, testRange) >= 0) {
-          const text = testRange.toString().replace(/[\u200B\s]/g, "");
-          if (text === "") return true;
-        }
-      } catch {
-        // Boundary error ignore
+    const node = range.startContainer;
+    const offset = range.startOffset;
+
+    if (direction === "before") {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const textBefore = (node.textContent ?? "").slice(0, offset).replace(/\u200B/g, "");
+        if (textBefore.length > 0) return false;
       }
+      let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current
+        ? node.parentElement
+        : node;
+      if (node.nodeType === Node.ELEMENT_NODE && offset > 0) {
+        curr = node.childNodes[offset - 1];
+        if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
+      }
+      let prev = curr?.previousSibling;
+      while (prev && prev.nodeType === Node.TEXT_NODE && (prev.textContent ?? "").replace(/\u200B/g, "") === "") {
+        prev = prev.previousSibling;
+      }
+      return Boolean(prev instanceof HTMLElement && prev.dataset.workerIndex !== undefined);
+    } else {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const textAfter = (node.textContent ?? "").slice(offset).replace(/\u200B/g, "");
+        if (textAfter.length > 0) return false;
+      }
+      let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current
+        ? node.parentElement
+        : node;
+      if (node.nodeType === Node.ELEMENT_NODE && offset < node.childNodes.length) {
+        curr = node.childNodes[offset];
+        if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
+      }
+      let next = curr?.nextSibling;
+      while (next && next.nodeType === Node.TEXT_NODE && (next.textContent ?? "").replace(/\u200B/g, "") === "") {
+        next = next.nextSibling;
+      }
+      return Boolean(next instanceof HTMLElement && next.dataset.workerIndex !== undefined);
     }
-    return false;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -245,7 +240,6 @@ export default function RoutineElementInCanvas({
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
 
-    // 1) 범위 선택 시 worker span 포함되어 있으면 삭제/입력 차단
     if (isSelectionDamagingWorkers(sel)) {
       if (e.key === "Backspace" || e.key === "Delete" || e.key.length === 1) {
         e.preventDefault();
@@ -253,15 +247,9 @@ export default function RoutineElementInCanvas({
       }
     }
 
-    // 2) 단일 커서 상태에서 Backspace/Delete로 인접 worker span 삭제 차단
     if (sel.isCollapsed) {
-      if (e.key === "Backspace" && isWorkerAdjacent("before", sel)) {
+      if ((e.key === "Backspace" && isWorkerAdjacent("before", sel)) || (e.key === "Delete" && isWorkerAdjacent("after", sel))) {
         e.preventDefault();
-        return;
-      }
-      if (e.key === "Delete" && isWorkerAdjacent("after", sel)) {
-        e.preventDefault();
-        return;
       }
     }
   };
