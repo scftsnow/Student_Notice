@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, FileSpreadsheet, Calendar } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
 
@@ -27,6 +28,11 @@ export default function UnifiedLedgerModal({
   const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -35,13 +41,31 @@ export default function UnifiedLedgerModal({
     }
   }, [isOpen, initialStudentFilter]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
 
   // Filter records
   const filteredRecords = ledgerHistory.filter((item) => {
-    // Student filter
+    // Student / Treasury filter
     if (studentFilter !== "all") {
-      if (!item.targets.includes(studentFilter)) return false;
+      if (studentFilter === "treasury") {
+        const isTreasuryRelated =
+          item.targets.includes("treasury") ||
+          item.from.includes("국고") ||
+          item.to.includes("국고") ||
+          item.targetDisplay.includes("국고");
+        if (!isTreasuryRelated) return false;
+      } else if (!item.targets.includes(studentFilter)) {
+        return false;
+      }
     }
 
     // Period filter
@@ -78,9 +102,12 @@ export default function UnifiedLedgerModal({
   const totalTax = filteredRecords.reduce((acc, cur) => acc + (cur.tax || 0), 0);
   const netAmount = totalDeposit - totalWithdraw;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-5 space-y-4 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs cursor-pointer"
+      onClick={onClose}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-5 space-y-4 max-h-[90vh] flex flex-col my-auto cursor-default" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
@@ -264,6 +291,7 @@ export default function UnifiedLedgerModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

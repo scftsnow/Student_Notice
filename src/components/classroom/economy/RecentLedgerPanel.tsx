@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LedgerRecord } from "@/types/classroom";
-import { RotateCcw, RotateCw, History, ChevronDown, ChevronUp } from "lucide-react";
+import { RotateCcw, RotateCw, History, ChevronDown, ChevronUp, FileSpreadsheet } from "lucide-react";
 
 interface RecentLedgerPanelProps {
   records: LedgerRecord[];
@@ -16,6 +16,8 @@ interface RecentLedgerPanelProps {
   defaultExpanded?: boolean;
   /** 상단바 등 플로팅 드롭다운 모드 여부 */
   isDropdown?: boolean;
+  /** 전체 이력 모달 열기 콜백 */
+  onOpenModal?: () => void;
 }
 
 function typeLabel(type: string, amount: number): string {
@@ -46,6 +48,7 @@ export default function RecentLedgerPanel({
   maxRows = 4,
   defaultExpanded = false,
   isDropdown = false,
+  onOpenModal,
 }: RecentLedgerPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const recent = records.slice(0, maxRows);
@@ -66,10 +69,21 @@ export default function RecentLedgerPanel({
       >
         {/* 좌측: 타이틀 및 최근 1건 요약 */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <History className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-          <span className="text-[11px] font-extrabold text-slate-800 tracking-tight shrink-0">
-            최근 지급
-          </span>
+          <div
+            className="flex items-center gap-1 shrink-0 cursor-pointer group/title"
+            onClick={(e) => {
+              if (onOpenModal) {
+                e.stopPropagation();
+                onOpenModal();
+              }
+            }}
+            title={onOpenModal ? "클릭 시 전체 입출금 이력 모달 열기" : undefined}
+          >
+            <History className="w-3.5 h-3.5 text-indigo-600 shrink-0 group-hover/title:scale-110 transition-transform" />
+            <span className="text-[11px] font-extrabold text-slate-800 tracking-tight shrink-0 group-hover/title:text-indigo-600">
+              최근 지급
+            </span>
+          </div>
 
           {latest ? (
             <div className="flex items-center gap-1.5 min-w-0 truncate">
@@ -97,53 +111,51 @@ export default function RecentLedgerPanel({
           )}
         </div>
 
-        {/* 우측 퀵 액션: 접기/펼치기 토글 + 취소 & 다시실행 (아이콘만 표시) */}
+        {/* 우측 퀵 액션: 접기/펼치기 토글 버튼 + 취소 & 다시실행 */}
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-          {/* 아코디언 접기 / 펼치기 아이콘 버튼 */}
+          {/* 명시적 아코디언 접기 / 펼치기 버튼 */}
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
             aria-expanded={isExpanded}
-            aria-label={isExpanded ? "내역 접기" : "내역 펼치기"}
             title={isExpanded ? "내역 접기" : "내역 펼치기"}
-            className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-slate-200 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-600 transition-all cursor-pointer active:scale-95"
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-200 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-600 transition-all cursor-pointer active:scale-95"
           >
-            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            <span>{isExpanded ? "접기" : "펼치기"}</span>
+            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
 
-          {/* 최근 지급 취소 아이콘 버튼 */}
           <button
             type="button"
             onClick={() => onUndo()}
             disabled={!hasRecords}
-            aria-label={hasRecords ? `최근 지급건 취소 (${latest?.targetDisplay})` : "취소할 지급 내역 없음"}
             title={hasRecords ? `최근 지급건 취소: ${latest?.targetDisplay}` : "취소할 지급 내역 없음"}
-            className={`inline-flex items-center justify-center w-6 h-6 rounded-md border transition-all ${
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
               hasRecords
                 ? "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 hover:border-rose-300 cursor-pointer active:scale-95"
                 : "bg-slate-100 border-slate-200 text-slate-400 opacity-40 cursor-not-allowed"
             }`}
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-2.5 h-2.5" />
+            <span>취소</span>
           </button>
 
-          {/* 최근 취소 다시실행 아이콘 버튼 */}
           {onRedo && (
             <button
               type="button"
               onClick={() => onRedo()}
               disabled={!hasUndone}
-              aria-label={hasUndone ? `최근 취소건 다시실행 (${undoneRecords[0]?.targetDisplay})` : "다시 실행할 내역 없음"}
-              title={hasUndone ? `최근 취소건 다시실행: ${undoneRecords[0]?.targetDisplay} (총 ${undoneRecords.length}건)` : "다시 실행할 내역 없음"}
-              className={`relative inline-flex items-center justify-center w-6 h-6 rounded-md border transition-all ${
+              title={hasUndone ? `최근 취소건 다시실행: ${undoneRecords[0]?.targetDisplay}` : "다시 실행할 내역 없음"}
+              className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-all ${
                 hasUndone
                   ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 cursor-pointer active:scale-95"
                   : "bg-slate-100 border-slate-200 text-slate-400 opacity-40 cursor-not-allowed"
               }`}
             >
-              <RotateCw className="w-3 h-3" />
+              <RotateCw className="w-2.5 h-2.5" />
+              <span>다시실행</span>
               {hasUndone && (
-                <span className="absolute -top-1.5 -right-1.5 text-[8px] bg-indigo-600 text-white min-w-[13px] h-[13px] px-0.5 rounded-full font-black flex items-center justify-center shadow-xs">
+                <span className="text-[9px] bg-indigo-200 text-indigo-800 px-1 rounded-full font-black">
                   {undoneRecords.length}
                 </span>
               )}
@@ -244,15 +256,30 @@ export default function RecentLedgerPanel({
             </>
           )}
 
-          {/* 아코디언 하단 명시적 접기 버튼 바 */}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(false)}
-            className="w-full py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border-t border-slate-200 transition-colors cursor-pointer select-none"
-          >
-            <ChevronUp className="w-3.5 h-3.5" />
-            <span>내역 접기</span>
-          </button>
+          {/* 아코디언 하단 명시적 접기 / 전체 모달 열기 버튼 바 */}
+          <div className="flex items-center divide-x divide-slate-200 border-t border-slate-200 bg-slate-50">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(false)}
+              className="flex-1 py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer select-none"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+              <span>내역 접기</span>
+            </button>
+            {onOpenModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsExpanded(false);
+                  onOpenModal();
+                }}
+                className="flex-1 py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors cursor-pointer select-none"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>전체 이력 모달 ↗</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

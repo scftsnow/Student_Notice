@@ -32,6 +32,7 @@ export default function Navbar({
   const [liveTreasury, setLiveTreasury] = useState(treasuryBalance);
   const [liveCurrency, setLiveCurrency] = useState(currencyName);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
+  const [ledgerModalFilter, setLedgerModalFilter] = useState<string>("treasury");
   const [students, setStudents] = useState<ClassroomStudent[]>([]);
   const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
   const [undoneLedgerHistory, setUndoneLedgerHistory] = useState<LedgerRecord[]>([]);
@@ -178,24 +179,24 @@ export default function Navbar({
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200/80 shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-3 lg:gap-6">
+        <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
           {/* Left: Logo & Class Name + Nav Links grouped together */}
-          <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+          <div className="flex items-center gap-3 lg:gap-4 shrink-0">
             {/* Logo & Class Name */}
             <Link href="/notice" className="flex items-center gap-2 group shrink-0">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
-                <Sparkles className="w-5 h-5" />
+              <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
+                <Sparkles className="w-4 h-4 lg:w-5 lg:h-5" />
               </div>
               <div>
-                <span className="font-bold text-lg text-slate-800 tracking-tight flex items-center gap-1.5 whitespace-nowrap">
+                <span className="font-bold text-base lg:text-lg text-slate-800 tracking-tight flex items-center gap-1 whitespace-nowrap">
                   Teacher Helper-학급 운영
                 </span>
-                <span suppressHydrationWarning className="text-xs text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
+                <span suppressHydrationWarning className="text-[11px] text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
               </div>
             </Link>
 
-            {/* Nav Links (왼쪽으로 밀착 배치) */}
-            <nav className="hidden md:flex items-center gap-1">
+            {/* Nav Links (좌측으로 밀착, 줄어들지 않도록 보호) */}
+            <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 shrink-0">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname.startsWith(item.href);
@@ -203,13 +204,13 @@ export default function Navbar({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                    className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
                       isActive
                         ? "bg-indigo-50 text-indigo-700 shadow-sm"
                         : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                    <Icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
                     {item.label}
                   </Link>
                 );
@@ -217,10 +218,10 @@ export default function Navbar({
             </nav>
           </div>
 
-          {/* Right Header Stats: 최근 지급 내역(대폭 확장) & 국고 잔액 */}
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-1 justify-end min-w-0">
-            {/* 최근 지급 내역 패널 (가용 너비 최대로 확장) */}
-            <div className="hidden sm:block flex-1 max-w-[720px] min-w-[280px]">
+          {/* Right Header Stats: 최근 지급 내역 & 국고 잔액 */}
+          <div className="flex items-center gap-2 lg:gap-2.5 flex-1 justify-end min-w-0">
+            {/* 최근 지급 내역 패널 (클릭 시 모달 또는 아코디언) */}
+            <div className="hidden sm:block w-full max-w-[340px] lg:max-w-[400px] min-w-[220px]">
               <RecentLedgerPanel
                 records={ledgerHistory}
                 undoneRecords={undoneLedgerHistory}
@@ -229,6 +230,11 @@ export default function Navbar({
                 onRedo={handleRedo}
                 maxRows={4}
                 isDropdown={true}
+                onOpenModal={() => {
+                  syncFromStorage();
+                  setLedgerModalFilter("all");
+                  setIsLedgerOpen(true);
+                }}
               />
             </div>
 
@@ -237,9 +243,10 @@ export default function Navbar({
               type="button"
               onClick={() => {
                 syncFromStorage();
+                setLedgerModalFilter("treasury");
                 setIsLedgerOpen(true);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               title="국고 입출금 이력 보기 (클릭 시 오늘 이력 표시)"
             >
               <Coins className="w-4 h-4 text-amber-600 shrink-0" />
@@ -273,14 +280,14 @@ export default function Navbar({
         })}
       </div>
 
-      {/* 상단바 국고 배지 클릭 시 열리는 통합 입출금 내역 모달 */}
+      {/* 상단바 국고/최근지급 클릭 시 열리는 통합 입출금 내역 모달 */}
       <UnifiedLedgerModal
         isOpen={isLedgerOpen}
         onClose={() => setIsLedgerOpen(false)}
         students={students}
         treasuryBalance={liveTreasury}
         ledgerHistory={ledgerHistory}
-        initialStudentFilter="treasury"
+        initialStudentFilter={ledgerModalFilter}
         currencyName={liveCurrency || currencyName}
       />
     </header>
