@@ -130,10 +130,13 @@ export default function FreeCardItem({
       position={{ x, y }}
       size={{ width, height }}
       minWidth={120}
-      cancel="[contenteditable='true'], .freecard-editor-text, .canvas-text-space, input, textarea, button"
+      cancel={isEditing ? ".freecard-editor-text, button, input, select, textarea, [role='dialog']" : "button, input, select, textarea, [role='dialog']"}
       enableUserSelectHack={false}
       enableResizing={RESIZE_ENABLE}
       resizeHandleComponent={RESIZE_HANDLES}
+      onMouseDownCapture={(e: ReactMouseEvent<HTMLElement>) => {
+        if ((e.target as HTMLElement).closest("button, .react-resizable-handle")) return;
+      }}
       onDragStart={() => {
         isDraggingRef.current = true;
       }}
@@ -186,9 +189,9 @@ export default function FreeCardItem({
           : "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
       } cursor-grab active:cursor-grabbing`}
     >
-      {/* 상단 드래그 핸들 및 닫기 버튼 바 (오버레이로 배치하여 학생 화면과 1:1 레이아웃 일치) */}
+      {/* 상단 드래그 핸들 및 닫기 버튼 바 — absolute overlay (나머지 캔버스 요소와 100% 동일 스타일) */}
       <div
-        className={`absolute top-0 left-0 right-0 z-30 transition-opacity flex items-center justify-between px-2.5 py-1 bg-slate-900/60 backdrop-blur-xs rounded-t-2xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+        className={`absolute top-0 left-0 right-0 z-30 transition-opacity flex items-center justify-between px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
           isEditing || isSelected
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
@@ -198,14 +201,9 @@ export default function FreeCardItem({
           onSelect?.(card.id);
         }}
       >
-        <div
-          className="flex items-center gap-1.5 cursor-grab active:cursor-grabbing text-white/70 hover:text-white py-0.5"
-          title="드래그하여 글상자 이동"
-        >
+        <div className="flex items-center gap-1.5 text-white/70">
           <GripHorizontal className="w-3.5 h-3.5" />
-          <span className="text-[10px] font-bold tracking-tight opacity-75">
-            {card.label || "글상자"}
-          </span>
+          <span className="text-[10px] font-bold tracking-tight">{card.label || "글상자"}</span>
         </div>
         {card.id !== "noticeBox" && (
           <button
@@ -236,6 +234,10 @@ export default function FreeCardItem({
           onMouseDown={(e) => {
             e.stopPropagation();
             wasFocusedRef.current = document.activeElement === editorRef.current;
+            // 편집 모드가 아닐 때 마우스 기본 동작(텍스트 선택/커서 삽입)을 차단 → 드래그 허용
+            if (!isFocused.current) {
+              e.preventDefault();
+            }
             onSelect?.(card.id);
           }}
           onFocus={() => {
@@ -250,7 +252,7 @@ export default function FreeCardItem({
           }}
           onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
-          className="w-full h-full p-2 outline-none font-bold overflow-y-auto overflow-x-hidden leading-relaxed tracking-tight cursor-text select-text freecard-editor-text box-border"
+          className={`w-full h-full p-2 outline-none font-bold overflow-y-auto overflow-x-hidden leading-relaxed tracking-tight freecard-editor-text box-border ${isEditing ? "select-text cursor-text" : "select-none cursor-grab"}`}
           style={{
             fontSize: `${card.fontSize || 42}px`,
             textAlign: card.align || "left",

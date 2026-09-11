@@ -320,7 +320,7 @@ export default function EconomyClient({
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <span className="font-bold text-sm text-slate-800 flex items-center gap-2">
             <FileText className="w-4 h-4 text-slate-600" />
-            단순 기입장 (원장 내역)
+            단순 기입장 (입출금 내역)
           </span>
 
           <div className="flex items-center gap-1.5">

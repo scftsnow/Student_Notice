@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Bell } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import NoticeTab from "@/components/classroom/notice/NoticeTab";
 import BoardCanvas from "@/components/classroom/canvas/BoardCanvas";
@@ -110,7 +110,8 @@ export default function NoticePageClient() {
   }
 
   return (
-    <div className="space-y-4">
+    <>
+      <div className="space-y-4">
       {/* 알림장 상단 헤더 */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
         <div className="flex items-center gap-3">
@@ -175,6 +176,15 @@ export default function NoticePageClient() {
           onPreviewScaleChange={handlePreviewScaleChange}
           routines={state.routines}
           onUpdateRoutine={state.updateRoutine}
+          onUndo={state.undo}
+          onRedo={state.redo}
+          canUndo={state.canUndo}
+          canRedo={state.canRedo}
+          ledgerHistory={state.ledgerHistory}
+          undoneLedgerHistory={state.undoneLedgerHistory}
+          onUndoLedgerEntry={state.undoLedgerEntry}
+          onRedoLedgerEntry={state.redoLedgerEntry}
+          currencyName={state.currencyName}
         />
         <BoardCanvas
           theme={state.theme}
@@ -189,6 +199,8 @@ export default function NoticePageClient() {
           onPayRoutineToday={state.payRoutineToday}
           onUpdateRoutine={state.updateRoutine}
           onAdvanceRoutine={state.advanceRoutine}
+          onRewindRoutine={state.rewindRoutine}
+          onSkipRoutineWorker={state.skipRoutineWorker}
           onAdvanceAllRoutines={state.advanceAllRoutines}
           targetElement={targetElement}
           onSelectElement={setTargetElement}
@@ -202,6 +214,15 @@ export default function NoticePageClient() {
           taxConfig={state.taxConfig}
         />
       </div>
-    </div>
+      </div>
+
+      {/* 토스트 알림 */}
+      {state.toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-bold flex items-center gap-2">
+          <Bell className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>{state.toastMessage}</span>
+        </div>
+      )}
+    </>
   );
 }

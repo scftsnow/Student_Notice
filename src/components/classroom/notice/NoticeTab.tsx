@@ -2,11 +2,12 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus, Undo2, Redo2 } from "lucide-react";
-import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
+import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine, LedgerRecord } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import { useSelectionRange } from "@/hooks/useSelectionRange";
 import FontSelectorDropdown from "./FontSelectorDropdown";
 import NoticeBoxVisibilityBar from "./NoticeBoxVisibilityBar";
+import RecentLedgerPanel from "@/components/classroom/economy/RecentLedgerPanel";
 
 const TEXT_COLORS = [
   { label: "흰색", value: "#ffffff" }, { label: "노랑", value: "#fde047" },
@@ -43,6 +44,11 @@ interface NoticeTabProps {
   onPreviewScaleChange?: (scale: number) => void;
   routines?: ClassroomRoutine[];
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
+  onUndo?: () => void; onRedo?: () => void; canUndo?: boolean; canRedo?: boolean;
+  ledgerHistory?: LedgerRecord[]; undoneLedgerHistory?: LedgerRecord[];
+  onUndoLedgerEntry?: (id?: number | string) => void;
+  onRedoLedgerEntry?: (id?: number | string) => void;
+  currencyName?: string;
 }
 
 export default function NoticeTab({
@@ -52,6 +58,8 @@ export default function NoticeTab({
   showEconomyShortcut = false, onToggleEconomyShortcut, onOpenRoutineNoticeSettings,
   layouts, onUpdateLayouts, freeCards, onToggleFreeCardVisibility, onUpdateFreeCard, onAddFreeCard,
   previewScale = 75, onPreviewScaleChange, routines, onUpdateRoutine,
+  onUndo, onRedo, canUndo, canRedo,
+  ledgerHistory, undoneLedgerHistory, onUndoLedgerEntry, onRedoLedgerEntry, currencyName = "원",
 }: NoticeTabProps) {
   const {
     getEffectiveRange,
@@ -64,22 +72,16 @@ export default function NoticeTab({
   } = useSelectionRange(targetElement);
 
   const handleUndo = useCallback(() => {
+    if (onUndo) return onUndo();
     const el = lastEditableRef.current ?? document.querySelector<HTMLElement>("[contenteditable='true']");
-    if (el) {
-      el.focus();
-      document.execCommand("undo");
-      dispatchInput(el);
-    }
-  }, [lastEditableRef, dispatchInput]);
+    if (el) { el.focus(); document.execCommand("undo"); dispatchInput(el); }
+  }, [onUndo, lastEditableRef, dispatchInput]);
 
   const handleRedo = useCallback(() => {
+    if (onRedo) return onRedo();
     const el = lastEditableRef.current ?? document.querySelector<HTMLElement>("[contenteditable='true']");
-    if (el) {
-      el.focus();
-      document.execCommand("redo");
-      dispatchInput(el);
-    }
-  }, [lastEditableRef, dispatchInput]);
+    if (el) { el.focus(); document.execCommand("redo"); dispatchInput(el); }
+  }, [onRedo, lastEditableRef, dispatchInput]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -132,8 +134,7 @@ export default function NoticeTab({
 
   const commitFontSize = (valStr: string) => {
     let num = parseInt(valStr.replace(/[^0-9]/g, ""), 10);
-    if (isNaN(num)) num = effectiveFontSize;
-    num = Math.max(12, Math.min(160, num));
+    num = Math.max(12, Math.min(160, isNaN(num) ? effectiveFontSize : num));
     setFontSizeInput(String(num));
     applyFontSizeToSelectionOrTarget(String(num) as NoticeFontSize);
   };
@@ -151,8 +152,7 @@ export default function NoticeTab({
 
   const commitLineHeight = (valStr: string) => {
     let num = parseInt(valStr.replace(/[^0-9]/g, ""), 10);
-    if (isNaN(num)) num = effectiveLineHeight;
-    num = Math.max(80, Math.min(300, num));
+    num = Math.max(80, Math.min(300, isNaN(num) ? effectiveLineHeight : num));
     setLineHeightInput(String(num));
     onApplyLineHeight?.(num);
   };
@@ -205,7 +205,7 @@ export default function NoticeTab({
       {/* 1행: 상단 서식 편집 툴바 */}
       <div className="p-2.5 rounded-t-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          {/* 서식 적용 대상 선택 드롭다운 */}
+          {/* 서식 적용 대상 선택 */}
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
             <span className="w-2 h-2 rounded-full bg-indigo-600 shrink-0" />
             <span className="text-indigo-950/60 text-[11px] font-semibold shrink-0">대상:</span>
@@ -233,13 +233,16 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 실행 취소 / 다시 실행 (Undo / Redo) */}
+          {/* 실행 취소 / 다시 실행 */}
           <div className="flex items-center gap-0.5">
             <button
               type="button"
               onMouseDown={(e) => { e.preventDefault(); handleUndo(); }}
               title="실행 취소 (Ctrl+Z)"
-              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
+              disabled={canUndo === false}
+              className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                canUndo === false ? "opacity-30 pointer-events-none text-slate-400" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"
+              }`}
             >
               <Undo2 className="w-3.5 h-3.5" />
             </button>
@@ -247,7 +250,10 @@ export default function NoticeTab({
               type="button"
               onMouseDown={(e) => { e.preventDefault(); handleRedo(); }}
               title="다시 실행 (Ctrl+Y / Ctrl+Shift+Z)"
-              className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900"
+              disabled={canRedo === false}
+              className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                canRedo === false ? "opacity-30 pointer-events-none text-slate-400" : "hover:bg-slate-200 text-slate-600 hover:text-slate-900"
+              }`}
             >
               <Redo2 className="w-3.5 h-3.5" />
             </button>
@@ -255,7 +261,7 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 글꼴 드롭다운 (분류 없는 단일 리스트 + 서체 이름 SVG 미리보기) */}
+          {/* 글꼴 드롭다운 */}
           <FontSelectorDropdown
             selectedFontId={selectedFontId}
             onSelectFont={applyFontFamilyToSelectionOrTarget}
@@ -319,7 +325,7 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 글자 크기 (구글 독스 스타일: - [숫자] + & 프리셋 드롭다운) */}
+          {/* 글자 크기 */}
           <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
             <span className="text-slate-400 font-semibold text-[11px] pl-1">크기</span>
             <button
@@ -371,7 +377,7 @@ export default function NoticeTab({
 
           <div className="w-px h-5 bg-slate-300 mx-1 hidden sm:block" />
 
-          {/* 줄간격 (구글 독스 스타일: - [숫자%] + & 프리셋 드롭다운) */}
+          {/* 줄간격 */}
           <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5">
             <span className="text-slate-400 font-semibold text-[11px] pl-1">행간</span>
             <button
@@ -518,6 +524,20 @@ export default function NoticeTab({
           routines={routines}
           onUpdateRoutine={onUpdateRoutine}
         />
+      )}
+
+      {/* 최근 지급 내역 패널 */}
+      {onUndoLedgerEntry && (
+        <div className="p-2.5 bg-white/70 rounded-b-2xl">
+          <RecentLedgerPanel
+            records={ledgerHistory || []}
+            undoneRecords={undoneLedgerHistory}
+            currencyName={currencyName}
+            onUndo={onUndoLedgerEntry}
+            onRedo={onRedoLedgerEntry}
+            maxRows={3}
+          />
+        </div>
       )}
     </div>
   );

@@ -112,3 +112,70 @@ export function parseRoutineFormat(
 
   return segments;
 }
+
+export interface PinchHitterEntry {
+  name: string;
+  isSkip?: boolean;
+}
+
+/**
+ * pinchHitterStudent 문자열을 슬롯별 대타 상세 맵(Record<number, PinchHitterEntry>)으로 파싱합니다.
+ */
+export function parsePinchHitterDetails(pinchHitterStudent?: string): Record<number, PinchHitterEntry> {
+  if (!pinchHitterStudent || pinchHitterStudent === "none") return {};
+  if (pinchHitterStudent.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(pinchHitterStudent);
+      const res: Record<number, PinchHitterEntry> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (!v || v === "none") continue;
+        if (typeof v === "string") {
+          res[Number(k)] = { name: v, isSkip: false };
+        } else if (typeof v === "object" && v !== null && (v as { name?: string }).name) {
+          const entry = v as { name: string; isSkip?: boolean };
+          res[Number(k)] = { name: entry.name, isSkip: Boolean(entry.isSkip) };
+        }
+      }
+      return res;
+    } catch {
+      return {};
+    }
+  }
+  return { 0: { name: pinchHitterStudent, isSkip: false } };
+}
+
+/**
+ * pinchHitterStudent 문자열을 슬롯별 대타 맵(Record<number, string>)으로 파싱합니다.
+ * 하위 호환성: 학생 이름만 필요한 곳에서 호출합니다.
+ */
+export function parsePinchHitters(pinchHitterStudent?: string): Record<number, string> {
+  const details = parsePinchHitterDetails(pinchHitterStudent);
+  const res: Record<number, string> = {};
+  for (const [k, v] of Object.entries(details)) {
+    res[Number(k)] = v.name;
+  }
+  return res;
+}
+
+/**
+ * 슬롯별 대타 맵을 pinchHitterStudent 문자열로 직렬화합니다.
+ * 슬롯 0만 단순 문자열(isSkip 없음)인 경우 하위 호환 단일 문자열로 저장하고, 그 외에는 JSON 문자열로 저장합니다.
+ */
+export function serializePinchHitters(
+  record: Record<number, string | PinchHitterEntry>
+): string | undefined {
+  const validEntries = Object.entries(record).filter(([_, v]) => {
+    if (!v || v === "none") return false;
+    if (typeof v === "object" && (!v.name || v.name === "none")) return false;
+    return true;
+  });
+  if (validEntries.length === 0) return undefined;
+  if (validEntries.length === 1 && validEntries[0][0] === "0") {
+    const v = validEntries[0][1];
+    if (typeof v === "string") return v;
+    if (typeof v === "object" && !v.isSkip) return v.name;
+  }
+  const obj: Record<string, string | PinchHitterEntry> = {};
+  validEntries.forEach(([k, v]) => { obj[k] = v; });
+  return JSON.stringify(obj);
+}

@@ -34,29 +34,82 @@ export default function Navbar({
   const [liveCurrency, setLiveCurrency] = useState(currencyName);
 
   useEffect(() => {
-    try {
-      const saved =
-        localStorage.getItem("classroom_os_state_v3") ||
-        localStorage.getItem("classroom_os_state_v2");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.className) setLiveClassName(parsed.className);
-        else setLiveClassName(classNameTitle);
-        if (currencyName && currencyName !== "미소" && (parsed.currencyName === "미소" || !parsed.currencyName)) {
-          setLiveCurrency(currencyName);
-        } else if (parsed.currencyName) {
-          setLiveCurrency(parsed.currencyName);
-        } else if (currencyName) {
-          setLiveCurrency(currencyName);
+    const syncFromStorage = () => {
+      try {
+        const saved =
+          localStorage.getItem("classroom_os_state_v3") ||
+          localStorage.getItem("classroom_os_state_v2");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.className) setLiveClassName(parsed.className);
+          else setLiveClassName(classNameTitle);
+          if (currencyName && currencyName !== "미소" && (parsed.currencyName === "미소" || !parsed.currencyName)) {
+            setLiveCurrency(currencyName);
+          } else if (parsed.currencyName) {
+            setLiveCurrency(parsed.currencyName);
+          } else if (currencyName) {
+            setLiveCurrency(currencyName);
+          }
+          if (typeof parsed.treasuryBalance === "number") setLiveTreasury(parsed.treasuryBalance);
+        } else {
+          setLiveClassName(classNameTitle);
         }
-        if (typeof parsed.treasuryBalance === "number") setLiveTreasury(parsed.treasuryBalance);
-      } else {
+      } catch {
         setLiveClassName(classNameTitle);
       }
+    };
+
+    syncFromStorage();
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("classroom_os_sync");
+      channel.onmessage = (e) => {
+        if (!e.data || typeof e.data !== "object") return;
+        const data = e.data as { treasuryBalance?: number; currencyName?: string; className?: string; resetType?: string };
+        if (typeof data.treasuryBalance === "number") {
+          setLiveTreasury(data.treasuryBalance);
+        } else if (data.resetType === "economy" || data.resetType === "students") {
+          setLiveTreasury(0);
+        }
+        if (data.currencyName) setLiveCurrency(data.currencyName);
+        if (data.className) setLiveClassName(data.className);
+      };
     } catch {
-      setLiveClassName(classNameTitle);
+      // noop
     }
-  }, [currencyName, classNameTitle]);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "classroom_os_state_v3" || e.key === "classroom_os_state_v2") {
+        syncFromStorage();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    const handleCustomSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ treasuryBalance?: number; currencyName?: string; className?: string }>;
+      if (customEvent.detail) {
+        if (typeof customEvent.detail.treasuryBalance === "number") {
+          setLiveTreasury(customEvent.detail.treasuryBalance);
+        }
+        if (customEvent.detail.currencyName) {
+          setLiveCurrency(customEvent.detail.currencyName);
+        }
+        if (customEvent.detail.className) {
+          setLiveClassName(customEvent.detail.className);
+        }
+      } else {
+        syncFromStorage();
+      }
+    };
+    window.addEventListener("classroom_state_sync", handleCustomSync);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("classroom_state_sync", handleCustomSync);
+    };
+  }, [currencyName, classNameTitle, pathname]);
 
   useEffect(() => {
     const updateTime = () => {

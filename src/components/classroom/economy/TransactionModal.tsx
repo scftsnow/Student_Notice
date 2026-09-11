@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, ArrowRightLeft } from "lucide-react";
 import { ClassroomStudent, TaxConfig } from "@/types/classroom";
-import { calculateTax, getEffectiveTaxRate } from "@/lib/taxEngine";
+import { calculateTax, getEffectiveTaxRate, isTaxEnabled } from "@/lib/taxEngine";
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -28,7 +28,8 @@ export default function TransactionModal({
   const [toVal, setToVal] = useState(students[0]?.name || "treasury");
   const [amount, setAmount] = useState(100);
   const [desc, setDesc] = useState("학급 화폐 거래");
-  const [applyTax, setApplyTax] = useState(taxConfig ? taxConfig.taxMethod !== "TAX_FREE" : false);
+  const isTaxOn = isTaxEnabled(taxConfig);
+  const [applyTax, setApplyTax] = useState(isTaxOn);
 
   useEffect(() => {
     if (students.length > 0 && toVal === "treasury") {
@@ -38,9 +39,9 @@ export default function TransactionModal({
 
   useEffect(() => {
     if (isOpen) {
-      setApplyTax(false);
+      setApplyTax(isTaxOn);
     }
-  }, [isOpen]);
+  }, [isOpen, isTaxOn]);
 
   if (!isOpen) return null;
 

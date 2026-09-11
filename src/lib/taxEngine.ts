@@ -1,5 +1,12 @@
 import { TaxConfig } from "@/types/classroom";
 
+export function isTaxEnabled(config?: TaxConfig | null): boolean {
+  if (!config) return false;
+  if (config.taxMethod === "TAX_FREE") return false;
+  const rate = config.taxRate ?? config.incomeTaxValue ?? config.txTaxValue ?? 10;
+  return rate > 0;
+}
+
 export function getEffectiveTaxRate(config: TaxConfig): number {
   if (config.taxMethod === "TAX_FREE") return 0;
   if (typeof config.taxRate === "number") return Math.max(0, config.taxRate);
@@ -25,7 +32,12 @@ export function calculateTax(
 
   // 세금 반올림 단위 처리 (정수 단위: 1/10/100, 소수 단위: 0.1/0.01/0.001)
   const unit = config.taxRoundingUnit || 1;
-  tax = Math.round(tax / unit) * unit;
+  if (unit < 1 && unit > 0) {
+    const decimals = Math.round(-Math.log10(unit));
+    tax = Number((Math.round(tax / unit) * unit).toFixed(decimals));
+  } else {
+    tax = Math.round(tax / unit) * unit;
+  }
 
   return Math.max(0, tax);
 }

@@ -224,6 +224,15 @@ export default function ClassroomApp() {
               onPreviewScaleChange={handlePreviewScaleChange}
               routines={state.routines}
               onUpdateRoutine={state.updateRoutine}
+              onUndo={state.undo}
+              onRedo={state.redo}
+              canUndo={state.canUndo}
+              canRedo={state.canRedo}
+              ledgerHistory={state.ledgerHistory}
+              undoneLedgerHistory={state.undoneLedgerHistory}
+              onUndoLedgerEntry={state.undoLedgerEntry}
+              onRedoLedgerEntry={state.redoLedgerEntry}
+              currencyName={state.currencyName}
             />
             <BoardCanvas
               theme={state.theme}
@@ -238,6 +247,8 @@ export default function ClassroomApp() {
               onPayRoutineToday={state.payRoutineToday}
               onUpdateRoutine={state.updateRoutine}
               onAdvanceRoutine={state.advanceRoutine}
+              onRewindRoutine={state.rewindRoutine}
+              onSkipRoutineWorker={state.skipRoutineWorker}
               onAdvanceAllRoutines={state.advanceAllRoutines}
               targetElement={targetElement}
               onSelectElement={setTargetElement}
@@ -295,6 +306,9 @@ export default function ClassroomApp() {
             onUpdateBundle={state.updateCustomBundle}
             onDeleteBundle={state.deleteCustomBundle}
             onUpdateTaxConfig={state.updateTaxConfig}
+            onUndoLedgerEntry={state.undoLedgerEntry}
+            onRedoLedgerEntry={state.redoLedgerEntry}
+            undoneLedgerHistory={state.undoneLedgerHistory}
           />
         )}
       </div>

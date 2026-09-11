@@ -1,26 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Zap, Landmark, Coins } from "lucide-react";
-import { ClassroomStudent, CustomBundle, BundleAction } from "@/types/classroom";
+import { X } from "lucide-react";
+import { ClassroomStudent, CustomBundle, BundleAction, TaxConfig } from "@/types/classroom";
+import { isTaxEnabled } from "@/lib/taxEngine";
 
 interface DraftAction {
-  type: "deposit" | "deduct";
   target: "all" | "selected" | "treasury" | "specific";
   specificTargets: string[];
-  amount: number;
+  amountInput: string;
   desc: string;
   applyTax: boolean;
 }
-
-const EMPTY_ACTION: DraftAction = {
-  type: "deposit",
-  target: "all",
-  specificTargets: [],
-  amount: 0,
-  desc: "",
-  applyTax: false,
-};
 
 interface CreateBundleModalProps {
   isOpen: boolean;
@@ -29,7 +20,19 @@ interface CreateBundleModalProps {
   onClose: () => void;
   onSave: (bundle: CustomBundle) => void;
   initialBundle?: CustomBundle | null;
+  taxConfig?: TaxConfig;
 }
+
+const isActionDeduct = (amountInput: string): boolean => {
+  const sanitized = amountInput.trim().replace(/[－—–]/g, "-");
+  return sanitized.startsWith("-") || parseInt(sanitized.replace(/[^0-9-]/g, ""), 10) < 0;
+};
+
+const parseActionAmount = (amountInput: string): number => {
+  const sanitized = amountInput.trim().replace(/[－—–]/g, "-");
+  const num = parseInt(sanitized.replace(/[^0-9-]/g, ""), 10);
+  return isNaN(num) ? 0 : Math.abs(num);
+};
 
 export default function CreateBundleModal({
   isOpen,
@@ -38,15 +41,26 @@ export default function CreateBundleModal({
   onClose,
   onSave,
   initialBundle,
+  taxConfig,
 }: CreateBundleModalProps) {
+  const isTaxOn = isTaxEnabled(taxConfig);
+
+  const makeEmptyAction = (): DraftAction => ({
+    target: "all",
+    specificTargets: [],
+    amountInput: "",
+    desc: "",
+    applyTax: isTaxOn,
+  });
+
   const [draftName, setDraftName] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
-  const [draftActions, setDraftActions] = useState<DraftAction[]>([{ ...EMPTY_ACTION }]);
+  const [draftActions, setDraftActions] = useState<DraftAction[]>([makeEmptyAction()]);
 
   const reset = () => {
     setDraftName("");
     setDraftDesc("");
-    setDraftActions([{ ...EMPTY_ACTION }]);
+    setDraftActions([makeEmptyAction()]);
   };
 
   useEffect(() => {
@@ -61,29 +75,29 @@ export default function CreateBundleModal({
                   a.target === "selected" || a.target === "treasury" || a.target === "specific"
                     ? a.target
                     : "all";
+                const isDeduct = a.type === "deduct";
                 return {
-                  type: a.type,
                   target,
                   specificTargets: a.specificTargets ? [...a.specificTargets] : [],
-                  amount: a.amount,
+                  amountInput: isDeduct ? `-${a.amount}` : (a.amount ? `${a.amount}` : ""),
                   desc: a.desc || "",
-                  applyTax: !!a.applyTax,
+                  applyTax: a.applyTax !== undefined ? !!a.applyTax : (!isDeduct && target !== "treasury" ? isTaxOn : false),
                 };
               })
-            : [{ ...EMPTY_ACTION }]
+            : [makeEmptyAction()]
         );
       } else {
         reset();
       }
     }
-  }, [isOpen, initialBundle]);
+  }, [isOpen, initialBundle, isTaxOn]);
 
   const handleClose = () => {
     reset();
     onClose();
   };
 
-  const addAction = () => setDraftActions((p) => [...p, { ...EMPTY_ACTION }]);
+  const addAction = () => setDraftActions((p) => [...p, makeEmptyAction()]);
   const removeAction = (idx: number) => setDraftActions((p) => p.filter((_, i) => i !== idx));
 
   const updateAction = (idx: number, patch: Partial<DraftAction>) => {
@@ -91,9 +105,12 @@ export default function CreateBundleModal({
       p.map((a, i) => {
         if (i !== idx) return a;
         const updated = { ...a, ...patch };
-        // 세금 적용은 입금(deposit)이면서 국고가 아닐 때만 가능
-        if (updated.type === "deduct" || updated.target === "treasury") {
+        const isDeduct = isActionDeduct(updated.amountInput);
+        // 세금 적용은 입금(양수)이면서 국고가 아닐 때만 가능
+        if (isDeduct || updated.target === "treasury") {
           updated.applyTax = false;
+        } else if (patch.amountInput !== undefined && !isDeduct && a.target !== "treasury" && isActionDeduct(a.amountInput)) {
+          updated.applyTax = isTaxOn;
         }
         return updated;
       })
@@ -116,18 +133,22 @@ export default function CreateBundleModal({
   const handleSave = () => {
     if (!draftName.trim()) return;
     const actions: BundleAction[] = draftActions
-      .filter((a) => a.amount > 0)
-      .map((a) => ({
-        type: a.type,
-        target: a.target,
-        specificTargets: a.target === "specific" ? a.specificTargets : undefined,
-        amount: a.amount,
-        desc: a.desc.trim() || draftName.trim(),
-        applyTax: a.type === "deposit" && a.target !== "treasury" ? a.applyTax : false,
-      }));
+      .map((a) => {
+        const isDeduct = isActionDeduct(a.amountInput);
+        const absAmount = parseActionAmount(a.amountInput);
+        return {
+          type: (isDeduct ? "deduct" : "deposit") as "deposit" | "deduct",
+          target: a.target,
+          specificTargets: a.target === "specific" ? a.specificTargets : undefined,
+          amount: absAmount,
+          desc: a.desc.trim() || draftName.trim(),
+          applyTax: !isDeduct && a.target !== "treasury" ? a.applyTax : false,
+        };
+      })
+      .filter((a) => a.amount > 0);
 
     if (actions.length === 0) {
-      alert("유효한 액션(금액 > 0)이 없습니다.");
+      alert("유효한 액션(금액이 0이 아닌 항목)이 없습니다.");
       return;
     }
 
@@ -137,8 +158,7 @@ export default function CreateBundleModal({
       desc: draftDesc.trim(),
       actions,
     });
-    reset();
-    onClose();
+    handleClose();
   };
 
   if (!isOpen) return null;
@@ -185,68 +205,6 @@ export default function CreateBundleModal({
             />
           </div>
 
-          {/* 빠른 템플릿 (국고 연동 포함) */}
-          <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100 space-y-1.5 text-[11px]">
-            <span className="font-bold text-indigo-900 flex items-center gap-1"><Zap className="w-3 h-3" /> 빠른 템플릿 설정:</span>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setDraftName("국고 지원금 균등 분배");
-                  setDraftDesc("국고 재원에서 전교생에게 균등 지원금 지급");
-                  setDraftActions([
-                    {
-                      type: "deduct",
-                      target: "treasury",
-                      specificTargets: [],
-                      amount: 1000,
-                      desc: "국고 지원금 출금",
-                      applyTax: false,
-                    },
-                    {
-                      type: "deposit",
-                      target: "all",
-                      specificTargets: [],
-                      amount: 100,
-                      desc: "국고 지원금 수령",
-                      applyTax: false,
-                    },
-                  ]);
-                }}
-                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs flex items-center gap-1"
-              >
-                <Landmark className="w-3 h-3" /> 국고 지원금 분배
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDraftName("학급비 납부 (국고 전입)");
-                  setDraftDesc("학생들에게 학급비를 걷어 국고로 전입");
-                  setDraftActions([
-                    {
-                      type: "deduct",
-                      target: "all",
-                      specificTargets: [],
-                      amount: 100,
-                      desc: "학급비 납부",
-                      applyTax: false,
-                    },
-                    {
-                      type: "deposit",
-                      target: "treasury",
-                      specificTargets: [],
-                      amount: 1000,
-                      desc: "학급비 국고 전입",
-                      applyTax: false,
-                    },
-                  ]);
-                }}
-                className="px-2 py-1 rounded-lg bg-white hover:bg-indigo-100 text-indigo-700 font-bold border border-indigo-200 transition-colors shadow-2xs flex items-center gap-1"
-              >
-                <Coins className="w-3 h-3" /> 학급비 국고 전입
-              </button>
-            </div>
-          </div>
 
           {/* 액션 목록 */}
           <div>
@@ -262,7 +220,8 @@ export default function CreateBundleModal({
             </div>
             <div className="space-y-2.5">
               {draftActions.map((action, idx) => {
-                const canApplyTax = action.type === "deposit" && action.target !== "treasury";
+                const isDeduct = isActionDeduct(action.amountInput);
+                const canApplyTax = !isDeduct && action.target !== "treasury";
                 return (
                   <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -282,44 +241,47 @@ export default function CreateBundleModal({
                         <option value="treasury">학급 국고</option>
                       </select>
 
-                      {/* 구분 (입금/차감) */}
-                      <select
-                        value={action.type}
-                        onChange={(e) =>
-                          updateAction(idx, { type: e.target.value as "deposit" | "deduct" })
-                        }
-                        className="px-2 py-1 rounded-md border border-slate-200 bg-white font-semibold focus:outline-none text-[11px]"
+                      {/* 금액 입력창 (음수 입력 시 자동 차감) */}
+                      <div className="relative flex items-center">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="금액(+/-)"
+                          value={action.amountInput}
+                          onChange={(e) => updateAction(idx, { amountInput: e.target.value })}
+                          className={`w-24 px-2 py-1 rounded-md border font-mono font-bold text-right focus:outline-none focus:ring-1 text-[11px] transition-colors ${
+                            isDeduct
+                              ? "border-rose-300 text-rose-700 focus:ring-rose-400 bg-rose-50/20"
+                              : "border-slate-200 text-slate-800 focus:ring-indigo-400 bg-white"
+                          }`}
+                        />
+                        <span className="ml-1 text-[11px] font-bold text-slate-400 shrink-0">{currencyName}</span>
+                      </div>
+
+                      {/* 입출금 구분 뱃지 */}
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold select-none shrink-0 ${
+                          isDeduct
+                            ? "bg-rose-100 text-rose-700 border border-rose-200"
+                            : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                        }`}
                       >
-                        <option value="deposit">
-                          {action.target === "treasury" ? "국고 전입 (입금)" : "입금"}
-                        </option>
-                        <option value="deduct">
-                          {action.target === "treasury" ? "국고 지출 (출금)" : "차감"}
-                        </option>
-                      </select>
+                        {action.target === "treasury"
+                          ? (isDeduct ? "국고 지출" : "국고 전입")
+                          : (isDeduct ? "차감" : "입금")}
+                      </span>
 
-                      {/* 금액 */}
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="금액"
-                        value={action.amount}
-                        onChange={(e) => updateAction(idx, { amount: Number(e.target.value) })}
-                        className="w-20 px-2 py-1 rounded-md border border-slate-200 bg-white font-mono font-bold text-right focus:outline-none focus:ring-1 focus:ring-indigo-400 text-[11px]"
-                      />
-                      <span className="text-[11px] text-slate-400 shrink-0">{currencyName}</span>
-
-                      {/* 세금 부과 (입금 시에만 활성화) */}
+                      {/* 세금 부과 (양수 입금 시에만 활성화) */}
                       <label
                         className={`flex items-center gap-1 ml-auto text-[11px] select-none ${
                           canApplyTax ? "text-slate-600 cursor-pointer" : "text-slate-300 cursor-not-allowed"
                         }`}
-                        title={canApplyTax ? "세금 부과 (국고 귀속)" : "세금 부과는 학생 입금 시에만 가능합니다."}
+                        title={canApplyTax ? "세금 부과 (국고 귀속)" : "세금 부과는 학생 입금(+) 시에만 가능합니다."}
                       >
                         <input
                           type="checkbox"
                           disabled={!canApplyTax}
-                          checked={action.applyTax}
+                          checked={action.applyTax && canApplyTax}
                           onChange={(e) => updateAction(idx, { applyTax: e.target.checked })}
                           className="rounded text-indigo-600 w-3 h-3 disabled:opacity-30"
                         />
@@ -368,7 +330,7 @@ export default function CreateBundleModal({
                     {/* 거래 설명 */}
                     <input
                       type="text"
-                      placeholder="거래 설명 (원장 기록용)"
+                      placeholder="거래 설명 (내역 기록용)"
                       value={action.desc}
                       onChange={(e) => updateAction(idx, { desc: e.target.value })}
                       className="w-full px-2 py-1 rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 text-[11px]"

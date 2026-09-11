@@ -29,6 +29,8 @@ interface BoardCanvasProps {
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
+  onRewindRoutine?: (id: string) => void;
+  onSkipRoutineWorker?: (id: string, workerIndex: number) => void;
   onAdvanceAllRoutines?: () => void;
   onOpenRoutineNoticeSettings?: () => void;
   targetElement?: BoardTargetElement;
@@ -51,7 +53,7 @@ export default function BoardCanvas({
   routines, freeCards, onAddFreeCard, onRemoveFreeCard, onUpdateFreeCard,
   students = [], currencyName = "원",
   onPayRoutineToday, onUpdateRoutine,
-  onAdvanceRoutine, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
+  onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
   previewScale = 75, taxConfig,
@@ -419,23 +421,49 @@ export default function BoardCanvas({
                           isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 text-white/70">
+                        <div className="flex items-center gap-1.5 text-white/70 shrink-0">
                           <GripHorizontal className="w-3.5 h-3.5" />
                           <span className="text-[10px] font-bold tracking-tight">{r.name}</span>
                         </div>
-                        {onAdvanceRoutine && (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onAdvanceRoutine(r.id); }}
-                            className="text-[10px] px-1.5 py-0.2 rounded bg-white/15 hover:bg-white/25 text-white/90 hover:text-white font-bold cursor-pointer"
-                            title="다음 순서로 넘기기"
-                          >
-                            넘기기
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {onRewindRoutine && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onRewindRoutine(r.id); }}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white/90 hover:text-white font-bold cursor-pointer transition-colors"
+                              title="이전 순서로 돌아가기"
+                            >
+                              이전 순서로
+                            </button>
+                          )}
+                          {onAdvanceRoutine && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onAdvanceRoutine(r.id); }}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white/90 hover:text-white font-bold cursor-pointer transition-colors"
+                              title="다음 순서로 넘기기"
+                            >
+                              다음 순서로
+                            </button>
+                          )}
+                          {onPayRoutineToday && r.pay > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const applyTax = taxConfig ? taxConfig.taxMethod !== "TAX_FREE" : false;
+                                onPayRoutineToday(r.id, undefined, applyTax);
+                              }}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold cursor-pointer transition-colors"
+                              title={`당번 모두에게 급여 지급 (${r.pay.toLocaleString()}${currencyName})`}
+                            >
+                              모두 지급
+                            </button>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="px-2 py-1 flex items-center">
+                      <div className="px-2 py-1 w-full">
                         <RoutineElementInCanvas
                           routine={r}
                           students={students}
@@ -446,6 +474,7 @@ export default function BoardCanvas({
                           onPayRoutineToday={onPayRoutineToday}
                           onUpdateRoutine={onUpdateRoutine}
                           onAdvanceRoutine={onAdvanceRoutine}
+                          onSkipRoutineWorker={onSkipRoutineWorker}
                           onSelect={() => onSelectElement?.(r.id)}
                         />
                       </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Coins, Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
-import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
+import { resolveStudentName, parseRoutineFormat, parsePinchHitters } from "@/lib/routineUtils";
 import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 
@@ -275,13 +275,12 @@ export default function BoardClient({
                   return resolveStudentName(raw, students);
                 })
               : [];
-          const pinchHitter =
-            r.pinchHitterStudent && r.pinchHitterStudent !== "none"
-              ? resolveStudentName(r.pinchHitterStudent, students)
-              : "";
+          const pinchMap = parsePinchHitters(r.pinchHitterStudent);
           const workerList = rawWorkers.map((originalName, wIdx) => {
-            const isSubstituted = Boolean(pinchHitter && wIdx === 0);
-            return isSubstituted ? `${pinchHitter} (대타)` : originalName;
+            const sub = pinchMap[wIdx];
+            const isSubstituted = Boolean(sub && sub !== "none");
+            const subName = isSubstituted ? resolveStudentName(sub, students) : "";
+            return isSubstituted ? `${subName} (대타)` : originalName;
           });
 
           const segments = parseRoutineFormat(

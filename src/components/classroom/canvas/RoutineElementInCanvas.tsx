@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { EyeOff, RefreshCw, X, Coins, ArrowRight, CheckSquare, User } from "lucide-react";
+import { EyeOff, RefreshCw, X, Coins, FastForward, RotateCcw, CheckSquare, User } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig } from "@/types/classroom";
-import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
+import { resolveStudentName, parseRoutineFormat, parsePinchHitters, parsePinchHitterDetails, serializePinchHitters } from "@/lib/routineUtils";
 
 interface RoutineElementInCanvasProps {
   routine: ClassroomRoutine;
@@ -16,6 +16,7 @@ interface RoutineElementInCanvasProps {
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
+  onSkipRoutineWorker?: (id: string, workerIndex: number) => void;
   onSelect?: () => void;
 }
 
@@ -29,6 +30,7 @@ export default function RoutineElementInCanvas({
   onPayRoutineToday,
   onUpdateRoutine,
   onAdvanceRoutine,
+  onSkipRoutineWorker,
   onSelect,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
@@ -76,30 +78,64 @@ export default function RoutineElementInCanvas({
         )
       : [];
 
-  const pinchHitter =
-    routine.pinchHitterStudent && routine.pinchHitterStudent !== "none"
-      ? resolveStudentName(routine.pinchHitterStudent, students)
-      : "";
+  const pinchDetails = useMemo(() => parsePinchHitterDetails(routine.pinchHitterStudent), [routine.pinchHitterStudent]);
+  const pinchMap = useMemo(() => parsePinchHitters(routine.pinchHitterStudent), [routine.pinchHitterStudent]);
 
   const handlePinchChange = (val: string) => {
-    if (onUpdateRoutine) {
-      onUpdateRoutine(routine.id, { pinchHitterStudent: val === "none" ? undefined : val });
+    if (onUpdateRoutine && activePopupIndex !== null) {
+      const updated = { ...pinchDetails };
+      if (val === "none") delete updated[activePopupIndex];
+      else updated[activePopupIndex] = { name: val, isSkip: false };
+      onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
     }
+    setActivePopupIndex(null);
+    setWorkerPopupPos(null);
+  };
+
+  const handleSkipWorker = (workerIdx: number | null) => {
+    if (workerIdx === null) return;
+    if (onSkipRoutineWorker) {
+      onSkipRoutineWorker(routine.id, workerIdx);
+    } else if (onUpdateRoutine && routine.order.length > 0) {
+      const updated = { ...pinchDetails };
+      const active = Array.from({ length: routine.slots }, (_, i) => (routine.currentIdx + i) % routine.order.length);
+      const currentSub = updated[workerIdx]?.name;
+      const currentSubIdx = currentSub ? routine.order.indexOf(currentSub) : -1;
+      let cand = currentSubIdx !== -1
+        ? (currentSubIdx + 1) % routine.order.length
+        : (routine.currentIdx + routine.slots) % routine.order.length;
+      let tries = 0;
+      while (active.includes(cand) && tries < routine.order.length) {
+        cand = (cand + 1) % routine.order.length;
+        tries++;
+      }
+      updated[workerIdx] = { name: routine.order[cand], isSkip: true };
+      onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
+    }
+    setActivePopupIndex(null);
+    setWorkerPopupPos(null);
+  };
+
+  const handleCancelSkip = (workerIdx: number | null) => {
+    if (workerIdx === null || !onUpdateRoutine) return;
+    const updated = { ...pinchDetails };
+    delete updated[workerIdx];
+    onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
     setActivePopupIndex(null);
     setWorkerPopupPos(null);
   };
 
   const handlePayWorker = (workerName: string) => {
-    if (onPayRoutineToday && workerName) {
-      onPayRoutineToday(routine.id, [workerName], applyTax);
-    }
+    if (onPayRoutineToday && workerName) onPayRoutineToday(routine.id, [workerName], applyTax);
     setActivePopupIndex(null);
     setWorkerPopupPos(null);
   };
 
   const workerList = rawWorkers.map((originalName, idx) => {
-    const isSubstituted = Boolean(pinchHitter && idx === 0);
-    return isSubstituted ? `${pinchHitter} (대타)` : originalName;
+    const sub = pinchMap[idx];
+    const isSub = Boolean(sub && sub !== "none");
+    const subName = isSub ? resolveStudentName(sub, students) : "";
+    return isSub ? `${subName} (대타)` : originalName;
   });
 
   const segments = parseRoutineFormat(
@@ -124,15 +160,13 @@ export default function RoutineElementInCanvas({
     const parts: string[] = [ZWSP];
     segments.forEach((seg) => {
       if (seg.type === "text") {
-        // NOTE: plain text node (HTML-escaped). 컨테이너에 white-space: pre-wrap을 적용하므로
-        // span.whitespace-pre 래핑 불필요. Chromium/Edge에서 white-space:pre span이
-        // contenteditable 편집 진입 시 width:0으로 collapse되는 버그를 우회.
         parts.push(escapeHtml(seg.text));
       } else {
         const workerIdx = seg.workerIndex ?? 0;
         const originalName = rawWorkers[workerIdx] || "";
-        const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
-        const currentWorker = isSubstituted ? pinchHitter : originalName;
+        const sub = pinchMap[workerIdx];
+        const isSubstituted = Boolean(sub && sub !== "none");
+        const currentWorker = isSubstituted ? resolveStudentName(sub, students) : originalName;
         const colorCls = isSubstituted ? "text-amber-400 decoration-amber-400" : customColor ? "" : workerColor;
         const style = customColor && !isSubstituted ? `style="color:${customColor};"` : "";
         parts.push(
@@ -144,7 +178,7 @@ export default function RoutineElementInCanvas({
       }
     });
     return parts.join("");
-  }, [segments, rawWorkers, pinchHitter, customColor, workerColor]);
+  }, [segments, rawWorkers, pinchMap, students, customColor, workerColor]);
 
   const expectedWorkerCount = segments.filter((s) => s.type === "worker").length;
 
@@ -175,21 +209,12 @@ export default function RoutineElementInCanvas({
     wasFocusedRef.current = false;
     setIsEditing(false);
     if (!editableRef.current || !onUpdateRoutine) return;
-
     const newTemplate = extractTemplateFromDOM(editableRef.current);
-    if (!newTemplate) {
-      editableRef.current.innerHTML = routineHtml;
-      return;
-    }
-
+    if (!newTemplate) { editableRef.current.innerHTML = routineHtml; return; }
     const defaultTemplate = `${routine.icon ? routine.icon + " " : ""}${routine.name}: ${Array(expectedWorkerCount || 1).fill("?").join(", ")}`.trim();
     const currentEffective = routine.displayFormat?.trim() || defaultTemplate;
-
-    if (newTemplate !== currentEffective) {
-      onUpdateRoutine(routine.id, { displayFormat: newTemplate });
-    } else {
-      editableRef.current.innerHTML = routineHtml;
-    }
+    if (newTemplate !== currentEffective) onUpdateRoutine(routine.id, { displayFormat: newTemplate });
+    else editableRef.current.innerHTML = routineHtml;
   };
 
   // 선택 영역에 worker span이 포함되어 있는지 확인
@@ -202,67 +227,38 @@ export default function RoutineElementInCanvas({
   const isWorkerAdjacent = (direction: "before" | "after", sel: Selection): boolean => {
     if (!sel.rangeCount || !editableRef.current) return false;
     const range = sel.getRangeAt(0);
-    const node = range.startContainer;
-    const offset = range.startOffset;
-
+    const { startContainer: node, startOffset: offset } = range;
     if (direction === "before") {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const textBefore = (node.textContent ?? "").slice(0, offset).replace(/\u200B/g, "");
-        if (textBefore.length > 0) return false;
-      }
-      let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current
-        ? node.parentElement
-        : node;
+      if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").slice(0, offset).replace(/\u200B/g, "").length > 0) return false;
+      let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current ? node.parentElement : node;
       if (node.nodeType === Node.ELEMENT_NODE && offset > 0) {
         curr = node.childNodes[offset - 1];
         if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
       }
       let prev = curr?.previousSibling;
-      while (prev && prev.nodeType === Node.TEXT_NODE && (prev.textContent ?? "").replace(/\u200B/g, "") === "") {
-        prev = prev.previousSibling;
-      }
+      while (prev && prev.nodeType === Node.TEXT_NODE && (prev.textContent ?? "").replace(/\u200B/g, "") === "") prev = prev.previousSibling;
       return Boolean(prev instanceof HTMLElement && prev.dataset.workerIndex !== undefined);
-    } else {
-      if (node.nodeType === Node.TEXT_NODE) {
-        const textAfter = (node.textContent ?? "").slice(offset).replace(/\u200B/g, "");
-        if (textAfter.length > 0) return false;
-      }
-      let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current
-        ? node.parentElement
-        : node;
-      if (node.nodeType === Node.ELEMENT_NODE && offset < node.childNodes.length) {
-        curr = node.childNodes[offset];
-        if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
-      }
-      let next = curr?.nextSibling;
-      while (next && next.nodeType === Node.TEXT_NODE && (next.textContent ?? "").replace(/\u200B/g, "") === "") {
-        next = next.nextSibling;
-      }
-      return Boolean(next instanceof HTMLElement && next.dataset.workerIndex !== undefined);
     }
+    if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").slice(offset).replace(/\u200B/g, "").length > 0) return false;
+    let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current ? node.parentElement : node;
+    if (node.nodeType === Node.ELEMENT_NODE && offset < node.childNodes.length) {
+      curr = node.childNodes[offset];
+      if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
+    }
+    let next = curr?.nextSibling;
+    while (next && next.nodeType === Node.TEXT_NODE && (next.textContent ?? "").replace(/\u200B/g, "") === "") next = next.nextSibling;
+    return Boolean(next instanceof HTMLElement && next.dataset.workerIndex !== undefined);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      editableRef.current?.blur();
-      return;
-    }
-
+    if (e.key === "Enter") { e.preventDefault(); editableRef.current?.blur(); return; }
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
-
-    if (isSelectionDamagingWorkers(sel)) {
-      if (e.key === "Backspace" || e.key === "Delete" || e.key.length === 1) {
-        e.preventDefault();
-        return;
-      }
+    if (isSelectionDamagingWorkers(sel) && (e.key === "Backspace" || e.key === "Delete" || e.key.length === 1)) {
+      e.preventDefault(); return;
     }
-
-    if (sel.isCollapsed) {
-      if ((e.key === "Backspace" && isWorkerAdjacent("before", sel)) || (e.key === "Delete" && isWorkerAdjacent("after", sel))) {
-        e.preventDefault();
-      }
+    if (sel.isCollapsed && ((e.key === "Backspace" && isWorkerAdjacent("before", sel)) || (e.key === "Delete" && isWorkerAdjacent("after", sel)))) {
+      e.preventDefault();
     }
   };
 
@@ -327,7 +323,7 @@ export default function RoutineElementInCanvas({
         onSelect?.();
       }}
       onContextMenu={handleContextMenu}
-      className="relative inline-flex items-center leading-snug group"
+      className="relative w-full leading-snug group"
       style={{ fontSize: "inherit" }}
     >
       <div
@@ -405,7 +401,7 @@ export default function RoutineElementInCanvas({
                   onClick={() => { onAdvanceRoutine(routine.id); setContextMenu(null); }}
                   className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
                 >
-                  <ArrowRight className="w-3.5 h-3.5 text-indigo-300" />
+                  <FastForward className="w-3.5 h-3.5 text-indigo-300" />
                   <span className="font-semibold">다음 순서로</span>
                 </button>
               )}
@@ -433,8 +429,10 @@ export default function RoutineElementInCanvas({
         (() => {
           const workerIdx = activePopupIndex;
           const originalName = rawWorkers[workerIdx] || "";
-          const isSubstituted = Boolean(pinchHitter && workerIdx === 0);
-          const currentWorker = isSubstituted ? pinchHitter : originalName;
+          const detail = pinchDetails[workerIdx];
+          const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
+          const isSkipped = Boolean(detail?.isSkip);
+          const currentWorker = isSubstituted ? resolveStudentName(detail.name, students) : originalName;
 
           return (
             <>
@@ -453,7 +451,7 @@ export default function RoutineElementInCanvas({
                   <span className="font-extrabold text-white flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
                     <span className="text-amber-300">{currentWorker}</span>
-                    {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">(대타)</span>}
+                    {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">({isSkipped ? "건너뜀" : "대타"})</span>}
                   </span>
                   <button
                     type="button"
@@ -465,23 +463,34 @@ export default function RoutineElementInCanvas({
                   </button>
                 </div>
 
+                {/* 건너뛰기 및 취소 버튼 */}
+                <div className="pt-0.5 pb-1 border-b border-white/10 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSkipWorker(workerIdx)}
+                    className="w-full py-1.5 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 active:scale-95 text-amber-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-amber-500/30"
+                    title={isSubstituted ? "다음 순번 학생으로 다시 건너뜁니다" : "이 학생을 건너뛰고 다음 순번 학생을 대타로 지정합니다"}
+                  >
+                    <FastForward className="w-3.5 h-3.5" /><span>이 학생 건너뛰기</span>
+                  </button>
+                  {isSubstituted && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelSkip(workerIdx)}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-rose-500/30"
+                      title={isSkipped ? "건너뛰기를 취소하고 원래 당번 학생으로 복원합니다" : "대타 지정을 취소하고 원래 당번 학생으로 복원합니다"}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /><span>{isSkipped ? "건너뛰기 취소" : "대타 취소"}</span>
+                    </button>
+                  )}
+                </div>
+
                 {onUpdateRoutine && students.length > 0 && (
                   <div className="space-y-1.5 pb-2 border-b border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-slate-300 font-bold flex items-center gap-1">
-                        <RefreshCw className="w-3 h-3" />
-                        <span>{isSubstituted ? "대타 변경" : "대타 지정"}</span>
-                      </span>
-                      {isSubstituted && (
-                        <button
-                          type="button"
-                          onClick={() => handlePinchChange("none")}
-                          className="text-[10px] text-rose-300 hover:text-rose-200 underline font-bold flex items-center gap-0.5"
-                        >
-                          <X className="w-2.5 h-2.5" /><span>대타 취소</span>
-                        </button>
-                      )}
-                    </div>
+                    <span className="text-[11px] text-slate-300 font-bold flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3" />
+                      <span>{isSubstituted ? "대타 변경" : "대타 직접 지정"}</span>
+                    </span>
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                       {students.map((s) => (
                         <button
@@ -494,18 +503,6 @@ export default function RoutineElementInCanvas({
                         </button>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {onAdvanceRoutine && (
-                  <div className="pt-0.5 pb-1 border-b border-white/10">
-                    <button
-                      type="button"
-                      onClick={() => { onAdvanceRoutine(routine.id); setActivePopupIndex(null); setWorkerPopupPos(null); }}
-                      className="w-full py-1.5 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
-                    >
-                      <ArrowRight className="w-3.5 h-3.5" /><span>다음 순서로</span>
-                    </button>
                   </div>
                 )}
 

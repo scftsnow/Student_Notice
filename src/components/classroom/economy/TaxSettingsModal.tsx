@@ -164,12 +164,12 @@ export default function TaxSettingsModal({
           {/* 세금 및 벌금 상세 설정: 세금없음일 때는 아예 표시하지 않음 */}
           {formData.taxMethod !== "TAX_FREE" && (
             <>
-              {/* 학급 기본 세율 */}
+              {/* 학급 기본 소득세 */}
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
                 <div>
-                  <div className="font-bold text-slate-800 text-sm">학급 기본 세율 (%)</div>
+                  <div className="font-bold text-slate-800 text-sm">학급 기본 소득세 (%)</div>
                   <div className="text-xs text-slate-500">
-                    모든 돈 입금·송금 메뉴의 &apos;세금 공제&apos; 체크 시 적용되는 단일 공제율
+                    모든 소득에 대해 적용되는 단일 공제율
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">

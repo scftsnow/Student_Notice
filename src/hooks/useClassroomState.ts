@@ -15,6 +15,7 @@ import {
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
 import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
+import { parsePinchHitters, parsePinchHitterDetails, serializePinchHitters, resolveStudentName } from "@/lib/routineUtils";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
 
 export interface ClassroomStateOptions {
@@ -34,6 +35,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const [taxConfig, setTaxConfig] = useState<TaxConfig>(DEFAULT_TAX_CONFIG);
   const [customBundles, setCustomBundles] = useState<CustomBundle[]>(DEFAULT_BUNDLES);
   const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
+  const [undoneLedgerHistory, setUndoneLedgerHistory] = useState<LedgerRecord[]>([]);
 
   // Notice Board state
   const [noticeTarget, setNoticeTarget] = useState<"today" | "tomorrow">("today");
@@ -192,11 +194,14 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       saveClassroomSnapshot(json).catch(() => { /* silent background failure */ });
     }, 1500);
 
-    // 3) Instant: BroadcastChannel to student window
+    // 3) Instant: BroadcastChannel to student window & navbar
     try {
       const channel = new BroadcastChannel("classroom_os_sync");
       channel.postMessage({
         className,
+        currencyName,
+        treasuryBalance,
+        totalTaxCollected,
         noticeText: primaryNoticeHtml,
         content: primaryNoticeHtml,
         fontSize,
@@ -208,6 +213,17 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         layouts,
       });
       channel.close();
+    } catch { /* noop */ }
+
+    // 4) Instant: window CustomEvent for same-tab instant sync
+    try {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("classroom_state_sync", {
+            detail: { treasuryBalance, currencyName, className },
+          })
+        );
+      }
     } catch { /* noop */ }
   }, [
     isMounted,
@@ -295,6 +311,105 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     };
   }, [showToast]);
 
+  // --- 전역 칠판 상태 히스토리 (통합 Undo / Redo) ---
+  interface BoardHistorySnapshot {
+    freeCards: FreeCardData[];
+    layouts: BoardElementLayouts;
+    routines: ClassroomRoutine[];
+    theme: BoardTheme;
+    fontSize: NoticeFontSize;
+  }
+
+  const historyRef = useRef<BoardHistorySnapshot[]>([]);
+  const historyIdxRef = useRef<number>(-1);
+  const isUndoingRef = useRef<boolean>(false);
+  const lastSnapshotJsonRef = useRef<string>("");
+  const historyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  // 칠판 시각 상태(카드 내용/위치/크기/서식, 레이아웃, 루틴 순환, 테마, 폰트) 변경 시 스냅샷 기록
+  useEffect(() => {
+    if (!isLoaded || isUndoingRef.current) return;
+
+    const snapshot: BoardHistorySnapshot = {
+      freeCards: JSON.parse(JSON.stringify(freeCards)),
+      layouts: JSON.parse(JSON.stringify(layouts)),
+      routines: JSON.parse(JSON.stringify(routines)),
+      theme,
+      fontSize,
+    };
+    const json = JSON.stringify(snapshot);
+    if (json === lastSnapshotJsonRef.current) return;
+
+    if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
+    // 첫 로드 시 즉시 기록(0ms), 텍스트 타이핑 및 연속 드래그는 400ms 디바운스
+    const delay = historyIdxRef.current === -1 ? 0 : 400;
+
+    historyTimerRef.current = setTimeout(() => {
+      lastSnapshotJsonRef.current = json;
+      const nextStack = historyRef.current.slice(0, historyIdxRef.current + 1);
+      nextStack.push(snapshot);
+      if (nextStack.length > 30) nextStack.shift();
+      historyRef.current = nextStack;
+      historyIdxRef.current = nextStack.length - 1;
+      setCanUndo(historyIdxRef.current > 0);
+      setCanRedo(false);
+    }, delay);
+
+    return () => {
+      if (historyTimerRef.current) clearTimeout(historyTimerRef.current);
+    };
+  }, [isLoaded, freeCards, layouts, routines, theme, fontSize]);
+
+  const undo = useCallback(() => {
+    if (historyIdxRef.current <= 0) {
+      showToast("더 이상 실행 취소할 내역이 없습니다.");
+      return;
+    }
+    historyIdxRef.current -= 1;
+    const target = historyRef.current[historyIdxRef.current];
+    if (!target) return;
+
+    isUndoingRef.current = true;
+    lastSnapshotJsonRef.current = JSON.stringify(target);
+    setFreeCards(target.freeCards);
+    setLayouts(target.layouts);
+    setRoutines(target.routines);
+    setTheme(target.theme);
+    setFontSize(target.fontSize);
+    setCanUndo(historyIdxRef.current > 0);
+    setCanRedo(true);
+    showToast("실행 취소되었습니다.");
+    setTimeout(() => {
+      isUndoingRef.current = false;
+    }, 150);
+  }, [showToast]);
+
+  const redo = useCallback(() => {
+    if (historyIdxRef.current >= historyRef.current.length - 1) {
+      showToast("더 이상 다시 실행할 내역이 없습니다.");
+      return;
+    }
+    historyIdxRef.current += 1;
+    const target = historyRef.current[historyIdxRef.current];
+    if (!target) return;
+
+    isUndoingRef.current = true;
+    lastSnapshotJsonRef.current = JSON.stringify(target);
+    setFreeCards(target.freeCards);
+    setLayouts(target.layouts);
+    setRoutines(target.routines);
+    setTheme(target.theme);
+    setFontSize(target.fontSize);
+    setCanUndo(true);
+    setCanRedo(historyIdxRef.current < historyRef.current.length - 1);
+    showToast("다시 실행되었습니다.");
+    setTimeout(() => {
+      isUndoingRef.current = false;
+    }, 150);
+  }, [showToast]);
+
   // Update currency name and sync to server DB
   const handleSetCurrencyName = useCallback((newName: string) => {
     setCurrencyName(newName);
@@ -336,6 +451,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       };
 
       setLedgerHistory((prev) => [newRecord, ...prev]);
+      setUndoneLedgerHistory([]);
     },
     []
   );
@@ -438,6 +554,49 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     [showToast]
   );
 
+  const rewindRoutine = useCallback(
+    (id: string) => {
+      setRoutines((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          if (r.order.length === 0) return r;
+          const prevIdx = (r.currentIdx - r.slots + r.order.length) % r.order.length;
+          return { ...r, currentIdx: prevIdx, pinchHitterStudent: undefined };
+        })
+      );
+      showToast("이전 순번으로 돌아갔습니다. (당일 대타 설정 초기화)");
+    },
+    [showToast]
+  );
+
+  const skipRoutineWorker = useCallback(
+    (id: string, workerIndex: number) => {
+      setRoutines((prev) =>
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          if (r.order.length === 0) return r;
+          const currentMap = parsePinchHitterDetails(r.pinchHitterStudent);
+          const activeIndices = Array.from({ length: r.slots }, (_, i) => (r.currentIdx + i) % r.order.length);
+          const currentSub = currentMap[workerIndex]?.name;
+          const currentSubIdx = currentSub ? r.order.indexOf(currentSub) : -1;
+          let candidateIdx = currentSubIdx !== -1
+            ? (currentSubIdx + 1) % r.order.length
+            : (r.currentIdx + r.slots) % r.order.length;
+          let attempts = 0;
+          while (activeIndices.includes(candidateIdx) && attempts < r.order.length) {
+            candidateIdx = (candidateIdx + 1) % r.order.length;
+            attempts++;
+          }
+          const substitute = r.order[candidateIdx];
+          currentMap[workerIndex] = { name: substitute, isSkip: true };
+          return { ...r, pinchHitterStudent: serializePinchHitters(currentMap) };
+        })
+      );
+      showToast("해당 학생을 건너뛰고 다음 순번 학생이 대타로 지정되었습니다.");
+    },
+    [showToast]
+  );
+
   const advanceAllRoutines = useCallback(() => {
     setRoutines((prev) =>
       prev.map((r) => {
@@ -478,12 +637,14 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         (_, i) => r.order[(r.currentIdx + i) % r.order.length]
       );
 
+      const pinchMap = parsePinchHitters(r.pinchHitterStudent);
       const targetWorkers =
         customWorkerNames && customWorkerNames.length > 0
           ? customWorkerNames
-          : r.pinchHitterStudent && r.pinchHitterStudent !== "none"
-          ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
-          : rawWorkers;
+          : rawWorkers.map((raw, idx) => {
+              const sub = pinchMap[idx];
+              return sub && sub !== "none" ? resolveStudentName(sub, students) : raw;
+            });
 
       // 세금 공제: applyTax가 true이고 비과세가 아닐 때 단일 세율 적용
       const shouldDeductTax = applyTax && taxConfig.taxMethod !== "TAX_FREE";
@@ -549,10 +710,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
             { length: r.slots },
             (_, i) => r.order[(r.currentIdx + i) % r.order.length]
           );
-          const targetWorkers =
-            r.pinchHitterStudent && r.pinchHitterStudent !== "none"
-              ? [r.pinchHitterStudent, ...rawWorkers.slice(1)]
-              : rawWorkers;
+          const pinchMap = parsePinchHitters(r.pinchHitterStudent);
+          const targetWorkers = rawWorkers.map((raw, idx) => {
+            const sub = pinchMap[idx];
+            return sub && sub !== "none" ? resolveStudentName(sub, students) : raw;
+          });
 
           const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
         const netPay = Math.max(0, r.pay - taxPerWorker);
@@ -647,10 +809,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     (targetNames: string[], amount: number, desc: string, applyTax: boolean) => {
       if (targetNames.length === 0 || amount === 0) return;
 
+      // 세금 부과는 양수(+) 입금일 때만 부과 (차감 시에는 비과세)
       let perStudentTax = 0;
-      if (applyTax) {
-        const taxType = amount > 0 ? "income" : "penalty";
-        perStudentTax = calculateTax(taxType, Math.abs(amount), taxConfig);
+      if (applyTax && amount > 0) {
+        perStudentTax = calculateTax("income", amount, taxConfig);
       }
       const netPerStudent = amount > 0 ? amount - perStudentTax : amount;
 
@@ -724,6 +886,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const b = customBundles.find((x) => x.id === bundleId);
       if (!b) return;
 
+      let executedCount = 0;
+      const summaryDetails: string[] = [];
+
       for (const act of b.actions) {
         if (act.target === "treasury") {
           try {
@@ -732,6 +897,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
               act.amount,
               `[${b.name}] ${act.desc}`
             );
+            executedCount++;
+            summaryDetails.push(`국고 ${act.type === "deposit" ? "+" : "-"}${act.amount.toLocaleString()}${currencyName}`);
           } catch (err) {
             showToast(`국고 정산 실패: ${err instanceof Error ? err.message : "오류 발생"}`);
           }
@@ -740,13 +907,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           if (act.target === "selected") {
             targets = selectedNames || [];
             if (targets.length === 0) {
-              showToast(`선택된 학생이 없어 '[${b.name}]' 액션이 제외되었습니다.`);
               continue;
             }
           } else if (act.target === "specific") {
             targets = act.specificTargets || [];
             if (targets.length === 0) {
-              showToast(`지정된 학생이 없어 '[${b.name}]' 액션이 제외되었습니다.`);
               continue;
             }
           } else {
@@ -761,12 +926,20 @@ export function useClassroomState(options?: ClassroomStateOptions) {
               `[${b.name}] ${act.desc}`,
               act.type === "deposit" ? act.applyTax : false
             );
+            executedCount++;
+            summaryDetails.push(`${targets.length}명 ${amt > 0 ? "+" : ""}${amt.toLocaleString()}${currencyName}`);
           }
         }
       }
-      showToast(`[복합 정산 완료] '${b.name}' 실행되었습니다.`);
+
+      if (executedCount === 0) {
+        showToast(`[복합 정산] 대상 학생이 없어 '${b.name}'이(가) 실행되지 않았습니다.`);
+      } else {
+        const detailStr = summaryDetails.length > 0 ? ` (${summaryDetails.join(", ")})` : "";
+        showToast(`[복합 정산 완료] '${b.name}'${detailStr} 처리 완료`);
+      }
     },
-    [customBundles, students, executeBatchDeposit, executeDirectTax, showToast]
+    [customBundles, students, currencyName, executeBatchDeposit, executeDirectTax, showToast]
   );
 
   const addCustomBundle = useCallback(
@@ -805,6 +978,106 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     [showToast]
   );
 
+  // 최근 지급 취소: 특정 원장 레코드의 금융 효과를 역전 후 undoneLedgerHistory로 이동
+  const undoLedgerEntry = useCallback(
+    (id?: number | string) => {
+      const targetId = id ?? ledgerHistory[0]?.id;
+      if (targetId === undefined) return;
+
+      const record = ledgerHistory.find((r) => r.id === targetId);
+      if (!record) return;
+
+      if (record.type === "입금") {
+        const netPerStudent = record.amount - (record.tax || 0);
+        setStudents((prev) =>
+          prev.map((s) =>
+            record.targets.includes(s.name)
+              ? { ...s, balance: Math.max(0, s.balance - netPerStudent) }
+              : s
+          )
+        );
+        const totalTax = (record.tax || 0) * record.targets.length;
+        if (totalTax > 0) {
+          setTreasuryBalance((prev) => Math.max(0, prev - totalTax));
+          setTotalTaxCollected((prev) => Math.max(0, prev - totalTax));
+        }
+      } else if (record.type === "차감") {
+        const absAmt = Math.abs(record.amount);
+        setStudents((prev) =>
+          prev.map((s) =>
+            record.targets.includes(s.name)
+              ? { ...s, balance: s.balance + absAmt }
+              : s
+          )
+        );
+      } else if (record.type === "거래") {
+        const absAmt = Math.abs(record.amount);
+        setStudents((prev) =>
+          prev.map((s) => {
+            if (s.name === record.from) return { ...s, balance: s.balance + absAmt };
+            if (s.name === record.to) return { ...s, balance: Math.max(0, s.balance - absAmt) };
+            return s;
+          })
+        );
+      }
+
+      setLedgerHistory((prev) => prev.filter((r) => r.id !== targetId));
+      setUndoneLedgerHistory((prev) => [record, ...prev].slice(0, 20));
+      showToast(`지급 취소: ${record.desc || record.targetDisplay}`);
+    },
+    [ledgerHistory, showToast]
+  );
+
+  // 최근 취소건 다시실행: undoneLedgerHistory에서 복원 후 금융 효과 재적용
+  const redoLedgerEntry = useCallback(
+    (id?: number | string) => {
+      const targetId = id ?? undoneLedgerHistory[0]?.id;
+      if (targetId === undefined) return;
+
+      const record = undoneLedgerHistory.find((r) => r.id === targetId);
+      if (!record) return;
+
+      if (record.type === "입금") {
+        const netPerStudent = record.amount - (record.tax || 0);
+        setStudents((prev) =>
+          prev.map((s) =>
+            record.targets.includes(s.name)
+              ? { ...s, balance: s.balance + netPerStudent }
+              : s
+          )
+        );
+        const totalTax = (record.tax || 0) * record.targets.length;
+        if (totalTax > 0) {
+          setTreasuryBalance((prev) => prev + totalTax);
+          setTotalTaxCollected((prev) => prev + totalTax);
+        }
+      } else if (record.type === "차감") {
+        const absAmt = Math.abs(record.amount);
+        setStudents((prev) =>
+          prev.map((s) =>
+            record.targets.includes(s.name)
+              ? { ...s, balance: Math.max(0, s.balance - absAmt) }
+              : s
+          )
+        );
+      } else if (record.type === "거래") {
+        const absAmt = Math.abs(record.amount);
+        setStudents((prev) =>
+          prev.map((s) => {
+            if (s.name === record.from) return { ...s, balance: Math.max(0, s.balance - absAmt) };
+            if (s.name === record.to) return { ...s, balance: s.balance + absAmt };
+            return s;
+          })
+        );
+      }
+
+      setUndoneLedgerHistory((prev) => prev.filter((r) => r.id !== targetId));
+      setLedgerHistory((prev) => [record, ...prev]);
+      showToast(`다시실행: ${record.desc || record.targetDisplay}`);
+    },
+    [undoneLedgerHistory, showToast]
+  );
+
   return {
     isMounted,
     isLoaded,
@@ -821,6 +1094,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     updateTaxConfig,
     customBundles,
     ledgerHistory,
+    undoneLedgerHistory,
     noticeTarget,
     setNoticeTarget,
     theme,
@@ -839,7 +1113,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     addRoutine,
     deleteRoutine,
     advanceRoutine,
+    rewindRoutine,
     advanceAllRoutines,
+    skipRoutineWorker,
     updateRoutineOrder,
     updateRoutine,
     payRoutineToday,
@@ -851,5 +1127,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     addCustomBundle,
     updateCustomBundle,
     deleteCustomBundle,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    undoLedgerEntry,
+    redoLedgerEntry,
   };
 }

@@ -76,7 +76,7 @@ export default function UnifiedLedgerModal({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
-            <h2 className="font-extrabold text-slate-800 text-base">학급 통합 출입금 원장</h2>
+            <h2 className="font-extrabold text-slate-800 text-base">학급 통합 입출금 내역</h2>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 flex items-center justify-center">
             <X className="w-5 h-5" />
@@ -214,7 +214,7 @@ export default function UnifiedLedgerModal({
           </div>
         </div>
 
-        {/* 원장 테이블 */}
+        {/* 입출금 내역 테이블 */}
         <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs">
           <div className="sticky top-0 bg-slate-100 p-2 font-bold text-slate-600 grid grid-cols-6 text-center">
             <span>시각</span>

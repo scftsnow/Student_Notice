@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Coins } from "lucide-react";
 import { ClassroomStudent, TaxConfig } from "@/types/classroom";
-import { calculateTax, getEffectiveTaxRate } from "@/lib/taxEngine";
+import { calculateTax, getEffectiveTaxRate, isTaxEnabled } from "@/lib/taxEngine";
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -27,7 +27,8 @@ export default function DepositModal({
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [amount, setAmount] = useState(200);
   const [desc, setDesc] = useState("담임 특별 입금");
-  const [applyTax, setApplyTax] = useState(taxConfig ? taxConfig.taxMethod !== "TAX_FREE" : false);
+  const isTaxOn = isTaxEnabled(taxConfig);
+  const [applyTax, setApplyTax] = useState(isTaxOn);
 
   useEffect(() => {
     if (initialSelectedNames.length > 0) {
@@ -39,9 +40,9 @@ export default function DepositModal({
 
   useEffect(() => {
     if (isOpen) {
-      setApplyTax(false);
+      setApplyTax(isTaxOn);
     }
-  }, [isOpen]);
+  }, [isOpen, isTaxOn]);
 
   if (!isOpen) return null;
 

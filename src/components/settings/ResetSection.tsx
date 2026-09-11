@@ -22,7 +22,7 @@ const RESET_TARGETS: ResetTarget[] = [
     description: "모든 거래 내역과 계좌 잔액을 초기화합니다.",
     items: [
       "모든 학생 계좌 잔액 → 0",
-      "전체 거래 내역 및 원장(Ledger) 삭제",
+      "전체 거래 및 입출금 내역 삭제",
       "미결제(대기 중) 급여 승인 항목 삭제",
     ],
     action: resetEconomy,
@@ -134,8 +134,19 @@ function ResetModal({ target, onClose, onSuccess }: ResetModalProps) {
           }
 
           const channel = new BroadcastChannel("classroom_os_sync");
-          channel.postMessage({ resetType: target.key });
+          const isEconomyReset = target.key === "economy" || target.key === "students";
+          channel.postMessage({
+            resetType: target.key,
+            ...(isEconomyReset ? { treasuryBalance: 0 } : {}),
+          });
           channel.close();
+          if (typeof window !== "undefined" && isEconomyReset) {
+            window.dispatchEvent(
+              new CustomEvent("classroom_state_sync", {
+                detail: { treasuryBalance: 0 },
+              })
+            );
+          }
         } catch {
           // ignore client storage error
         }
