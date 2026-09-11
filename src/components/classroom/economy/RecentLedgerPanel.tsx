@@ -14,6 +14,8 @@ interface RecentLedgerPanelProps {
   maxRows?: number;
   /** 기본 펼침 여부 (기본 false) */
   defaultExpanded?: boolean;
+  /** 상단바 등 플로팅 드롭다운 모드 여부 */
+  isDropdown?: boolean;
 }
 
 function typeLabel(type: string, amount: number): string {
@@ -43,6 +45,7 @@ export default function RecentLedgerPanel({
   onRedo,
   maxRows = 4,
   defaultExpanded = false,
+  isDropdown = false,
 }: RecentLedgerPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const recent = records.slice(0, maxRows);
@@ -51,7 +54,11 @@ export default function RecentLedgerPanel({
   const hasUndone = undoneRecords.length > 0;
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden transition-all text-xs">
+    <div
+      className={`rounded-xl border border-slate-200 bg-white shadow-2xs transition-all text-xs ${
+        isDropdown ? "relative" : "overflow-hidden"
+      }`}
+    >
       {/* 아코디언 헤더 바 (클릭 시 토글) */}
       <div
         onClick={() => setIsExpanded((prev) => !prev)}
@@ -83,14 +90,22 @@ export default function RecentLedgerPanel({
               (지급 내역 없음)
             </span>
           )}
-
-          <span className="text-slate-400 shrink-0 text-[10px] ml-auto mr-1">
-            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </span>
         </div>
 
-        {/* 우측 퀵 액션: 취소 & 다시실행 (클릭 시 아코디언 토글 전파 방지) */}
+        {/* 우측 퀵 액션: 접기/펼치기 토글 버튼 + 취소 & 다시실행 */}
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* 명시적 아코디언 접기 / 펼치기 버튼 */}
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            aria-expanded={isExpanded}
+            title={isExpanded ? "내역 접기" : "내역 펼치기"}
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold border border-slate-200 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-600 transition-all cursor-pointer active:scale-95"
+          >
+            <span>{isExpanded ? "접기" : "펼치기"}</span>
+            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+
           <button
             type="button"
             onClick={() => onUndo()}
@@ -130,11 +145,25 @@ export default function RecentLedgerPanel({
         </div>
       </div>
 
+      {/* 드롭다운 모드 시 외부 클릭 닫기용 투명 백드롭 */}
+      {isDropdown && isExpanded && (
+        <div
+          className="fixed inset-0 z-40 bg-transparent"
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
+
       {/* 펼쳐진 상세 목록 (아코디언 본문) */}
       {isExpanded && (
-        <div className="border-t border-slate-100 bg-slate-50/70 divide-y divide-slate-100">
+        <div
+          className={
+            isDropdown
+              ? "absolute right-0 top-full mt-1.5 w-80 max-w-[90vw] z-50 rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100"
+              : "border-t border-slate-100 bg-slate-50/70 divide-y divide-slate-100"
+          }
+        >
           {!hasRecords && !hasUndone ? (
-            <div className="px-3 py-2 text-center text-[11px] text-slate-400 font-semibold">
+            <div className="px-3 py-3 text-center text-[11px] text-slate-400 font-semibold bg-white">
               최근 지급된 내역이 없습니다.
             </div>
           ) : (
@@ -142,7 +171,7 @@ export default function RecentLedgerPanel({
               {recent.map((rec) => (
                 <div
                   key={rec.id}
-                  className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-white transition-colors"
+                  className="flex items-center gap-2 px-2.5 py-2 hover:bg-indigo-50/40 bg-white transition-colors"
                 >
                   <span className={`shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold border ${typeBadgeClass(rec.type)}`}>
                     {typeLabel(rec.type, rec.amount)}
@@ -175,7 +204,7 @@ export default function RecentLedgerPanel({
 
               {/* 취소된 목록 */}
               {hasUndone && onRedo && (
-                <div className="bg-amber-50/50 p-1.5 border-t border-amber-200/60 space-y-1">
+                <div className="bg-amber-50/60 p-2 border-t border-amber-200/70 space-y-1.5">
                   <div className="flex items-center justify-between px-1 text-[10px] font-bold text-amber-800">
                     <span>취소된 지급 내역 ({undoneRecords.length}건)</span>
                     <button
@@ -207,6 +236,16 @@ export default function RecentLedgerPanel({
               )}
             </>
           )}
+
+          {/* 아코디언 하단 명시적 접기 버튼 바 */}
+          <button
+            type="button"
+            onClick={() => setIsExpanded(false)}
+            className="w-full py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 border-t border-slate-200 transition-colors cursor-pointer select-none"
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
+            <span>내역 접기</span>
+          </button>
         </div>
       )}
     </div>

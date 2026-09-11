@@ -227,6 +227,7 @@ export default function Navbar({
                 onUndo={handleUndo}
                 onRedo={handleRedo}
                 maxRows={4}
+                isDropdown={true}
               />
             </div>
 
