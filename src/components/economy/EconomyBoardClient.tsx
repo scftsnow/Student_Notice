@@ -157,25 +157,23 @@ export default function EconomyBoardClient({
       style={{ fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
     >
       {/* 상단 헤더 바 */}
-      <header className={`px-6 py-3 border-b flex items-center justify-between gap-4 shrink-0 backdrop-blur-md ${style.headerBorder}`}>
-        {/* 좌측: 타이틀 및 통계 */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Coins className="w-7 h-7" />
-            <h1 className="font-extrabold text-xl sm:text-2xl tracking-tight">
+      <header className={`px-6 py-4 border-b flex items-center justify-between gap-4 shrink-0 backdrop-blur-md ${style.headerBorder}`}>
+        {/* 좌측: 타이틀 및 국고 배지 */}
+        <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <Coins className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400 shrink-0" />
+            <h1 className="font-black text-2xl sm:text-3xl lg:text-4xl tracking-tight">
               {className ? `${className} ` : ""}{currencyName} 현황판
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <span className={`px-2.5 py-1 rounded-lg border border-transparent ${style.statBg}`}>
-              학생 {students.length}명
-            </span>
-            <span className={`px-2.5 py-1 rounded-lg border border-transparent ${style.statBg}`}>
-              국고 {treasuryBalance.toLocaleString()} {currencyName}
-            </span>
-            <span className={`px-2.5 py-1 rounded-lg border border-transparent ${style.statBg}`}>
-              총 유통량 {totalCirculation.toLocaleString()} {currencyName}
+          {/* 우측 배지: 국고 단독 노출 및 대형 폰트 */}
+          <div className="flex items-center">
+            <span className={`px-4 py-1.5 rounded-xl border border-white/20 font-black text-base sm:text-lg lg:text-xl flex items-center gap-2 shadow-xs ${style.statBg}`}>
+              <span className="opacity-80 font-bold">국고</span>
+              <span className="font-mono text-amber-300 drop-shadow-xs">
+                {treasuryBalance.toLocaleString()} {currencyName}
+              </span>
             </span>
           </div>
         </div>
@@ -230,7 +228,7 @@ export default function EconomyBoardClient({
         </div>
       </header>
 
-      {/* 본문: 학생 계좌 카드 그리드 */}
+      {/* 본문: 학생 계좌 카드 그리드 (1행 단일 행 정렬 및 대형 폰트) */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         {students.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center opacity-60 font-bold text-base space-y-2">
@@ -238,26 +236,26 @@ export default function EconomyBoardClient({
             <p>등록된 학생 계좌가 없습니다.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
             {sortedStudents.map((s) => (
               <div
                 key={s.name}
-                className={`p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between ${style.cardBg}`}
+                className={`px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 shadow-xs ${style.cardBg}`}
               >
-                {/* 상단: 이름 */}
-                <div className="flex items-center gap-1.5 mb-2">
-                  <User className="w-4 h-4" />
-                  <span className="font-extrabold text-base sm:text-lg tracking-tight truncate flex-1">
+                {/* 1행 좌측: 학생 이름 */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <User className="w-5 h-5 sm:w-6 sm:h-6 opacity-60 shrink-0" />
+                  <span className="font-black text-xl sm:text-2xl lg:text-3xl tracking-tight truncate">
                     {s.name}
                   </span>
                 </div>
 
-                {/* 하단: 잔액 */}
-                <div className="pt-2 border-t border-white/10 flex items-baseline justify-end gap-1">
-                  <span className={`font-mono font-black text-xl sm:text-2xl tracking-tight ${style.balanceText}`}>
+                {/* 1행 우측: 학생 잔액 */}
+                <div className="flex items-baseline gap-1 shrink-0">
+                  <span className={`font-mono font-black text-2xl sm:text-3xl lg:text-4xl tracking-tight ${style.balanceText}`}>
                     {s.balance.toLocaleString()}
                   </span>
-                  <span className="text-xs font-semibold opacity-70">{currencyName}</span>
+                  <span className="text-sm sm:text-base font-bold opacity-80">{currencyName}</span>
                 </div>
               </div>
             ))}
