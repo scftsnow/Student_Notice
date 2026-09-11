@@ -115,7 +115,10 @@ export default function RoutineElementInCanvas({
     const parts: string[] = [ZWSP];
     segments.forEach((seg) => {
       if (seg.type === "text") {
-        parts.push(`<span class="whitespace-pre">${escapeHtml(seg.text)}</span>`);
+        // NOTE: plain text node (HTML-escaped). 컨테이너에 white-space: pre-wrap을 적용하므로
+        // span.whitespace-pre 래핑 불필요. Chromium/Edge에서 white-space:pre span이
+        // contenteditable 편집 진입 시 width:0으로 collapse되는 버그를 우회.
+        parts.push(escapeHtml(seg.text));
       } else {
         const workerIdx = seg.workerIndex ?? 0;
         const originalName = rawWorkers[workerIdx] || "";
@@ -345,7 +348,7 @@ export default function RoutineElementInCanvas({
         onInput={handleInput}
         onPaste={handlePaste}
         className={`outline-none rounded px-1 inline-block transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
-        style={customColor ? { color: customColor } : undefined}
+        style={customColor ? { color: customColor, whiteSpace: "pre-wrap" } : { whiteSpace: "pre-wrap" }}
         title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 편집 / 당번 클릭: 급여·대타 메뉴"}
       />
 

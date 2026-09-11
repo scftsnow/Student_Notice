@@ -291,7 +291,7 @@ export default function BoardCanvas({
                 sel?.addRange(range);
               }
             }}
-            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing flex flex-col ${selectedBorderClass(targetElement === "dateBox")}`}
+            className={`z-10 group rounded-xl border transition-all font-extrabold tracking-tight whitespace-nowrap cursor-grab active:cursor-grabbing relative ${selectedBorderClass(targetElement === "dateBox")}`}
             style={{
               fontSize: `${layouts.dateBox.fontSize || fontPx}px`,
               color: layouts.dateBox.color || "inherit",
@@ -299,9 +299,9 @@ export default function BoardCanvas({
               fontFamily: layouts.dateBox.fontFamily || undefined,
             }}
           >
-            {/* 날짜 상단바 */}
+            {/* 날짜 상단바 — absolute overlay (flex flow에서 제거하여 내용 Y위치 유지) */}
             <div
-              className={`transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+              className={`absolute top-0 left-0 right-0 z-20 transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
                 targetElement === "dateBox" ? "opacity-100" : "opacity-0 group-hover:opacity-100"
               }`}
             >
@@ -401,7 +401,7 @@ export default function BoardCanvas({
                       enableResizing={RESIZE_ENABLE}
                       resizeHandleComponent={RESIZE_HANDLES}
                       onClick={(e: ReactMouseEvent<HTMLElement>) => { e.stopPropagation(); onSelectElement?.(r.id); }}
-                      className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing flex flex-col ${
+                      className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing relative ${
                         isSelected ? "z-30" : "z-10"
                       } ${selectedBorderClass(isSelected)}`}
                       style={{
@@ -412,9 +412,9 @@ export default function BoardCanvas({
                         lineHeight: r.layout?.lineHeight || layouts.routineBox.lineHeight || "1.4",
                       }}
                     >
-                      {/* 루틴 개별 상단바 */}
+                      {/* 루틴 개별 상단바 — absolute overlay (내용 Y 위치 유지) */}
                       <div
-                        className={`transition-opacity flex items-center justify-between px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+                        className={`absolute top-0 left-0 right-0 z-20 transition-opacity flex items-center justify-between px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
                           isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                         }`}
                       >
