@@ -72,13 +72,18 @@ export default function RecentLedgerPanel({
           </span>
 
           {latest ? (
-            <div className="flex items-center gap-1 min-w-0 truncate">
+            <div className="flex items-center gap-1.5 min-w-0 truncate">
               <span className={`shrink-0 px-1 py-0.2 rounded text-[9px] font-bold border ${typeBadgeClass(latest.type)}`}>
                 {typeLabel(latest.type, latest.amount)}
               </span>
-              <span className="text-[10px] text-slate-600 truncate font-semibold">
+              <span className="text-[10px] text-slate-700 truncate font-semibold">
                 {latest.targetDisplay}
               </span>
+              {latest.desc && (
+                <span className="text-[10px] text-slate-400 truncate hidden xl:inline">
+                  · {latest.desc}
+                </span>
+              )}
               <span className={`text-[10px] font-black shrink-0 ${
                 latest.type === "차감" ? "text-rose-600" : latest.type === "거래" ? "text-indigo-600" : "text-emerald-700"
               }`}>
@@ -158,7 +163,7 @@ export default function RecentLedgerPanel({
         <div
           className={
             isDropdown
-              ? "absolute right-0 top-full mt-1.5 w-80 max-w-[90vw] z-50 rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100"
+              ? "absolute right-0 top-full mt-1.5 w-full min-w-[340px] max-w-[95vw] z-50 rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100"
               : "border-t border-slate-100 bg-slate-50/70 divide-y divide-slate-100"
           }
         >

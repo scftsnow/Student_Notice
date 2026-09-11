@@ -178,48 +178,49 @@ export default function Navbar({
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200/80 shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Class Name */}
-          <div className="flex items-center gap-3">
-            <Link href="/notice" className="flex items-center gap-2 group">
+        <div className="flex items-center justify-between h-16 gap-3 lg:gap-6">
+          {/* Left: Logo & Class Name + Nav Links grouped together */}
+          <div className="flex items-center gap-4 lg:gap-6 min-w-0">
+            {/* Logo & Class Name */}
+            <Link href="/notice" className="flex items-center gap-2 group shrink-0">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <span className="font-bold text-lg text-slate-800 tracking-tight flex items-center gap-1.5">
+                <span className="font-bold text-lg text-slate-800 tracking-tight flex items-center gap-1.5 whitespace-nowrap">
                   Teacher Helper-학급 운영
                 </span>
                 <span suppressHydrationWarning className="text-xs text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
               </div>
             </Link>
+
+            {/* Nav Links (왼쪽으로 밀착 배치) */}
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                      isActive
+                        ? "bg-indigo-50 text-indigo-700 shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Nav Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? "bg-indigo-50 text-indigo-700 shadow-sm"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Right Header Stats: Date, Real-time Clock, Treasury Balance */}
-          <div className="flex items-center gap-3">
-            {/* 최근 지급 내역 패널 (구 날짜/시간 배지 위치 대체) */}
-            <div className="hidden sm:block w-52 md:w-64 lg:w-72">
+          {/* Right Header Stats: 최근 지급 내역(대폭 확장) & 국고 잔액 */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 ml-auto">
+            {/* 최근 지급 내역 패널 (구 날짜/시간 배지 위치 대체, 너비 대폭 확장) */}
+            <div className="hidden sm:block w-72 md:w-80 lg:w-[420px] xl:w-[480px]">
               <RecentLedgerPanel
                 records={ledgerHistory}
                 undoneRecords={undoneLedgerHistory}
@@ -238,10 +239,10 @@ export default function Navbar({
                 syncFromStorage();
                 setIsLedgerOpen(true);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               title="국고 입출금 이력 보기 (클릭 시 오늘 이력 표시)"
             >
-              <Coins className="w-4 h-4 text-amber-600" />
+              <Coins className="w-4 h-4 text-amber-600 shrink-0" />
               <span>국고:</span>
               <span className="font-mono text-amber-700 font-bold">
                 {liveTreasury.toLocaleString()} {liveCurrency || currencyName}
