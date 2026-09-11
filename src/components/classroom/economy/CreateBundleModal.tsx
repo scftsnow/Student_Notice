@@ -309,12 +309,12 @@ export default function CreateBundleModal({
                       />
                       <span className="text-[11px] text-slate-400 shrink-0">{currencyName}</span>
 
-                      {/* 세금 공제 (입금 시에만 활성화) */}
+                      {/* 세금 부과 (입금 시에만 활성화) */}
                       <label
                         className={`flex items-center gap-1 ml-auto text-[11px] select-none ${
                           canApplyTax ? "text-slate-600 cursor-pointer" : "text-slate-300 cursor-not-allowed"
                         }`}
-                        title={canApplyTax ? "세금 공제 (국고 귀속)" : "세금 공제는 학생 입금 시에만 가능합니다."}
+                        title={canApplyTax ? "세금 부과 (국고 귀속)" : "세금 부과는 학생 입금 시에만 가능합니다."}
                       >
                         <input
                           type="checkbox"
@@ -323,7 +323,7 @@ export default function CreateBundleModal({
                           onChange={(e) => updateAction(idx, { applyTax: e.target.checked })}
                           className="rounded text-indigo-600 w-3 h-3 disabled:opacity-30"
                         />
-                        <span>세금 공제</span>
+                        <span>세금 부과</span>
                       </label>
 
                       {draftActions.length > 1 && (

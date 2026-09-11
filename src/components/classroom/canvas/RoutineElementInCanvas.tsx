@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff, RefreshCw, X, Coins, ArrowRight, CheckSquare, User } from "lucide-react";
-import { ClassroomRoutine, ClassroomStudent, BoardTheme } from "@/types/classroom";
+import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat } from "@/lib/routineUtils";
 
 interface RoutineElementInCanvasProps {
@@ -12,6 +12,7 @@ interface RoutineElementInCanvasProps {
   currencyName?: string;
   theme?: BoardTheme;
   customColor?: string;
+  taxConfig?: TaxConfig;
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
@@ -24,6 +25,7 @@ export default function RoutineElementInCanvas({
   currencyName = "원",
   theme = "chalkboard",
   customColor,
+  taxConfig,
   onPayRoutineToday,
   onUpdateRoutine,
   onAdvanceRoutine,
@@ -32,7 +34,14 @@ export default function RoutineElementInCanvas({
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [workerPopupPos, setWorkerPopupPos] = useState<{ x: number; y: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [applyTax, setApplyTax] = useState(false);
+  const isTaxOn = taxConfig
+    ? taxConfig.taxMethod !== "TAX_FREE" && (taxConfig.taxRate ?? taxConfig.incomeTaxValue ?? 10) > 0
+    : true;
+  const [applyTax, setApplyTax] = useState(isTaxOn);
+
+  useEffect(() => {
+    setApplyTax(isTaxOn);
+  }, [isTaxOn]);
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -503,7 +512,7 @@ export default function RoutineElementInCanvas({
                 <div className="pt-0.5 space-y-1.5">
                   <label className="flex items-center gap-1.5 px-0.5 text-[11px] text-slate-300 cursor-pointer select-none">
                     <input type="checkbox" checked={applyTax} onChange={(e) => setApplyTax(e.target.checked)} className="rounded text-indigo-500 w-3 h-3" />
-                    <span>세금 공제</span>
+                    <span>세금 부과</span>
                   </label>
                   <button
                     type="button"

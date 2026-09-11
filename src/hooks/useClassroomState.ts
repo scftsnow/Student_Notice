@@ -253,6 +253,48 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     }, 3500);
   }, []);
 
+  // 설정 탭 등 타 탭의 리셋 및 브로드캐스트 동기화 리스너
+  useEffect(() => {
+    const handleBroadcast = (e: MessageEvent) => {
+      const data = e.data;
+      if (!data) return;
+      if (data.resetType === "economy") {
+        setStudents((prev) => prev.map((s) => ({ ...s, balance: 0 })));
+        setTreasuryBalance(0);
+        setTotalTaxCollected(0);
+        setLedgerHistory([]);
+        showToast("학급 화폐 및 잔액이 초기화되었습니다.");
+      } else if (data.resetType === "students") {
+        setStudents([]);
+        setRoutines((prev) =>
+          prev.map((r) => ({ ...r, order: [], currentIdx: 0, pinchHitterStudent: undefined }))
+        );
+        setTreasuryBalance(0);
+        setTotalTaxCollected(0);
+        setLedgerHistory([]);
+        showToast("학생 명단이 초기화되었습니다.");
+      } else if (data.resetType === "routines") {
+        setRoutines([]);
+        showToast("학생 업무가 초기화되었습니다.");
+      }
+    };
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("classroom_os_sync");
+      channel.addEventListener("message", handleBroadcast);
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      if (channel) {
+        channel.removeEventListener("message", handleBroadcast);
+        channel.close();
+      }
+    };
+  }, [showToast]);
+
   // Update currency name and sync to server DB
   const handleSetCurrencyName = useCallback((newName: string) => {
     setCurrencyName(newName);

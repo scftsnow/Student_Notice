@@ -28,7 +28,7 @@ export default function TransactionModal({
   const [toVal, setToVal] = useState(students[0]?.name || "treasury");
   const [amount, setAmount] = useState(100);
   const [desc, setDesc] = useState("학급 화폐 거래");
-  const [applyTax, setApplyTax] = useState(false);
+  const [applyTax, setApplyTax] = useState(taxConfig ? taxConfig.taxMethod !== "TAX_FREE" : false);
 
   useEffect(() => {
     if (students.length > 0 && toVal === "treasury") {
@@ -141,11 +141,11 @@ export default function TransactionModal({
               />
               <div className="flex flex-col">
                 <span className="font-semibold text-slate-700">
-                  세금 공제 ({taxConfig ? getEffectiveTaxRate(taxConfig) : 10}% 국고 귀속)
+                  세금 부과 ({taxConfig ? getEffectiveTaxRate(taxConfig) : 10}% 국고 귀속)
                 </span>
                 {applyTax && taxConfig && amount > 0 && (
                   <span className="text-[11px] text-emerald-600 font-bold mt-0.5">
-                    수취인 세금 공제: {calculateTax("transaction", amount, taxConfig).toLocaleString()} {currencyName} (실수령: {Math.max(0, amount - calculateTax("transaction", amount, taxConfig)).toLocaleString()} {currencyName})
+                    수취인 세금 부과: {calculateTax("transaction", amount, taxConfig).toLocaleString()} {currencyName} (실수령: {Math.max(0, amount - calculateTax("transaction", amount, taxConfig)).toLocaleString()} {currencyName})
                   </span>
                 )}
               </div>

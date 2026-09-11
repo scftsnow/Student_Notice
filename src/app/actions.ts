@@ -396,6 +396,31 @@ export async function resetEconomy() {
     data: { balance: 0 },
   });
 
+  // DB 싱글톤 스냅샷 동기화: 학생 잔액 0, 국고 0, 장부 초기화
+  try {
+    const snapshot = await prisma.classroomSnapshot.findUnique({
+      where: { id: "singleton" },
+    });
+    if (snapshot?.data) {
+      const parsed = JSON.parse(snapshot.data);
+      if (Array.isArray(parsed.students)) {
+        parsed.students = parsed.students.map((s: Record<string, unknown>) => ({
+          ...s,
+          balance: 0,
+        }));
+      }
+      parsed.treasuryBalance = 0;
+      parsed.totalTaxCollected = 0;
+      parsed.ledgerHistory = [];
+      await prisma.classroomSnapshot.update({
+        where: { id: "singleton" },
+        data: { data: JSON.stringify(parsed) },
+      });
+    }
+  } catch {
+    // Ignore snapshot update error
+  }
+
   revalidatePath("/economy");
   revalidatePath("/");
   return { success: true };
@@ -403,12 +428,35 @@ export async function resetEconomy() {
 
 /** 학생 명단 초기화: 모든 학생 및 연관 데이터(계좌, 루틴 멤버, 미결제 등) 삭제 */
 export async function resetStudents() {
-  // pendingPayment → student (onDelete: Cascade)
-  // routineMember  → student (onDelete: Cascade)
-  // account        → student (onDelete: Cascade)
-  // ledgerEntry    → account (onDelete: Cascade)
-  // Deleting students cascades everything above
   await prisma.student.deleteMany({});
+
+  // DB 싱글톤 스냅샷 동기화: 학생 배열 비우기, 루틴 배정 비우기, 잔액/국고 초기화
+  try {
+    const snapshot = await prisma.classroomSnapshot.findUnique({
+      where: { id: "singleton" },
+    });
+    if (snapshot?.data) {
+      const parsed = JSON.parse(snapshot.data);
+      parsed.students = [];
+      if (Array.isArray(parsed.routines)) {
+        parsed.routines = parsed.routines.map((r: Record<string, unknown>) => ({
+          ...r,
+          order: [],
+          currentIdx: 0,
+          pinchHitterStudent: undefined,
+        }));
+      }
+      parsed.treasuryBalance = 0;
+      parsed.totalTaxCollected = 0;
+      parsed.ledgerHistory = [];
+      await prisma.classroomSnapshot.update({
+        where: { id: "singleton" },
+        data: { data: JSON.stringify(parsed) },
+      });
+    }
+  } catch {
+    // Ignore snapshot update error
+  }
 
   revalidatePath("/students");
   revalidatePath("/routines");
@@ -419,9 +467,24 @@ export async function resetStudents() {
 
 /** 업무 루틴 초기화: 모든 루틴, 루틴 히스토리, 루틴 멤버 삭제 */
 export async function resetRoutines() {
-  // routineHistory → routine (onDelete: Cascade)
-  // routineMember  → routine (onDelete: Cascade)
   await prisma.routine.deleteMany({});
+
+  // DB 싱글톤 스냅샷 동기화: 루틴 목록 비우기
+  try {
+    const snapshot = await prisma.classroomSnapshot.findUnique({
+      where: { id: "singleton" },
+    });
+    if (snapshot?.data) {
+      const parsed = JSON.parse(snapshot.data);
+      parsed.routines = [];
+      await prisma.classroomSnapshot.update({
+        where: { id: "singleton" },
+        data: { data: JSON.stringify(parsed) },
+      });
+    }
+  } catch {
+    // Ignore snapshot update error
+  }
 
   revalidatePath("/routines");
   revalidatePath("/");

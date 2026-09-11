@@ -256,19 +256,19 @@ export default function EconomyTab({
                         <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer select-none shrink-0">
                           <input
                             type="checkbox"
-                            checked={Boolean(routineTaxChecked[r.id])}
+                            checked={routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true}
                             onChange={(e) => setRoutineTaxChecked((p) => ({ ...p, [r.id]: e.target.checked }))}
                             className="rounded text-indigo-600 w-3 h-3"
                           />
-                          <span>세금 공제</span>
+                          <span>세금 부과</span>
                         </label>
                       )}
                       <button
                         type="button"
                         disabled={workers.length === 0}
                         onClick={() => {
-                          const shouldTax = taxConfig.taxMethod !== "TAX_FREE" && Boolean(routineTaxChecked[r.id]);
-                          onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, shouldTax);
+                          const isChecked = routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true;
+                          onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, isChecked);
                         }}
                         className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                       >

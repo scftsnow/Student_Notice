@@ -27,7 +27,7 @@ export default function DepositModal({
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
   const [amount, setAmount] = useState(200);
   const [desc, setDesc] = useState("담임 특별 입금");
-  const [applyTax, setApplyTax] = useState(false);
+  const [applyTax, setApplyTax] = useState(taxConfig ? taxConfig.taxMethod !== "TAX_FREE" : false);
 
   useEffect(() => {
     if (initialSelectedNames.length > 0) {
@@ -154,10 +154,10 @@ export default function DepositModal({
               className="rounded text-indigo-600"
             />
             <div className="flex flex-col">
-              <span className="font-semibold text-slate-700">세금 공제 ({effectiveRate}% 국고 귀속)</span>
+              <span className="font-semibold text-slate-700">세금 부과 ({effectiveRate}% 국고 귀속)</span>
               {applyTax && previewTax > 0 && (
                 <span className="text-[11px] text-indigo-600 font-bold mt-0.5">
-                  1인당 세금 공제: {previewTax.toLocaleString()} {currencyName} (실지급: {netAmount.toLocaleString()} {currencyName})
+                  1인당 세금 부과: {previewTax.toLocaleString()} {currencyName} (실지급: {netAmount.toLocaleString()} {currencyName})
                 </span>
               )}
             </div>

@@ -249,6 +249,7 @@ export default function ClassroomApp() {
               layouts={state.layouts}
               onUpdateLayouts={state.updateLayouts}
               previewScale={previewScale}
+              taxConfig={state.taxConfig}
             />
           </div>
         )}

@@ -11,7 +11,7 @@ import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
-  BoardTargetElement,
+  BoardTargetElement, TaxConfig,
 } from "@/types/classroom";
 import { DEFAULT_LAYOUTS, isBoxVisibleToday } from "@/lib/boardDefaults";
 import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler, selectedBorderClass } from "@/lib/canvasUtils";
@@ -43,6 +43,7 @@ interface BoardCanvasProps {
     lineHeight?: number; fontFamily?: string; timestamp: number;
   } | null;
   previewScale?: number;
+  taxConfig?: TaxConfig;
 }
 
 export default function BoardCanvas({
@@ -53,7 +54,7 @@ export default function BoardCanvas({
   onAdvanceRoutine, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
-  previewScale = 75,
+  previewScale = 75, taxConfig,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
@@ -441,6 +442,7 @@ export default function BoardCanvas({
                           currencyName={currencyName}
                           theme={theme}
                           customColor={r.layout?.color || layouts.routineBox.color}
+                          taxConfig={taxConfig}
                           onPayRoutineToday={onPayRoutineToday}
                           onUpdateRoutine={onUpdateRoutine}
                           onAdvanceRoutine={onAdvanceRoutine}

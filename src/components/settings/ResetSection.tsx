@@ -97,6 +97,49 @@ function ResetModal({ target, onClose, onSuccess }: ResetModalProps) {
     startTransition(async () => {
       try {
         await target.action();
+
+        // 클라이언트 로컬스토리지 및 브로드캐스트 동기화
+        try {
+          for (const key of ["classroom_os_state_v3", "classroom_os_state_v2"]) {
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (target.key === "economy") {
+              if (Array.isArray(parsed.students)) {
+                parsed.students = parsed.students.map((s: Record<string, unknown>) => ({
+                  ...s,
+                  balance: 0,
+                }));
+              }
+              parsed.treasuryBalance = 0;
+              parsed.totalTaxCollected = 0;
+              parsed.ledgerHistory = [];
+            } else if (target.key === "students") {
+              parsed.students = [];
+              if (Array.isArray(parsed.routines)) {
+                parsed.routines = parsed.routines.map((r: Record<string, unknown>) => ({
+                  ...r,
+                  order: [],
+                  currentIdx: 0,
+                  pinchHitterStudent: undefined,
+                }));
+              }
+              parsed.treasuryBalance = 0;
+              parsed.totalTaxCollected = 0;
+              parsed.ledgerHistory = [];
+            } else if (target.key === "routines") {
+              parsed.routines = [];
+            }
+            localStorage.setItem(key, JSON.stringify(parsed));
+          }
+
+          const channel = new BroadcastChannel("classroom_os_sync");
+          channel.postMessage({ resetType: target.key });
+          channel.close();
+        } catch {
+          // ignore client storage error
+        }
+
         onSuccess(target.label);
         onClose();
       } catch (err: unknown) {

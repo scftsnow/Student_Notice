@@ -199,6 +199,7 @@ export default function NoticePageClient() {
           layouts={state.layouts}
           onUpdateLayouts={state.updateLayouts}
           previewScale={previewScale}
+          taxConfig={state.taxConfig}
         />
       </div>
     </div>
