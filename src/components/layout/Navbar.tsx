@@ -218,9 +218,9 @@ export default function Navbar({
           </div>
 
           {/* Right Header Stats: 최근 지급 내역(대폭 확장) & 국고 잔액 */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 ml-auto">
-            {/* 최근 지급 내역 패널 (구 날짜/시간 배지 위치 대체, 너비 대폭 확장) */}
-            <div className="hidden sm:block w-72 md:w-80 lg:w-[420px] xl:w-[480px]">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-1 justify-end min-w-0">
+            {/* 최근 지급 내역 패널 (가용 너비 최대로 확장) */}
+            <div className="hidden sm:block flex-1 max-w-[720px] min-w-[280px]">
               <RecentLedgerPanel
                 records={ledgerHistory}
                 undoneRecords={undoneLedgerHistory}
