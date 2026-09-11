@@ -211,6 +211,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         students,
         freeCards,
         layouts,
+        ledgerHistory,
+        undoneLedgerHistory,
       });
       channel.close();
     } catch { /* noop */ }
@@ -220,7 +222,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("classroom_state_sync", {
-            detail: { treasuryBalance, currencyName, className },
+            detail: { treasuryBalance, currencyName, className, ledgerHistory, undoneLedgerHistory, students },
           })
         );
       }
@@ -1077,6 +1079,40 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     },
     [undoneLedgerHistory, showToast]
   );
+
+  // 상단바 등 외부 컴포넌트의 지급 취소/다시실행 요청 청취
+  useEffect(() => {
+    const handleUndoEvt = (e: Event) => {
+      const ce = e as CustomEvent<{ id?: number | string }>;
+      undoLedgerEntry(ce.detail?.id);
+    };
+    const handleRedoEvt = (e: Event) => {
+      const ce = e as CustomEvent<{ id?: number | string }>;
+      redoLedgerEntry(ce.detail?.id);
+    };
+    const handleChannel = (e: MessageEvent) => {
+      if (e.data?.action === "undo_ledger") {
+        undoLedgerEntry(e.data.id);
+      } else if (e.data?.action === "redo_ledger") {
+        redoLedgerEntry(e.data.id);
+      }
+    };
+
+    window.addEventListener("classroom_undo_ledger", handleUndoEvt);
+    window.addEventListener("classroom_redo_ledger", handleRedoEvt);
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("classroom_os_sync");
+      channel.addEventListener("message", handleChannel);
+    } catch { /* noop */ }
+
+    return () => {
+      window.removeEventListener("classroom_undo_ledger", handleUndoEvt);
+      window.removeEventListener("classroom_redo_ledger", handleRedoEvt);
+      channel?.removeEventListener("message", handleChannel);
+      channel?.close();
+    };
+  }, [undoLedgerEntry, redoLedgerEntry]);
 
   return {
     isMounted,

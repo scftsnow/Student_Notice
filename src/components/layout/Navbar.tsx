@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Calendar,
-  Clock,
   Users,
   CheckSquare,
   FileText,
@@ -16,6 +14,7 @@ import {
 } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
 import UnifiedLedgerModal from "@/components/classroom/economy/UnifiedLedgerModal";
+import RecentLedgerPanel from "@/components/classroom/economy/RecentLedgerPanel";
 
 interface NavbarProps {
   classNameTitle?: string;
@@ -29,14 +28,13 @@ export default function Navbar({
   treasuryBalance = 0,
 }: NavbarProps) {
   const pathname = usePathname();
-  const [currentTime, setCurrentTime] = useState<string>("");
-  const [currentDate, setCurrentDate] = useState<string>("");
   const [liveClassName, setLiveClassName] = useState("");
   const [liveTreasury, setLiveTreasury] = useState(treasuryBalance);
   const [liveCurrency, setLiveCurrency] = useState(currencyName);
   const [isLedgerOpen, setIsLedgerOpen] = useState(false);
   const [students, setStudents] = useState<ClassroomStudent[]>([]);
   const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
+  const [undoneLedgerHistory, setUndoneLedgerHistory] = useState<LedgerRecord[]>([]);
 
   const syncFromStorage = useCallback(() => {
     try {
@@ -57,6 +55,7 @@ export default function Navbar({
         if (typeof parsed.treasuryBalance === "number") setLiveTreasury(parsed.treasuryBalance);
         if (Array.isArray(parsed.students)) setStudents(parsed.students as ClassroomStudent[]);
         if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory as LedgerRecord[]);
+        if (Array.isArray(parsed.undoneLedgerHistory)) setUndoneLedgerHistory(parsed.undoneLedgerHistory as LedgerRecord[]);
       } else {
         setLiveClassName(classNameTitle);
       }
@@ -64,6 +63,24 @@ export default function Navbar({
       setLiveClassName(classNameTitle);
     }
   }, [classNameTitle, currencyName]);
+
+  const handleUndo = useCallback((id?: number | string) => {
+    try {
+      const channel = new BroadcastChannel("classroom_os_sync");
+      channel.postMessage({ action: "undo_ledger", id });
+      channel.close();
+    } catch { /* noop */ }
+    window.dispatchEvent(new CustomEvent("classroom_undo_ledger", { detail: { id } }));
+  }, []);
+
+  const handleRedo = useCallback((id?: number | string) => {
+    try {
+      const channel = new BroadcastChannel("classroom_os_sync");
+      channel.postMessage({ action: "redo_ledger", id });
+      channel.close();
+    } catch { /* noop */ }
+    window.dispatchEvent(new CustomEvent("classroom_redo_ledger", { detail: { id } }));
+  }, []);
 
   useEffect(() => {
     syncFromStorage();
@@ -73,7 +90,15 @@ export default function Navbar({
       channel = new BroadcastChannel("classroom_os_sync");
       channel.onmessage = (e) => {
         if (!e.data || typeof e.data !== "object") return;
-        const data = e.data as { treasuryBalance?: number; currencyName?: string; className?: string; resetType?: string };
+        const data = e.data as {
+          treasuryBalance?: number;
+          currencyName?: string;
+          className?: string;
+          resetType?: string;
+          students?: ClassroomStudent[];
+          ledgerHistory?: LedgerRecord[];
+          undoneLedgerHistory?: LedgerRecord[];
+        };
         if (typeof data.treasuryBalance === "number") {
           setLiveTreasury(data.treasuryBalance);
         } else if (data.resetType === "economy" || data.resetType === "students") {
@@ -81,6 +106,9 @@ export default function Navbar({
         }
         if (data.currencyName) setLiveCurrency(data.currencyName);
         if (data.className) setLiveClassName(data.className);
+        if (Array.isArray(data.students)) setStudents(data.students);
+        if (Array.isArray(data.ledgerHistory)) setLedgerHistory(data.ledgerHistory);
+        if (Array.isArray(data.undoneLedgerHistory)) setUndoneLedgerHistory(data.undoneLedgerHistory);
       };
     } catch {
       // noop
@@ -94,7 +122,14 @@ export default function Navbar({
     window.addEventListener("storage", handleStorage);
 
     const handleCustomSync = (e: Event) => {
-      const customEvent = e as CustomEvent<{ treasuryBalance?: number; currencyName?: string; className?: string }>;
+      const customEvent = e as CustomEvent<{
+        treasuryBalance?: number;
+        currencyName?: string;
+        className?: string;
+        students?: ClassroomStudent[];
+        ledgerHistory?: LedgerRecord[];
+        undoneLedgerHistory?: LedgerRecord[];
+      }>;
       if (customEvent.detail) {
         if (typeof customEvent.detail.treasuryBalance === "number") {
           setLiveTreasury(customEvent.detail.treasuryBalance);
@@ -104,6 +139,15 @@ export default function Navbar({
         }
         if (customEvent.detail.className) {
           setLiveClassName(customEvent.detail.className);
+        }
+        if (Array.isArray(customEvent.detail.students)) {
+          setStudents(customEvent.detail.students);
+        }
+        if (Array.isArray(customEvent.detail.ledgerHistory)) {
+          setLedgerHistory(customEvent.detail.ledgerHistory);
+        }
+        if (Array.isArray(customEvent.detail.undoneLedgerHistory)) {
+          setUndoneLedgerHistory(customEvent.detail.undoneLedgerHistory);
         }
       } else {
         syncFromStorage();
@@ -116,29 +160,7 @@ export default function Navbar({
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("classroom_state_sync", handleCustomSync);
     };
-  }, [currencyName, classNameTitle, pathname]);
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const days = ["일", "월", "화", "수", "목", "금", "토"];
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      const date = now.getDate();
-      const day = days[now.getDay()];
-
-      const hours = String(now.getHours()).padStart(2, "0");
-      const minutes = String(now.getMinutes()).padStart(2, "0");
-      const seconds = String(now.getSeconds()).padStart(2, "0");
-
-      setCurrentDate(`${year}년 ${month}월 ${date}일 (${day})`);
-      setCurrentTime(`${hours}:${minutes}:${seconds}`);
-    };
-
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [currencyName, classNameTitle, pathname, syncFromStorage]);
 
   const navItems = [
     { href: "/notice", label: "알림장", icon: FileText },
@@ -196,17 +218,16 @@ export default function Navbar({
 
           {/* Right Header Stats: Date, Real-time Clock, Treasury Balance */}
           <div className="flex items-center gap-3">
-            {/* Realtime Date & Clock */}
-            <div className="hidden lg:flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600">
-              <div className="flex items-center gap-1 text-slate-500">
-                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-                <span>{currentDate || "로딩 중..."}</span>
-              </div>
-              <span className="text-slate-300">|</span>
-              <div className="flex items-center gap-1 text-slate-700 font-mono">
-                <Clock className="w-3.5 h-3.5 text-indigo-500" />
-                <span>{currentTime}</span>
-              </div>
+            {/* 최근 지급 내역 패널 (구 날짜/시간 배지 위치 대체) */}
+            <div className="hidden sm:block w-52 md:w-64 lg:w-72">
+              <RecentLedgerPanel
+                records={ledgerHistory}
+                undoneRecords={undoneLedgerHistory}
+                currencyName={liveCurrency || currencyName}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                maxRows={4}
+              />
             </div>
 
             {/* Treasury Balance Pill -> Opens Ledger History Modal */}
