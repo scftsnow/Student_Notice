@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,6 +14,8 @@ import {
   Sparkles,
   LayoutDashboard,
 } from "lucide-react";
+import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
+import UnifiedLedgerModal from "@/components/classroom/economy/UnifiedLedgerModal";
 
 interface NavbarProps {
   classNameTitle?: string;
@@ -32,33 +34,38 @@ export default function Navbar({
   const [liveClassName, setLiveClassName] = useState("");
   const [liveTreasury, setLiveTreasury] = useState(treasuryBalance);
   const [liveCurrency, setLiveCurrency] = useState(currencyName);
+  const [isLedgerOpen, setIsLedgerOpen] = useState(false);
+  const [students, setStudents] = useState<ClassroomStudent[]>([]);
+  const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
 
-  useEffect(() => {
-    const syncFromStorage = () => {
-      try {
-        const saved =
-          localStorage.getItem("classroom_os_state_v3") ||
-          localStorage.getItem("classroom_os_state_v2");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.className) setLiveClassName(parsed.className);
-          else setLiveClassName(classNameTitle);
-          if (currencyName && currencyName !== "미소" && (parsed.currencyName === "미소" || !parsed.currencyName)) {
-            setLiveCurrency(currencyName);
-          } else if (parsed.currencyName) {
-            setLiveCurrency(parsed.currencyName);
-          } else if (currencyName) {
-            setLiveCurrency(currencyName);
-          }
-          if (typeof parsed.treasuryBalance === "number") setLiveTreasury(parsed.treasuryBalance);
-        } else {
-          setLiveClassName(classNameTitle);
+  const syncFromStorage = useCallback(() => {
+    try {
+      const saved =
+        localStorage.getItem("classroom_os_state_v3") ||
+        localStorage.getItem("classroom_os_state_v2");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.className) setLiveClassName(parsed.className);
+        else setLiveClassName(classNameTitle);
+        if (currencyName && currencyName !== "미소" && (parsed.currencyName === "미소" || !parsed.currencyName)) {
+          setLiveCurrency(currencyName);
+        } else if (parsed.currencyName) {
+          setLiveCurrency(parsed.currencyName);
+        } else if (currencyName) {
+          setLiveCurrency(currencyName);
         }
-      } catch {
+        if (typeof parsed.treasuryBalance === "number") setLiveTreasury(parsed.treasuryBalance);
+        if (Array.isArray(parsed.students)) setStudents(parsed.students as ClassroomStudent[]);
+        if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory as LedgerRecord[]);
+      } else {
         setLiveClassName(classNameTitle);
       }
-    };
+    } catch {
+      setLiveClassName(classNameTitle);
+    }
+  }, [classNameTitle, currencyName]);
 
+  useEffect(() => {
     syncFromStorage();
 
     let channel: BroadcastChannel | null = null;
@@ -202,17 +209,22 @@ export default function Navbar({
               </div>
             </div>
 
-            {/* Treasury Balance Pill */}
-            <Link
-              href="/economy"
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors"
+            {/* Treasury Balance Pill -> Opens Ledger History Modal */}
+            <button
+              type="button"
+              onClick={() => {
+                syncFromStorage();
+                setIsLedgerOpen(true);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer"
+              title="국고 입출금 이력 보기 (클릭 시 오늘 이력 표시)"
             >
               <Coins className="w-4 h-4 text-amber-600" />
               <span>국고:</span>
-              <span className="font-mono text-amber-700">
+              <span className="font-mono text-amber-700 font-bold">
                 {liveTreasury.toLocaleString()} {liveCurrency || currencyName}
               </span>
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -237,6 +249,17 @@ export default function Navbar({
           );
         })}
       </div>
+
+      {/* 상단바 국고 배지 클릭 시 열리는 통합 입출금 내역 모달 */}
+      <UnifiedLedgerModal
+        isOpen={isLedgerOpen}
+        onClose={() => setIsLedgerOpen(false)}
+        students={students}
+        treasuryBalance={liveTreasury}
+        ledgerHistory={ledgerHistory}
+        initialStudentFilter="treasury"
+        currencyName={liveCurrency || currencyName}
+      />
     </header>
   );
 }

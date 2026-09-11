@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, FileSpreadsheet, Calendar } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
 
@@ -24,9 +24,16 @@ export default function UnifiedLedgerModal({
   currencyName = "원",
 }: UnifiedLedgerModalProps) {
   const [studentFilter, setStudentFilter] = useState(initialStudentFilter);
-  const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("all");
+  const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setStudentFilter(initialStudentFilter);
+      setPeriodPreset("today");
+    }
+  }, [isOpen, initialStudentFilter]);
 
   if (!isOpen) return null;
 
@@ -39,7 +46,8 @@ export default function UnifiedLedgerModal({
 
     // Period filter
     if (periodPreset === "today") {
-      const today = new Date().toISOString().split("T")[0];
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       if (!item.date.startsWith(today)) return false;
     } else if (periodPreset === "7d") {
       const sevenDaysAgo = new Date();
