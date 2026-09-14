@@ -2,12 +2,12 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus, Undo2, Redo2 } from "lucide-react";
-import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine, LedgerRecord } from "@/types/classroom";
+import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import { useSelectionRange } from "@/hooks/useSelectionRange";
 import FontSelectorDropdown from "./FontSelectorDropdown";
 import NoticeBoxVisibilityBar from "./NoticeBoxVisibilityBar";
-import RecentLedgerPanel from "@/components/classroom/economy/RecentLedgerPanel";
+
 
 const TEXT_COLORS = [
   { label: "흰색", value: "#ffffff" }, { label: "노랑", value: "#fde047" },
@@ -45,10 +45,6 @@ interface NoticeTabProps {
   routines?: ClassroomRoutine[];
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onUndo?: () => void; onRedo?: () => void; canUndo?: boolean; canRedo?: boolean;
-  ledgerHistory?: LedgerRecord[]; undoneLedgerHistory?: LedgerRecord[];
-  onUndoLedgerEntry?: (id?: number | string) => void;
-  onRedoLedgerEntry?: (id?: number | string) => void;
-  currencyName?: string;
 }
 
 export default function NoticeTab({
@@ -59,7 +55,6 @@ export default function NoticeTab({
   layouts, onUpdateLayouts, freeCards, onToggleFreeCardVisibility, onUpdateFreeCard, onAddFreeCard,
   previewScale = 75, onPreviewScaleChange, routines, onUpdateRoutine,
   onUndo, onRedo, canUndo, canRedo,
-  ledgerHistory, undoneLedgerHistory, onUndoLedgerEntry, onRedoLedgerEntry, currencyName = "원",
 }: NoticeTabProps) {
   const {
     getEffectiveRange,
@@ -526,19 +521,6 @@ export default function NoticeTab({
         />
       )}
 
-      {/* 최근 지급 내역 패널 */}
-      {onUndoLedgerEntry && (
-        <div className="p-2.5 bg-white/70 rounded-b-2xl">
-          <RecentLedgerPanel
-            records={ledgerHistory || []}
-            undoneRecords={undoneLedgerHistory}
-            currencyName={currencyName}
-            onUndo={onUndoLedgerEntry}
-            onRedo={onRedoLedgerEntry}
-            maxRows={3}
-          />
-        </div>
-      )}
     </div>
   );
 }

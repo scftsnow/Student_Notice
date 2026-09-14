@@ -9,7 +9,7 @@ import DepositModal from "./DepositModal";
 import UnifiedLedgerModal from "./UnifiedLedgerModal";
 import CreateBundleModal from "./CreateBundleModal";
 import QuickDepositBar from "./QuickDepositBar";
-import RecentLedgerPanel from "./RecentLedgerPanel";
+
 import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, User, ArrowUpRight } from "lucide-react";
 
 interface EconomyTabProps {
@@ -206,18 +206,6 @@ export default function EconomyTab({
             <span>입금 / 차감{checkedNames.length > 0 ? ` (${checkedNames.length}명)` : ""}</span>
           </button>
         </div>
-
-        {/* 4. 최근 지급 내역 및 취소/다시실행 패널 */}
-        {onUndoLedgerEntry && (
-          <RecentLedgerPanel
-            records={ledgerHistory}
-            undoneRecords={undoneLedgerHistory}
-            currencyName={currencyName}
-            onUndo={onUndoLedgerEntry}
-            onRedo={onRedoLedgerEntry}
-          />
-        )}
-
         {/* 4. 복합 정산 */}
         <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1.5">
           <div className="flex items-center justify-between">

@@ -180,11 +180,6 @@ export default function NoticePageClient() {
           onRedo={state.redo}
           canUndo={state.canUndo}
           canRedo={state.canRedo}
-          ledgerHistory={state.ledgerHistory}
-          undoneLedgerHistory={state.undoneLedgerHistory}
-          onUndoLedgerEntry={state.undoLedgerEntry}
-          onRedoLedgerEntry={state.redoLedgerEntry}
-          currencyName={state.currencyName}
         />
         <BoardCanvas
           theme={state.theme}
