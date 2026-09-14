@@ -292,7 +292,7 @@ export default function EconomyTab({
               등록된 학생 계좌가 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-1.5">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(118px,1fr))] gap-1.5">
               {students.map((s) => {
                 const isChecked = checkedNames.includes(s.name);
                 return (
@@ -307,8 +307,8 @@ export default function EconomyTab({
                   >
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1 min-w-0">
-                        <User className="w-3 h-3 shrink-0 text-slate-400" />
-                        <span className="font-extrabold text-slate-800 text-xs truncate">{s.name}</span>
+                        <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                        <span className="font-extrabold text-slate-800 text-[14px] truncate">{s.name}</span>
                       </div>
                       <input
                         type="checkbox"
@@ -319,9 +319,9 @@ export default function EconomyTab({
                       />
                     </div>
                     <div className="mt-1 pt-0.5 border-t border-slate-100 flex items-center justify-between gap-1">
-                      <div className="font-black text-xs font-mono text-indigo-700 leading-none truncate">
+                      <div className="font-black text-[14px] font-mono text-indigo-700 leading-none truncate">
                         {s.balance.toLocaleString()}
-                        <span className="text-[9px] font-normal text-slate-400 ml-0.5">{currencyName}</span>
+                        <span className="text-[11px] font-normal text-slate-400 ml-0.5">{currencyName}</span>
                       </div>
                       <button
                         type="button"
@@ -329,7 +329,7 @@ export default function EconomyTab({
                           e.stopPropagation();
                           setLedgerModalStudent(s.name);
                         }}
-                        className="px-1 py-0.5 rounded text-[9px] font-bold border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 transition-all shrink-0 leading-tight"
+                        className="px-1.5 py-0.5 rounded text-[11px] font-bold border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 transition-all shrink-0 leading-tight"
                       >
                         내역
                       </button>
