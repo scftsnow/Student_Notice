@@ -196,6 +196,7 @@ export default function NoticePageClient() {
           onAdvanceRoutine={state.advanceRoutine}
           onRewindRoutine={state.rewindRoutine}
           onSkipRoutineWorker={state.skipRoutineWorker}
+          onCancelSkipRoutineWorker={state.cancelSkipRoutineWorker}
           onAdvanceAllRoutines={state.advanceAllRoutines}
           targetElement={targetElement}
           onSelectElement={setTargetElement}

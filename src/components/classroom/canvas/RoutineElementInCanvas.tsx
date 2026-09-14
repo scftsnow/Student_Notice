@@ -19,6 +19,7 @@ interface RoutineElementInCanvasProps {
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
   onSkipRoutineWorker?: (id: string, workerIndex: number) => void;
+  onCancelSkipRoutineWorker?: (id: string) => void;
   onUndoLedgerEntry?: (id?: number | string) => void;
   onSelect?: () => void;
 }
@@ -35,6 +36,7 @@ export default function RoutineElementInCanvas({
   onUpdateRoutine,
   onAdvanceRoutine,
   onSkipRoutineWorker,
+  onCancelSkipRoutineWorker,
   onUndoLedgerEntry,
   onSelect,
 }: RoutineElementInCanvasProps) {
@@ -89,30 +91,26 @@ export default function RoutineElementInCanvas({
     if (workerIdx === null) return;
     if (onSkipRoutineWorker) {
       onSkipRoutineWorker(routine.id, workerIdx);
-    } else if (onUpdateRoutine && routine.order.length > 0) {
-      const updated = { ...pinchDetails };
-      const active = Array.from({ length: routine.slots }, (_, i) => (routine.currentIdx + i) % routine.order.length);
-      const currentSub = updated[workerIdx]?.name;
-      const currentSubIdx = currentSub ? routine.order.indexOf(currentSub) : -1;
-      let cand = currentSubIdx !== -1
-        ? (currentSubIdx + 1) % routine.order.length
-        : (routine.currentIdx + routine.slots) % routine.order.length;
-      let tries = 0;
-      while (active.includes(cand) && tries < routine.order.length) {
-        cand = (cand + 1) % routine.order.length;
-        tries++;
-      }
-      updated[workerIdx] = { name: routine.order[cand], isSkip: true };
-      onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
+    } else if (onUpdateRoutine && routine.order.length > 1) {
+      const nextIdx = (routine.currentIdx + 1) % routine.order.length;
+      onUpdateRoutine(routine.id, {
+        currentIdx: nextIdx,
+        prevIdxBeforeSkip: routine.currentIdx,
+        pinchHitterStudent: undefined,
+      });
     }
     setActivePopupIndex(null); setWorkerPopupPos(null);
   };
 
   const handleCancelSkip = (workerIdx: number | null) => {
-    if (workerIdx === null || !onUpdateRoutine) return;
-    const updated = { ...pinchDetails };
-    delete updated[workerIdx];
-    onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
+    if (routine.prevIdxBeforeSkip !== undefined) {
+      if (onCancelSkipRoutineWorker) onCancelSkipRoutineWorker(routine.id);
+      else if (onUpdateRoutine) onUpdateRoutine(routine.id, { currentIdx: routine.prevIdxBeforeSkip, prevIdxBeforeSkip: undefined });
+    } else if (workerIdx !== null && onUpdateRoutine) {
+      const updated = { ...pinchDetails };
+      delete updated[workerIdx];
+      onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
+    }
     setActivePopupIndex(null); setWorkerPopupPos(null);
   };
 
@@ -470,14 +468,14 @@ export default function RoutineElementInCanvas({
                   >
                     <FastForward className="w-3.5 h-3.5" /><span>이 학생 건너뛰기</span>
                   </button>
-                  {isSubstituted && (
+                  {(isSubstituted || routine.prevIdxBeforeSkip !== undefined) && (
                     <button
                       type="button"
                       onClick={() => handleCancelSkip(workerIdx)}
                       className="w-full py-1.5 px-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-rose-500/30"
-                      title={isSkipped ? "건너뛰기를 취소하고 원래 당번 학생으로 복원합니다" : "대타 지정을 취소하고 원래 당번 학생으로 복원합니다"}
+                      title={routine.prevIdxBeforeSkip !== undefined || isSkipped ? "건너뛰기를 취소하고 원래 순번으로 복원합니다" : "대타 지정을 취소하고 원래 당번 학생으로 복원합니다"}
                     >
-                      <RotateCcw className="w-3.5 h-3.5" /><span>{isSkipped ? "건너뛰기 취소" : "대타 취소"}</span>
+                      <RotateCcw className="w-3.5 h-3.5" /><span>{routine.prevIdxBeforeSkip !== undefined || isSkipped ? "건너뛰기 취소" : "대타 취소"}</span>
                     </button>
                   )}
                 </div>

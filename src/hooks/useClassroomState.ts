@@ -573,31 +573,51 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   );
 
   const skipRoutineWorker = useCallback(
-    (id: string, workerIndex: number) => {
+    (id: string) => {
+      let skippedName = "";
+      let nextName = "";
       setRoutines((prev) =>
         prev.map((r) => {
-          if (r.id !== id) return r;
-          if (r.order.length === 0) return r;
-          const currentMap = parsePinchHitterDetails(r.pinchHitterStudent);
-          const activeIndices = Array.from({ length: r.slots }, (_, i) => (r.currentIdx + i) % r.order.length);
-          const currentSub = currentMap[workerIndex]?.name;
-          const currentSubIdx = currentSub ? r.order.indexOf(currentSub) : -1;
-          let candidateIdx = currentSubIdx !== -1
-            ? (currentSubIdx + 1) % r.order.length
-            : (r.currentIdx + r.slots) % r.order.length;
-          let attempts = 0;
-          while (activeIndices.includes(candidateIdx) && attempts < r.order.length) {
-            candidateIdx = (candidateIdx + 1) % r.order.length;
-            attempts++;
-          }
-          const substitute = r.order[candidateIdx];
-          currentMap[workerIndex] = { name: substitute, isSkip: true };
-          return { ...r, pinchHitterStudent: serializePinchHitters(currentMap) };
+          if (r.id !== id || r.order.length <= 1) return r;
+          const currentWorker = r.order[r.currentIdx % r.order.length];
+          skippedName = resolveStudentName(currentWorker, students);
+          const nextIdx = (r.currentIdx + 1) % r.order.length;
+          nextName = resolveStudentName(r.order[nextIdx], students);
+          return {
+            ...r,
+            currentIdx: nextIdx,
+            prevIdxBeforeSkip: r.currentIdx,
+            pinchHitterStudent: undefined,
+          };
         })
       );
-      showToast("해당 학생을 건너뛰고 다음 순번 학생이 대타로 지정되었습니다.");
+      if (skippedName && nextName) {
+        showToast(`[건너뛰기] ${skippedName} 학생을 건너뛰고 ${nextName} 학생으로 순번이 1칸 밀렸습니다.`);
+      }
     },
-    [showToast]
+    [students, showToast]
+  );
+
+  const cancelSkipRoutineWorker = useCallback(
+    (id: string) => {
+      let restoredName = "";
+      setRoutines((prev) =>
+        prev.map((r) => {
+          if (r.id !== id || r.order.length === 0 || r.prevIdxBeforeSkip === undefined) return r;
+          const restoredIdx = r.prevIdxBeforeSkip;
+          restoredName = resolveStudentName(r.order[restoredIdx % r.order.length], students);
+          return {
+            ...r,
+            currentIdx: restoredIdx,
+            prevIdxBeforeSkip: undefined,
+          };
+        })
+      );
+      if (restoredName) {
+        showToast(`[건너뛰기 취소] 이전 순번(${restoredName})으로 복원되었습니다.`);
+      }
+    },
+    [students, showToast]
   );
 
   const advanceAllRoutines = useCallback(() => {
@@ -1188,6 +1208,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     rewindRoutine,
     advanceAllRoutines,
     skipRoutineWorker,
+    cancelSkipRoutineWorker,
     updateRoutineOrder,
     updateRoutine,
     payRoutineToday,

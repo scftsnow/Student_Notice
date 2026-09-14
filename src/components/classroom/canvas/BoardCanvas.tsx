@@ -31,6 +31,7 @@ interface BoardCanvasProps {
   onAdvanceRoutine?: (id: string) => void;
   onRewindRoutine?: (id: string) => void;
   onSkipRoutineWorker?: (id: string, workerIndex: number) => void;
+  onCancelSkipRoutineWorker?: (id: string) => void;
   onAdvanceAllRoutines?: () => void;
   onOpenRoutineNoticeSettings?: () => void;
   targetElement?: BoardTargetElement;
@@ -55,7 +56,7 @@ export default function BoardCanvas({
   routines, freeCards, onAddFreeCard, onRemoveFreeCard, onUpdateFreeCard,
   students = [], currencyName = "원",
   onPayRoutineToday, onUpdateRoutine,
-  onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
+  onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onCancelSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
   previewScale = 75, taxConfig, ledgerHistory, onUndoLedgerEntry,
@@ -477,6 +478,7 @@ export default function BoardCanvas({
                           onUpdateRoutine={onUpdateRoutine}
                           onAdvanceRoutine={onAdvanceRoutine}
                           onSkipRoutineWorker={onSkipRoutineWorker}
+                          onCancelSkipRoutineWorker={onCancelSkipRoutineWorker}
                           ledgerHistory={ledgerHistory}
                           onUndoLedgerEntry={onUndoLedgerEntry}
                           onSelect={() => onSelectElement?.(r.id)}
