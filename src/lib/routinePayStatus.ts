@@ -4,6 +4,7 @@ export interface RoutinePayPeriodStatus {
   isPaid: boolean;
   periodLabel: string; // "오늘" | "이번 주" | "이번 달" | "건당"
   paidAt?: string; // e.g. "2026-09-14 11:05"
+  recordId?: number | string; // 원장 기록 식별자 (지급 취소용)
 }
 
 /**
@@ -73,7 +74,7 @@ export function checkStudentRoutinePaid(
     // 주기별 기간 범위 검사
     if (cycle === "일당" || cycle === "건당") {
       if (recordDateStr.startsWith(todayStr)) {
-        return { isPaid: true, periodLabel, paidAt: recordDateStr };
+        return { isPaid: true, periodLabel, paidAt: recordDateStr, recordId: record.id };
       }
     } else if (cycle === "주당") {
       const datePart = recordDateStr.split(" ")[0];
@@ -82,13 +83,13 @@ export function checkStudentRoutinePaid(
         if (ry && rm && rd) {
           const recordDate = new Date(ry, rm - 1, rd);
           if (recordDate >= monday && recordDate <= sunday) {
-            return { isPaid: true, periodLabel, paidAt: recordDateStr };
+            return { isPaid: true, periodLabel, paidAt: recordDateStr, recordId: record.id };
           }
         }
       }
     } else if (cycle === "월당") {
       if (recordDateStr.startsWith(monthStr)) {
-        return { isPaid: true, periodLabel, paidAt: recordDateStr };
+        return { isPaid: true, periodLabel, paidAt: recordDateStr, recordId: record.id };
       }
     }
   }

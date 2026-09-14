@@ -47,6 +47,7 @@ interface BoardCanvasProps {
   previewScale?: number;
   taxConfig?: TaxConfig;
   ledgerHistory?: LedgerRecord[];
+  onUndoLedgerEntry?: (id?: number | string) => void;
 }
 
 export default function BoardCanvas({
@@ -57,7 +58,7 @@ export default function BoardCanvas({
   onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
-  previewScale = 75, taxConfig, ledgerHistory,
+  previewScale = 75, taxConfig, ledgerHistory, onUndoLedgerEntry,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
@@ -477,6 +478,7 @@ export default function BoardCanvas({
                           onAdvanceRoutine={onAdvanceRoutine}
                           onSkipRoutineWorker={onSkipRoutineWorker}
                           ledgerHistory={ledgerHistory}
+                          onUndoLedgerEntry={onUndoLedgerEntry}
                           onSelect={() => onSelectElement?.(r.id)}
                         />
                       </div>

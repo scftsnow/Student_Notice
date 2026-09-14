@@ -208,6 +208,7 @@ export default function NoticePageClient() {
           previewScale={previewScale}
           taxConfig={state.taxConfig}
           ledgerHistory={state.ledgerHistory}
+          onUndoLedgerEntry={state.undoLedgerEntry}
         />
       </div>
       </div>

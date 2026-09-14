@@ -17,6 +17,7 @@ import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
 import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
 import { parsePinchHitters, parsePinchHitterDetails, serializePinchHitters, resolveStudentName } from "@/lib/routineUtils";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
+import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 
 export interface ClassroomStateOptions {
   initialCurrencyName?: string;
@@ -653,10 +654,23 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
       const netPay = Math.max(0, r.pay - taxPerWorker);
 
+      // 이미 해당 주기(오늘 등)에 지급받은 학생 제외
+      const payableWorkers = targetWorkers.filter(
+        (wName) => !checkStudentRoutinePaid(r, wName, ledgerHistory).isPaid
+      );
+      const alreadyPaidWorkers = targetWorkers.filter(
+        (wName) => checkStudentRoutinePaid(r, wName, ledgerHistory).isPaid
+      );
+
+      if (payableWorkers.length === 0) {
+        showToast(`[급여 지급] ${r.name} 당번(${targetWorkers.join(", ")})이 이미 모두 급여를 받았습니다.`);
+        return;
+      }
+
       const paidNames: string[] = [];
       setStudents((prev) =>
         prev.map((s) => {
-          if (targetWorkers.includes(s.name)) {
+          if (payableWorkers.includes(s.name)) {
             paidNames.push(s.name);
             return { ...s, balance: s.balance + netPay };
           }
@@ -685,10 +699,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       showToast(
         `[급여 지급] ${r.name} 담당 ${paidNames.join(", ")}에게 실지급 ${netPay.toLocaleString()} ${currencyName}${
           taxPerWorker > 0 ? ` (세금 ${taxPerWorker.toLocaleString()} ${currencyName} 원천징수)` : ""
-        } 지급 완료`
+        } 지급 완료${alreadyPaidWorkers.length > 0 ? ` (이미 지급된 ${alreadyPaidWorkers.join(", ")} 제외)` : ""}`
       );
     },
-    [routines, taxConfig, currencyName, addLedgerEntry, showToast]
+    [routines, taxConfig, currencyName, addLedgerEntry, showToast, ledgerHistory]
   );
 
   const payAllRoutinesToday = useCallback(
@@ -702,6 +716,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const shouldDeductTax = applyTax && taxConfig.taxMethod !== "TAX_FREE";
       let totalTaxCollectedNow = 0;
       let totalWorkersCount = 0;
+      let totalExcludedCount = 0;
       const paidRoutineNames: string[] = [];
 
       setStudents((prev) => {
@@ -718,46 +733,61 @@ export function useClassroomState(options?: ClassroomStateOptions) {
             return sub && sub !== "none" ? resolveStudentName(sub, students) : raw;
           });
 
-          const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
-        const netPay = Math.max(0, r.pay - taxPerWorker);
+          // 이미 지급된 당번 제외
+          const unpaidWorkers = targetWorkers.filter(
+            (wName) => !checkStudentRoutinePaid(r, wName, ledgerHistory).isPaid
+          );
+          totalExcludedCount += (targetWorkers.length - unpaidWorkers.length);
+          if (unpaidWorkers.length === 0) continue;
 
-        let countForRoutine = 0;
-        for (let i = 0; i < nextStudents.length; i++) {
-          const s = nextStudents[i];
-          if (targetWorkers.includes(s.name)) {
-            nextStudents[i] = { ...s, balance: s.balance + netPay };
-            totalTaxCollectedNow += taxPerWorker;
-            countForRoutine++;
-            addLedgerEntry(
-              "입금",
-              "학급 국고",
-              s.name,
-              s.name,
-              `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
-              r.pay,
-              taxPerWorker,
-              [s.name]
-            );
+          const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
+          const netPay = Math.max(0, r.pay - taxPerWorker);
+
+          let countForRoutine = 0;
+          for (let i = 0; i < nextStudents.length; i++) {
+            const s = nextStudents[i];
+            if (unpaidWorkers.includes(s.name)) {
+              nextStudents[i] = { ...s, balance: s.balance + netPay };
+              totalTaxCollectedNow += taxPerWorker;
+              countForRoutine++;
+              addLedgerEntry(
+                "입금",
+                "학급 국고",
+                s.name,
+                s.name,
+                `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
+                r.pay,
+                taxPerWorker,
+                [s.name]
+              );
+            }
+          }
+          if (countForRoutine > 0) {
+            paidRoutineNames.push(r.name);
+            totalWorkersCount += countForRoutine;
           }
         }
-        if (countForRoutine > 0) {
-          paidRoutineNames.push(r.name);
-          totalWorkersCount += countForRoutine;
-        }
+
+        return nextStudents;
+      });
+
+      if (totalTaxCollectedNow > 0) {
+        setTreasuryBalance((prev) => prev + totalTaxCollectedNow);
+        setTotalTaxCollected((prev) => prev + totalTaxCollectedNow);
       }
 
-      return nextStudents;
-    });
-
-    if (totalTaxCollectedNow > 0) {
-      setTreasuryBalance((prev) => prev + totalTaxCollectedNow);
-      setTotalTaxCollected((prev) => prev + totalTaxCollectedNow);
-    }
-
-    showToast(
-      `전체 ${paidRoutineNames.length}개 업무 (${totalWorkersCount}명) 당번 급여 일괄 지급 완료`
-    );
-  }, [routines, taxConfig, addLedgerEntry, showToast]);
+      if (totalWorkersCount === 0 && totalExcludedCount > 0) {
+        showToast("모든 업무 당번이 이미 급여를 수령하여 추가 지급할 대상이 없습니다.");
+      } else {
+        showToast(
+          `전체 ${paidRoutineNames.length}개 업무 (${totalWorkersCount}명) 당번 급여 지급 완료${
+            totalExcludedCount > 0 ? ` (기지급 ${totalExcludedCount}명 제외)` : ""
+          }`
+        );
+      }
+    },
+    [routines, taxConfig, addLedgerEntry, showToast, ledgerHistory]
+  );
 
   // 3. Economy Actions
   const executeTransaction = useCallback(

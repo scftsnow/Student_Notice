@@ -19,6 +19,7 @@ interface RoutineElementInCanvasProps {
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
   onSkipRoutineWorker?: (id: string, workerIndex: number) => void;
+  onUndoLedgerEntry?: (id?: number | string) => void;
   onSelect?: () => void;
 }
 
@@ -34,6 +35,7 @@ export default function RoutineElementInCanvas({
   onUpdateRoutine,
   onAdvanceRoutine,
   onSkipRoutineWorker,
+  onUndoLedgerEntry,
   onSelect,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
@@ -58,28 +60,17 @@ export default function RoutineElementInCanvas({
   const routineTextColor = theme === "white" ? "text-slate-900" : theme === "warm" ? "text-amber-950" : theme === "navy" ? "text-slate-200" : "text-white/90";
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setActivePopupIndex(null);
-    setWorkerPopupPos(null);
-    const menuWidth = 240;
-    const menuHeight = 280;
-    const x = Math.max(10, Math.min(e.clientX, window.innerWidth - menuWidth - 10));
-    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - menuHeight - 10));
+    e.preventDefault(); e.stopPropagation();
+    setActivePopupIndex(null); setWorkerPopupPos(null);
+    const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 250));
+    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 290));
     setContextMenu({ x, y });
   };
 
   // 원본 루틴 배정자 (번호일 경우 학생 이름으로 자동 변환)
-  const rawWorkers =
-    routine.order.length > 0
-      ? Array.from(
-          { length: routine.slots },
-          (_, i) => {
-            const raw = routine.order[(routine.currentIdx + i) % routine.order.length];
-            return resolveStudentName(raw, students);
-          }
-        )
-      : [];
+  const rawWorkers = routine.order.length > 0
+    ? Array.from({ length: routine.slots }, (_, i) => resolveStudentName(routine.order[(routine.currentIdx + i) % routine.order.length], students))
+    : [];
 
   const pinchDetails = useMemo(() => parsePinchHitterDetails(routine.pinchHitterStudent), [routine.pinchHitterStudent]);
   const pinchMap = useMemo(() => parsePinchHitters(routine.pinchHitterStudent), [routine.pinchHitterStudent]);
@@ -91,8 +82,7 @@ export default function RoutineElementInCanvas({
       else updated[activePopupIndex] = { name: val, isSkip: false };
       onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
     }
-    setActivePopupIndex(null);
-    setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerPopupPos(null);
   };
 
   const handleSkipWorker = (workerIdx: number | null) => {
@@ -115,8 +105,7 @@ export default function RoutineElementInCanvas({
       updated[workerIdx] = { name: routine.order[cand], isSkip: true };
       onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
     }
-    setActivePopupIndex(null);
-    setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerPopupPos(null);
   };
 
   const handleCancelSkip = (workerIdx: number | null) => {
@@ -124,12 +113,25 @@ export default function RoutineElementInCanvas({
     const updated = { ...pinchDetails };
     delete updated[workerIdx];
     onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
-    setActivePopupIndex(null);
-    setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerPopupPos(null);
   };
 
   const handlePayWorker = (workerName: string) => {
     if (onPayRoutineToday && workerName) onPayRoutineToday(routine.id, [workerName], applyTax);
+    setActivePopupIndex(null); setWorkerPopupPos(null);
+  };
+
+  const handleCancelPay = (recordId?: number | string) => {
+    if (onUndoLedgerEntry && recordId !== undefined) {
+      onUndoLedgerEntry(recordId);
+    } else {
+      try {
+        const ch = new BroadcastChannel("classroom_os_sync");
+        ch.postMessage({ action: "undo_ledger", id: recordId });
+        ch.close();
+      } catch { /* noop */ }
+      window.dispatchEvent(new CustomEvent("classroom_undo_ledger", { detail: { id: recordId } }));
+    }
     setActivePopupIndex(null);
     setWorkerPopupPos(null);
   };
@@ -141,12 +143,7 @@ export default function RoutineElementInCanvas({
     return isSub ? `${subName} (대타)` : originalName;
   });
 
-  const segments = parseRoutineFormat(
-    routine.displayFormat,
-    routine.name,
-    workerList,
-    routine.icon
-  );
+  const segments = parseRoutineFormat(routine.displayFormat, routine.name, workerList, routine.icon);
 
   const isFocusedRef = useRef(false);
   const wasFocusedRef = useRef(false);
@@ -315,15 +312,12 @@ export default function RoutineElementInCanvas({
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
   const handleWorkerSpanClick = (targetEl: HTMLElement, workerIdx: number) => {
     if (activePopupIndex === workerIdx) {
-      setActivePopupIndex(null);
-      setWorkerPopupPos(null);
+      setActivePopupIndex(null); setWorkerPopupPos(null);
     } else {
       const rect = targetEl.getBoundingClientRect();
-      const popupWidth = 240;
-      const popupHeight = 290;
-      let top = rect.top - popupHeight - 8;
-      if (top < 10) top = Math.min(window.innerHeight - popupHeight - 10, rect.bottom + 8);
-      const left = Math.max(10, Math.min(rect.left, window.innerWidth - popupWidth - 10));
+      let top = rect.top - 298;
+      if (top < 10) top = Math.min(window.innerHeight - 300, rect.bottom + 8);
+      const left = Math.max(10, Math.min(rect.left, window.innerWidth - 250));
       setWorkerPopupPos({ x: left, y: Math.max(10, top) });
       setActivePopupIndex(workerIdx);
     }
@@ -332,10 +326,7 @@ export default function RoutineElementInCanvas({
   return (
     <div
       ref={containerRef}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect?.();
-      }}
+      onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
       onContextMenu={handleContextMenu}
       className="relative w-full leading-snug group"
       style={{ fontSize: "inherit" }}
@@ -345,22 +336,16 @@ export default function RoutineElementInCanvas({
         contentEditable={true}
         suppressContentEditableWarning
         onMouseDown={(e) => {
-          e.stopPropagation();
-          onSelect?.();
+          e.stopPropagation(); onSelect?.();
           const workerSpan = (e.target as HTMLElement).closest("[data-worker-index]") as HTMLElement | null;
           if (workerSpan) {
             e.preventDefault();
-            const workerIdx = parseInt(workerSpan.dataset.workerIndex || "0", 10);
-            handleWorkerSpanClick(workerSpan, workerIdx);
+            handleWorkerSpanClick(workerSpan, parseInt(workerSpan.dataset.workerIndex || "0", 10));
             return;
           }
           wasFocusedRef.current = document.activeElement === editableRef.current;
         }}
-        onFocus={() => {
-          isFocusedRef.current = true;
-          setIsEditing(true);
-          onSelect?.();
-        }}
+        onFocus={() => { isFocusedRef.current = true; setIsEditing(true); onSelect?.(); }}
         onBlur={handleBlur}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
@@ -447,7 +432,8 @@ export default function RoutineElementInCanvas({
           const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
           const isSkipped = Boolean(detail?.isSkip);
           const currentWorker = isSubstituted ? resolveStudentName(detail.name, students) : originalName;
-          const isPaid = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory).isPaid;
+          const payStatus = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory);
+          const isPaid = payStatus.isPaid;
 
           return (
             <>
@@ -518,21 +504,33 @@ export default function RoutineElementInCanvas({
                 )}
 
                 <div className="pt-0.5 space-y-1.5">
-                  <label className="flex items-center gap-1.5 px-0.5 text-[11px] text-slate-300 cursor-pointer select-none">
-                    <input type="checkbox" checked={applyTax} onChange={(e) => setApplyTax(e.target.checked)} className="rounded text-indigo-500 w-3 h-3" />
-                    <span>세금 부과</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => handlePayWorker(currentWorker)}
-                    disabled={routine.pay <= 0 || !onPayRoutineToday}
-                    className={`w-full py-2 px-2.5 rounded-xl active:scale-95 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none ${
-                      isPaid ? "bg-lime-500 hover:bg-lime-400 text-slate-950 font-black" : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                    }`}
-                  >
-                    <Coins className="w-3.5 h-3.5" />
-                    <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
-                  </button>
+                  {!isPaid && (
+                    <label className="flex items-center gap-1.5 px-0.5 text-[11px] text-slate-300 cursor-pointer select-none">
+                      <input type="checkbox" checked={applyTax} onChange={(e) => setApplyTax(e.target.checked)} className="rounded text-indigo-500 w-3 h-3" />
+                      <span>세금 부과</span>
+                    </label>
+                  )}
+                  {isPaid ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelPay(payStatus.recordId)}
+                      className="w-full py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                      title="이 당번의 급여 지급을 취소하고 원래 잔액으로 복원합니다"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>지급 취소</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handlePayWorker(currentWorker)}
+                      disabled={routine.pay <= 0 || !onPayRoutineToday}
+                      className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      <Coins className="w-3.5 h-3.5" />
+                      <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </>

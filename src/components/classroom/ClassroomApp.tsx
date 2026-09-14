@@ -257,6 +257,7 @@ export default function ClassroomApp() {
               previewScale={previewScale}
               taxConfig={state.taxConfig}
               ledgerHistory={state.ledgerHistory}
+              onUndoLedgerEntry={state.undoLedgerEntry}
             />
           </div>
         )}
