@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, X, Plus, ClipboardList, ArrowRight, CheckSquare } from "lucide-react";
-import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
+import { Settings, X, Plus, ClipboardList, ArrowRight, CheckSquare, CheckCircle2 } from "lucide-react";
+import { ClassroomStudent, ClassroomRoutine, LedgerRecord } from "@/types/classroom";
+import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import AddRoutineModal from "./AddRoutineModal";
 
 interface RoutineTabProps {
   routines: ClassroomRoutine[];
   students: ClassroomStudent[];
   currencyName?: string;
+  ledgerHistory?: LedgerRecord[];
   onAddRoutine: (routine: Omit<ClassroomRoutine, "id" | "currentIdx">) => void;
   onDeleteRoutine: (id: string) => void;
   onAdvanceRoutine?: (id: string) => void;
@@ -21,6 +23,7 @@ export default function RoutineTab({
   routines,
   students,
   currencyName = "원",
+  ledgerHistory = [],
   onAddRoutine,
   onDeleteRoutine,
   onUpdateRoutine,
@@ -58,15 +61,24 @@ export default function RoutineTab({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {routines.map((r) => {
-            // 오늘 담당 인덱스 집합 (r.currentIdx부터 slots개)
+            // 오늘 담당 인덱스 집합 및 담당 학생 목록
             const activeIndices = new Set<number>();
+            const activeWorkerNames: string[] = [];
             if (r.order.length > 0) {
               const count = Math.min(r.slots, r.order.length);
               for (let i = 0; i < count; i++) {
-                activeIndices.add((r.currentIdx + i) % r.order.length);
+                const idx = (r.currentIdx + i) % r.order.length;
+                activeIndices.add(idx);
+                activeWorkerNames.push(r.order[idx]);
               }
             }
             const cycleLabel = r.payCycle || "1회";
+            const periodLabel = r.payCycle === "주당" ? "이번 주" : r.payCycle === "월당" ? "이번 달" : "오늘";
+            const paidWorkers = activeWorkerNames.filter(
+              (name) => checkStudentRoutinePaid(r, name, ledgerHistory).isPaid
+            );
+            const isAllPaid = activeWorkerNames.length > 0 && paidWorkers.length === activeWorkerNames.length;
+            const isPartialPaid = paidWorkers.length > 0 && paidWorkers.length < activeWorkerNames.length;
 
             return (
               <div
@@ -124,6 +136,26 @@ export default function RoutineTab({
                     <span className="text-slate-600 font-semibold bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-lg">
                       정원 {r.slots}명
                     </span>
+
+                    {/* 일당/주당/월당 지급 완료 여부 배지 */}
+                    {r.pay > 0 && activeWorkerNames.length > 0 && (
+                      isAllPaid ? (
+                        <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{periodLabel} {paidWorkers.join(", ")} 지급 완료</span>
+                        </span>
+                      ) : isPartialPaid ? (
+                        <span className="text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 inline-flex items-center gap-1">
+                          <span>{periodLabel} {paidWorkers.join(", ")} 지급 완료</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="text-rose-500">{activeWorkerNames.filter((n) => !paidWorkers.includes(n)).join(", ")} 미지급</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 font-semibold bg-slate-100/80 px-2.5 py-1 rounded-lg border border-slate-200">
+                          {periodLabel} 미지급
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
 

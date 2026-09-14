@@ -261,6 +261,7 @@ export default function ClassroomApp() {
               onUpdateLayouts={state.updateLayouts}
               previewScale={previewScale}
               taxConfig={state.taxConfig}
+              ledgerHistory={state.ledgerHistory}
             />
           </div>
         )}
@@ -278,6 +279,7 @@ export default function ClassroomApp() {
             routines={state.routines}
             students={state.students}
             currencyName={state.currencyName}
+            ledgerHistory={state.ledgerHistory}
             onAddRoutine={state.addRoutine}
             onDeleteRoutine={state.deleteRoutine}
             onAdvanceRoutine={state.advanceRoutine}

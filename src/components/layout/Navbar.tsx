@@ -220,8 +220,8 @@ export default function Navbar({
 
           {/* Right Header Stats: 최근 지급 내역 & 국고 잔액 */}
           <div className="flex items-center gap-2 lg:gap-2.5 flex-1 justify-end min-w-0">
-            {/* 최근 지급 내역 패널 (클릭 시 모달 또는 아코디언) */}
-            <div className="hidden sm:block w-full max-w-[340px] lg:max-w-[400px] min-w-[220px]">
+            {/* 최근 지급 내역 패널 (클릭 시 모달 또는 아코디언) — 좌우 50% 확대 */}
+            <div className="hidden sm:block w-full max-w-[510px] lg:max-w-[600px] min-w-[330px]">
               <RecentLedgerPanel
                 records={ledgerHistory}
                 undoneRecords={undoneLedgerHistory}

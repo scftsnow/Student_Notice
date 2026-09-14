@@ -177,7 +177,7 @@ export default function RecentLedgerPanel({
         <div
           className={
             isDropdown
-              ? "absolute right-0 top-full mt-1.5 w-full min-w-[340px] max-w-[95vw] z-50 rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100"
+              ? "absolute right-0 top-full mt-1.5 w-full min-w-[510px] max-w-[95vw] z-50 rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden divide-y divide-slate-100"
               : "border-t border-slate-100 bg-slate-50/70 divide-y divide-slate-100"
           }
         >

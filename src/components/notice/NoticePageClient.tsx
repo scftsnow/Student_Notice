@@ -212,6 +212,7 @@ export default function NoticePageClient() {
           onUpdateLayouts={state.updateLayouts}
           previewScale={previewScale}
           taxConfig={state.taxConfig}
+          ledgerHistory={state.ledgerHistory}
         />
       </div>
       </div>

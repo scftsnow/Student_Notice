@@ -11,7 +11,7 @@ import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
-  BoardTargetElement, TaxConfig,
+  BoardTargetElement, TaxConfig, LedgerRecord,
 } from "@/types/classroom";
 import { DEFAULT_LAYOUTS, isBoxVisibleToday } from "@/lib/boardDefaults";
 import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler, selectedBorderClass } from "@/lib/canvasUtils";
@@ -46,6 +46,7 @@ interface BoardCanvasProps {
   } | null;
   previewScale?: number;
   taxConfig?: TaxConfig;
+  ledgerHistory?: LedgerRecord[];
 }
 
 export default function BoardCanvas({
@@ -56,7 +57,7 @@ export default function BoardCanvas({
   onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
-  previewScale = 75, taxConfig,
+  previewScale = 75, taxConfig, ledgerHistory,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
   const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
@@ -475,6 +476,7 @@ export default function BoardCanvas({
                           onUpdateRoutine={onUpdateRoutine}
                           onAdvanceRoutine={onAdvanceRoutine}
                           onSkipRoutineWorker={onSkipRoutineWorker}
+                          ledgerHistory={ledgerHistory}
                           onSelect={() => onSelectElement?.(r.id)}
                         />
                       </div>

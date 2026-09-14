@@ -3,8 +3,9 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff, RefreshCw, X, Coins, FastForward, RotateCcw, CheckSquare, User } from "lucide-react";
-import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig } from "@/types/classroom";
+import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig, LedgerRecord } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat, parsePinchHitters, parsePinchHitterDetails, serializePinchHitters } from "@/lib/routineUtils";
+import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 
 interface RoutineElementInCanvasProps {
   routine: ClassroomRoutine;
@@ -13,6 +14,7 @@ interface RoutineElementInCanvasProps {
   theme?: BoardTheme;
   customColor?: string;
   taxConfig?: TaxConfig;
+  ledgerHistory?: LedgerRecord[];
   onPayRoutineToday?: (id: string, workers?: string[], applyTax?: boolean) => void;
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
   onAdvanceRoutine?: (id: string) => void;
@@ -27,6 +29,7 @@ export default function RoutineElementInCanvas({
   theme = "chalkboard",
   customColor,
   taxConfig,
+  ledgerHistory,
   onPayRoutineToday,
   onUpdateRoutine,
   onAdvanceRoutine,
@@ -167,18 +170,29 @@ export default function RoutineElementInCanvas({
         const sub = pinchMap[workerIdx];
         const isSubstituted = Boolean(sub && sub !== "none");
         const currentWorker = isSubstituted ? resolveStudentName(sub, students) : originalName;
-        const colorCls = isSubstituted ? "text-amber-400 decoration-amber-400" : customColor ? "" : workerColor;
-        const style = customColor && !isSubstituted ? `style="color:${customColor};"` : "";
+        const payStatus = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory);
+        let colorCls = "";
+        if (payStatus.isPaid) {
+          colorCls = theme === "white"
+            ? "text-lime-700 bg-lime-100/90 px-1 rounded font-black decoration-lime-600"
+            : "text-lime-300 font-extrabold decoration-lime-300 drop-shadow-[0_0_8px_rgba(163,230,53,0.85)]";
+        } else if (isSubstituted) {
+          colorCls = "text-amber-400 decoration-amber-400";
+        } else {
+          colorCls = customColor ? "" : workerColor;
+        }
+        const style = customColor && !isSubstituted && !payStatus.isPaid ? `style="color:${customColor};"` : "";
+        const titleText = payStatus.isPaid
+          ? `${escapeHtml(currentWorker || "당번")} — ${payStatus.periodLabel} 지급 완료 (${payStatus.paidAt || "방금"}) · 클릭: 급여·대타 메뉴`
+          : `${escapeHtml(currentWorker || "당번")} — 클릭: 급여·대타 메뉴`;
         parts.push(
-          `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${escapeHtml(
-            currentWorker || "당번"
-          )} — 클릭: 급여·대타 메뉴">${escapeHtml(seg.text)}</span>`
+          `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${titleText}">${escapeHtml(seg.text)}</span>`
         );
         parts.push(ZWSP);
       }
     });
     return parts.join("");
-  }, [segments, rawWorkers, pinchMap, students, customColor, workerColor]);
+  }, [segments, rawWorkers, pinchMap, students, customColor, workerColor, routine, ledgerHistory, theme]);
 
   const expectedWorkerCount = segments.filter((s) => s.type === "worker").length;
 
