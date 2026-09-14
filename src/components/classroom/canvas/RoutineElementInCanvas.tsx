@@ -447,14 +447,11 @@ export default function RoutineElementInCanvas({
           const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
           const isSkipped = Boolean(detail?.isSkip);
           const currentWorker = isSubstituted ? resolveStudentName(detail.name, students) : originalName;
+          const isPaid = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory).isPaid;
 
           return (
             <>
-              <div
-                className="fixed inset-0 z-[99998]"
-                onClick={(e) => { e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }}
-                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }}
-              />
+              <div className="fixed inset-0 z-[99998]" onClick={(e) => { e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }} />
               <div
                 className="fixed z-[99999] min-w-[220px] max-w-[280px] bg-slate-900 border border-slate-700 rounded-2xl p-3 shadow-2xl text-xs space-y-2.5 text-white select-none"
                 style={{ left: workerPopupPos.x, top: workerPopupPos.y }}
@@ -464,7 +461,7 @@ export default function RoutineElementInCanvas({
                 <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
                   <span className="font-extrabold text-white flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
-                    <span className="text-amber-300">{currentWorker}</span>
+                    <span className={isPaid ? "text-lime-300 font-black" : "text-amber-300"}>{currentWorker}</span>
                     {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">({isSkipped ? "건너뜀" : "대타"})</span>}
                   </span>
                   <button
@@ -511,7 +508,7 @@ export default function RoutineElementInCanvas({
                           key={s.name}
                           type="button"
                           onClick={() => handlePinchChange(s.name)}
-                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${currentWorker === s.name ? "bg-amber-400 text-slate-900 shadow-xs" : "bg-white/10 hover:bg-white/20 text-white/90"}`}
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${currentWorker === s.name ? (isPaid ? "bg-lime-400 text-slate-900 font-black shadow-xs" : "bg-amber-400 text-slate-900 shadow-xs") : "bg-white/10 hover:bg-white/20 text-white/90"}`}
                         >
                           {s.name}
                         </button>
@@ -529,7 +526,9 @@ export default function RoutineElementInCanvas({
                     type="button"
                     onClick={() => handlePayWorker(currentWorker)}
                     disabled={routine.pay <= 0 || !onPayRoutineToday}
-                    className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
+                    className={`w-full py-2 px-2.5 rounded-xl active:scale-95 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none ${
+                      isPaid ? "bg-lime-500 hover:bg-lime-400 text-slate-950 font-black" : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    }`}
                   >
                     <Coins className="w-3.5 h-3.5" />
                     <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
