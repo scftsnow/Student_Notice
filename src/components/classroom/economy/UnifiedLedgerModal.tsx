@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, FileSpreadsheet, Calendar, RotateCcw, RotateCw } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
+import { formatLedgerDateTime, normalizeLedgerRecords, filterLedgerByPeriod } from "@/lib/ledgerHelpers";
 
 interface UnifiedLedgerModalProps {
   isOpen: boolean;
@@ -18,16 +19,6 @@ interface UnifiedLedgerModalProps {
   currencyName?: string;
 }
 
-function formatLedgerDateTime(dateStr?: string): { date: string; time: string } {
-  if (!dateStr) return { date: "-", time: "" };
-  const parts = dateStr.trim().split(" ");
-  if (parts.length >= 2) {
-    const [d, t] = parts;
-    const formattedDate = d.length >= 10 ? d.slice(2).replace(/-/g, ".") : d;
-    return { date: formattedDate, time: t };
-  }
-  return { date: dateStr, time: "" };
-}
 
 export default function UnifiedLedgerModal({
   isOpen,
@@ -95,144 +86,9 @@ export default function UnifiedLedgerModal({
 
   if (!isOpen || !mounted) return null;
 
-  // 국고/학생/전체 관점별 레코드 정규화
-  const displayRecords: {
-    id: number | string;
-    date: string;
-    type: string;
-    targetDisplay: string;
-    desc: string;
-    amount: number;
-    originalId: number | string;
-  }[] = [];
-
-  for (const item of ledgerHistory) {
-    if (studentFilter === "treasury") {
-      // 국고 관점: 국고 잔액이 실제로 변동한 내역만 추출
-      if (item.targets.includes("treasury")) {
-        if (item.type === "입금") {
-          if (item.from.includes("국고")) {
-            // 국고에서 학생에게 세금 환급
-            displayRecords.push({
-              id: `${item.id}-refund`,
-              date: item.date,
-              type: "출금",
-              targetDisplay: `${item.to || item.targetDisplay} (환급)`,
-              desc: item.desc || "세금 환급 출금",
-              amount: -Math.abs(item.amount),
-              originalId: item.id,
-            });
-          } else {
-            // 국고 세수 직접 입금
-            displayRecords.push({
-              id: `${item.id}-deposit`,
-              date: item.date,
-              type: "입금",
-              targetDisplay: "학급 국고",
-              desc: item.desc || "국고 세수 편입",
-              amount: Math.abs(item.amount),
-              originalId: item.id,
-            });
-          }
-        } else if (item.type === "차감") {
-          // 국고 공동 지출
-          displayRecords.push({
-            id: `${item.id}-withdraw`,
-            date: item.date,
-            type: "출금",
-            targetDisplay: "공동 지출",
-            desc: item.desc || "학급 공동 지출",
-            amount: -Math.abs(item.amount),
-            originalId: item.id,
-          });
-        } else if (item.type === "거래") {
-          if (item.to.includes("국고") || item.targets[1] === "treasury") {
-            displayRecords.push({
-              id: `${item.id}-tx-in`,
-              date: item.date,
-              type: "입금",
-              targetDisplay: `${item.from} → 국고`,
-              desc: item.desc || "국고 송금",
-              amount: Math.abs(item.amount),
-              originalId: item.id,
-            });
-          } else if (item.from.includes("국고") || item.targets[0] === "treasury") {
-            displayRecords.push({
-              id: `${item.id}-tx-out`,
-              date: item.date,
-              type: "출금",
-              targetDisplay: `국고 → ${item.to}`,
-              desc: item.desc || "국고 출금",
-              amount: -Math.abs(item.amount),
-              originalId: item.id,
-            });
-          }
-        }
-      } else if (item.tax && item.tax > 0) {
-        // 급여 지급 또는 거래 시 원천징수되어 국고로 실제 유입된 세금만 반영
-        displayRecords.push({
-          id: `${item.id}-tax`,
-          date: item.date,
-          type: "세금",
-          targetDisplay: `세수 편입 (${item.targetDisplay})`,
-          desc: `[세금 징수] ${item.desc || item.targetDisplay}`,
-          amount: item.tax,
-          originalId: item.id,
-        });
-      }
-    } else if (studentFilter === "all") {
-      displayRecords.push({
-        id: item.id,
-        date: item.date,
-        type: item.type,
-        targetDisplay: item.targetDisplay,
-        desc: item.desc,
-        amount: item.amount,
-        originalId: item.id,
-      });
-    } else {
-      if (item.targets.includes(studentFilter)) {
-        displayRecords.push({
-          id: item.id,
-          date: item.date,
-          type: item.type,
-          targetDisplay: item.targetDisplay,
-          desc: item.desc,
-          amount: item.amount,
-          originalId: item.id,
-        });
-      }
-    }
-  }
-
-  // 기간 필터 적용
-  const filteredRecords = displayRecords.filter((item) => {
-    if (periodPreset === "today") {
-      const now = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      if (!item.date.startsWith(today)) return false;
-    } else if (periodPreset === "7d") {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      if (new Date(item.date) < sevenDaysAgo) return false;
-    } else if (periodPreset === "30d") {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      if (new Date(item.date) < thirtyDaysAgo) return false;
-    } else if (periodPreset === "custom") {
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        if (new Date(item.date) < start) return false;
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        if (new Date(item.date) > end) return false;
-      }
-    }
-    return true;
-  });
+  const isIndividualOrTreasury = studentFilter !== "all";
+  const displayRecords = normalizeLedgerRecords(ledgerHistory, studentFilter, treasuryBalance, students, currencyName);
+  const filteredRecords = filterLedgerByPeriod(displayRecords, periodPreset, startDate, endDate);
 
   // 집계 계산 (국고 관점일 때는 정확한 국고 입출금 반영)
   const totalDeposit = filteredRecords.reduce((acc, cur) => (cur.amount > 0 ? acc + cur.amount : acc), 0);
@@ -249,7 +105,13 @@ export default function UnifiedLedgerModal({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <FileSpreadsheet className="w-5 h-5 text-indigo-600 shrink-0" />
-            <h2 className="font-extrabold text-slate-800 text-base truncate">학급 통합 입출금 내역</h2>
+            <h2 className="font-extrabold text-slate-800 text-base truncate">
+              {studentFilter === "treasury"
+                ? `학급 국고 입출금 이력 (잔고: ${treasuryBalance.toLocaleString()} ${currencyName})`
+                : studentFilter !== "all"
+                ? `${studentFilter} 학생 입출금 이력 (현재 잔액: ${(students.find((s) => s.name === studentFilter)?.balance ?? 0).toLocaleString()} ${currencyName})`
+                : "학급 통합 입출금 내역"}
+            </h2>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button
@@ -414,9 +276,19 @@ export default function UnifiedLedgerModal({
           <div className="sticky top-0 bg-slate-100 p-2 font-bold text-slate-600 grid grid-cols-12 text-center items-center">
             <span className="col-span-2">일시</span>
             <span className="col-span-1">유형</span>
-            <span className="col-span-2">대상</span>
-            <span className="col-span-4 text-left">내용</span>
-            <span className="col-span-2 text-right">금액</span>
+            {isIndividualOrTreasury ? (
+              <>
+                <span className="col-span-4 text-left pl-1">내용</span>
+                <span className="col-span-2 text-right">금액</span>
+                <span className="col-span-2 text-right pr-2">잔액</span>
+              </>
+            ) : (
+              <>
+                <span className="col-span-2">대상</span>
+                <span className="col-span-4 text-left">내용</span>
+                <span className="col-span-2 text-right">금액</span>
+              </>
+            )}
             <span className="col-span-1 text-center">취소</span>
           </div>
           {filteredRecords.length === 0 ? (
@@ -435,11 +307,27 @@ export default function UnifiedLedgerModal({
                     {item.type}
                   </span>
                 </span>
-                <span className="col-span-2 font-bold text-slate-700 truncate">{item.targetDisplay}</span>
-                <span className="col-span-4 text-left text-slate-600 truncate">{item.desc}</span>
-                <span className={`col-span-2 text-right font-mono font-bold ${item.amount >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                  {item.amount >= 0 ? `+${item.amount.toLocaleString()}` : item.amount.toLocaleString()}
-                </span>
+                {isIndividualOrTreasury ? (
+                  <>
+                    <span className="col-span-4 text-left pl-1 text-slate-700 font-medium truncate" title={item.desc}>
+                      {item.desc}
+                    </span>
+                    <span className={`col-span-2 text-right font-mono font-bold ${item.amount >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {item.amount >= 0 ? `+${item.amount.toLocaleString()}` : item.amount.toLocaleString()}
+                    </span>
+                    <span className="col-span-2 text-right pr-2 font-mono font-extrabold text-slate-800" title={`거래 후 잔액: ${item.balanceAfter !== undefined ? item.balanceAfter.toLocaleString() : "-"} ${currencyName}`}>
+                      {item.balanceAfter !== undefined ? `${item.balanceAfter.toLocaleString()} ${currencyName}` : "-"}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="col-span-2 font-bold text-slate-700 truncate">{item.targetDisplay}</span>
+                    <span className="col-span-4 text-left text-slate-600 truncate">{item.desc}</span>
+                    <span className={`col-span-2 text-right font-mono font-bold ${item.amount >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {item.amount >= 0 ? `+${item.amount.toLocaleString()}` : item.amount.toLocaleString()}
+                    </span>
+                  </>
+                )}
                 <span className="col-span-1 flex justify-center">
                   <button
                     type="button"
