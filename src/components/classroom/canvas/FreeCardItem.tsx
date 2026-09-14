@@ -160,28 +160,7 @@ export default function FreeCardItem({
         if (isDraggingRef.current) return;
         e.stopPropagation();
         onSelect?.(card.id);
-
-        // 텍스트 에디터 내부 클릭일 때만 블록 선택 / 커서 분기 수행
-        const isTargetEditor = editorRef.current && (e.target === editorRef.current || editorRef.current.contains(e.target as Node));
-        if (!isTargetEditor) return;
-
-        const sel = window.getSelection();
-        const isRangeInThis = sel && !sel.isCollapsed && sel.toString().length > 0 &&
-          Boolean(editorRef.current && (
-            editorRef.current.contains(sel.anchorNode) ||
-            editorRef.current.contains(sel.focusNode)
-          ));
-
-        // 비연속 클릭: 미포커스 상태에서 첫 진입 시 편집 모드 + 전체 블록 선택
-        // (단, 사용자가 드래그하여 일부 텍스트를 지정한 경우 전체 선택으로 덮어쓰지 않음)
-        if (!isRangeInThis && !wasFocusedRef.current) {
-          setIsEditing(true);
-          wasFocusedRef.current = true;
-          setTimeout(() => {
-            editorRef.current?.focus();
-            selectAllContent();
-          }, 30);
-        }
+        // 에디터 영역 클릭은 editorRef.onClick 에서 처리 (stopPropagation으로 여기까지 오지 않음)
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden relative ${
         isSelected
@@ -230,6 +209,17 @@ export default function FreeCardItem({
           onClick={(e) => {
             e.stopPropagation();
             onSelect?.(card.id);
+            // 드래그 직후 발생하는 click은 편집 진입 무시
+            if (isDraggingRef.current) return;
+            // 비편집 모드: 첫 클릭에서 편집 진입 + 포커스 (preventDefault로 막힌 자동 포커스 수동 복구)
+            if (!isFocused.current) {
+              setIsEditing(true);
+              wasFocusedRef.current = true;
+              setTimeout(() => {
+                editorRef.current?.focus();
+                selectAllContent();
+              }, 0);
+            }
           }}
           onMouseDown={(e) => {
             wasFocusedRef.current = document.activeElement === editorRef.current;
