@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { EyeOff, RefreshCw, X, Coins, FastForward, RotateCcw, CheckSquare, User } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig, LedgerRecord } from "@/types/classroom";
-import { resolveStudentName, parseRoutineFormat, parsePinchHitters, parsePinchHitterDetails, serializePinchHitters } from "@/lib/routineUtils";
+import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, serializePinchHitters, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 
 interface RoutineElementInCanvasProps {
@@ -25,20 +25,9 @@ interface RoutineElementInCanvasProps {
 }
 
 export default function RoutineElementInCanvas({
-  routine,
-  students,
-  currencyName = "원",
-  theme = "chalkboard",
-  customColor,
-  taxConfig,
-  ledgerHistory,
-  onPayRoutineToday,
-  onUpdateRoutine,
-  onAdvanceRoutine,
-  onSkipRoutineWorker,
-  onCancelSkipRoutineWorker,
-  onUndoLedgerEntry,
-  onSelect,
+  routine, students, currencyName = "원", theme = "chalkboard", customColor,
+  taxConfig, ledgerHistory, onPayRoutineToday, onUpdateRoutine, onAdvanceRoutine,
+  onSkipRoutineWorker, onCancelSkipRoutineWorker, onUndoLedgerEntry, onSelect,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
   const [workerPopupPos, setWorkerPopupPos] = useState<{ x: number; y: number } | null>(null);
@@ -69,13 +58,18 @@ export default function RoutineElementInCanvas({
     setContextMenu({ x, y });
   };
 
-  // 원본 루틴 배정자 (번호일 경우 학생 이름으로 자동 변환)
-  const rawWorkers = routine.order.length > 0
-    ? Array.from({ length: routine.slots }, (_, i) => resolveStudentName(routine.order[(routine.currentIdx + i) % routine.order.length], students))
-    : [];
+  // 현재 활성 당번 목록 (건너뛰기 반영, 대타 태그 미포함)
+  const rawWorkers = useMemo(
+    () => getActiveRoutineWorkers(routine, students, false),
+    [routine, students]
+  );
+  // 표시용 당번 목록 (수동 대타 지정 시에만 (대타) 태그 포함)
+  const workerList = useMemo(
+    () => getActiveRoutineWorkers(routine, students, true),
+    [routine, students]
+  );
 
   const pinchDetails = useMemo(() => parsePinchHitterDetails(routine.pinchHitterStudent), [routine.pinchHitterStudent]);
-  const pinchMap = useMemo(() => parsePinchHitters(routine.pinchHitterStudent), [routine.pinchHitterStudent]);
 
   const handlePinchChange = (val: string) => {
     if (onUpdateRoutine && activePopupIndex !== null) {
@@ -91,26 +85,27 @@ export default function RoutineElementInCanvas({
     if (workerIdx === null) return;
     if (onSkipRoutineWorker) {
       onSkipRoutineWorker(routine.id, workerIdx);
-    } else if (onUpdateRoutine && routine.order.length > 1) {
-      const nextIdx = (routine.currentIdx + 1) % routine.order.length;
+    } else if (onUpdateRoutine && rawWorkers[workerIdx]) {
       onUpdateRoutine(routine.id, {
-        currentIdx: nextIdx,
-        skipHistory: [...(routine.skipHistory || []), routine.currentIdx],
-        pinchHitterStudent: undefined,
+        skipHistory: [...(routine.skipHistory || []), rawWorkers[workerIdx]],
       });
     }
     setActivePopupIndex(null); setWorkerPopupPos(null);
   };
 
-  const handleCancelSkip = (workerIdx: number | null) => {
-    if (routine.skipHistory && routine.skipHistory.length > 0) {
-      if (onCancelSkipRoutineWorker) onCancelSkipRoutineWorker(routine.id);
-      else if (onUpdateRoutine) {
-        const hist = [...routine.skipHistory];
-        const prevIdx = hist.pop()!;
-        onUpdateRoutine(routine.id, { currentIdx: prevIdx, skipHistory: hist.length > 0 ? hist : undefined });
-      }
-    } else if (workerIdx !== null && onUpdateRoutine) {
+  const handleCancelSkip = () => {
+    if (onCancelSkipRoutineWorker) {
+      onCancelSkipRoutineWorker(routine.id);
+    } else if (onUpdateRoutine && routine.skipHistory && routine.skipHistory.length > 0) {
+      const hist = [...routine.skipHistory];
+      hist.pop();
+      onUpdateRoutine(routine.id, { skipHistory: hist.length > 0 ? hist : undefined });
+    }
+    setActivePopupIndex(null); setWorkerPopupPos(null);
+  };
+
+  const handleCancelPinch = (workerIdx: number | null) => {
+    if (workerIdx !== null && onUpdateRoutine) {
       const updated = { ...pinchDetails };
       delete updated[workerIdx];
       onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
@@ -138,13 +133,6 @@ export default function RoutineElementInCanvas({
     setWorkerPopupPos(null);
   };
 
-  const workerList = rawWorkers.map((originalName, idx) => {
-    const sub = pinchMap[idx];
-    const isSub = Boolean(sub && sub !== "none");
-    const subName = isSub ? resolveStudentName(sub, students) : "";
-    return isSub ? `${subName} (대타)` : originalName;
-  });
-
   const segments = parseRoutineFormat(routine.displayFormat, routine.name, workerList, routine.icon);
 
   const isFocusedRef = useRef(false);
@@ -165,33 +153,27 @@ export default function RoutineElementInCanvas({
         parts.push(escapeHtml(seg.text));
       } else {
         const workerIdx = seg.workerIndex ?? 0;
-        const originalName = rawWorkers[workerIdx] || "";
-        const sub = pinchMap[workerIdx];
-        const isSubstituted = Boolean(sub && sub !== "none");
-        const currentWorker = isSubstituted ? resolveStudentName(sub, students) : originalName;
+        const currentWorker = rawWorkers[workerIdx] || "";
+        const detail = pinchDetails[workerIdx];
+        const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
         const payStatus = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory);
-        let colorCls = "";
-        if (payStatus.isPaid) {
-          colorCls = theme === "white"
+        const colorCls = payStatus.isPaid
+          ? theme === "white"
             ? "text-lime-700 bg-lime-100/90 px-1 rounded font-black decoration-lime-600"
-            : "text-lime-300 font-extrabold decoration-lime-300 drop-shadow-[0_0_8px_rgba(163,230,53,0.85)]";
-        } else if (isSubstituted) {
-          colorCls = "text-amber-400 decoration-amber-400";
-        } else {
-          colorCls = customColor ? "" : workerColor;
-        }
+            : "text-lime-300 font-extrabold decoration-lime-300 drop-shadow-[0_0_8px_rgba(163,230,53,0.85)]"
+          : isSubstituted ? "text-amber-400 decoration-amber-400" : customColor ? "" : workerColor;
         const style = customColor && !isSubstituted && !payStatus.isPaid ? `style="color:${customColor};"` : "";
         const titleText = payStatus.isPaid
-          ? `${escapeHtml(currentWorker || "당번")} — ${payStatus.periodLabel} 지급 완료 (${payStatus.paidAt || "방금"}) · 클릭: 급여·대타 메뉴`
-          : `${escapeHtml(currentWorker || "당번")} — 클릭: 급여·대타 메뉴`;
+          ? `${escapeHtml(currentWorker || "당번")} — ${payStatus.periodLabel} 지급 완료 (${payStatus.paidAt || "방금"}) · 클릭: 메뉴`
+          : `${escapeHtml(currentWorker || "당번")} — 클릭: 메뉴`;
         parts.push(
-          `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${titleText}">${escapeHtml(seg.text)}</span>`
+          `<span data-worker-index="${workerIdx}" contenteditable="false" class="font-black underline decoration-2 cursor-pointer select-none whitespace-nowrap transition-all ${colorCls}" ${style} title="${titleText}">${escapeHtml(seg.text)}</span>`,
+          ZWSP
         );
-        parts.push(ZWSP);
       }
     });
     return parts.join("");
-  }, [segments, rawWorkers, pinchMap, students, customColor, workerColor, routine, ledgerHistory, theme]);
+  }, [segments, rawWorkers, pinchDetails, customColor, workerColor, routine, ledgerHistory, theme]);
 
   const expectedWorkerCount = segments.filter((s) => s.type === "worker").length;
 
@@ -202,20 +184,15 @@ export default function RoutineElementInCanvas({
     }
   }, [routineHtml]);
 
-  // 재귀적 노드 탐색으로 래핑 태그에 상관없이 안전하게 ? 플레이스홀더 템플릿 추출
   const extractTemplateFromNode = (node: Node): string => {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
     if (node instanceof HTMLElement) {
       if (node.dataset.workerIndex !== undefined || node.getAttribute("data-worker-index") !== null) return "?";
-      let acc = "";
-      for (const child of Array.from(node.childNodes)) acc += extractTemplateFromNode(child);
-      return acc;
+      return Array.from(node.childNodes).map(extractTemplateFromNode).join("");
     }
     return "";
   };
-
-  const extractTemplateFromDOM = (container: HTMLElement): string =>
-    extractTemplateFromNode(container).replace(/\u200B/g, "").trim();
+  const extractTemplateFromDOM = (container: HTMLElement): string => extractTemplateFromNode(container).replace(/\u200B/g, "").trim();
 
   const handleBlur = () => {
     isFocusedRef.current = false;
@@ -394,6 +371,17 @@ export default function RoutineElementInCanvas({
                 </button>
               )}
 
+              {Boolean(routine.skipHistory && routine.skipHistory.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => { handleCancelSkip(); setContextMenu(null); }}
+                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-rose-300 hover:text-rose-200"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="font-semibold">건너뛰기 취소 ({routine.skipHistory!.length})</span>
+                </button>
+              )}
+
               <div className="h-px bg-white/10 my-0.5" />
 
               {onAdvanceRoutine && (
@@ -429,11 +417,9 @@ export default function RoutineElementInCanvas({
       {mounted && activePopupIndex !== null && workerPopupPos && createPortal(
         (() => {
           const workerIdx = activePopupIndex;
-          const originalName = rawWorkers[workerIdx] || "";
+          const currentWorker = rawWorkers[workerIdx] || "";
           const detail = pinchDetails[workerIdx];
           const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
-          const isSkipped = Boolean(detail?.isSkip);
-          const currentWorker = isSubstituted ? resolveStudentName(detail.name, students) : originalName;
           const payStatus = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory);
           const isPaid = payStatus.isPaid;
 
@@ -450,7 +436,7 @@ export default function RoutineElementInCanvas({
                   <span className="font-extrabold text-white flex items-center gap-1">
                     <User className="w-3.5 h-3.5" />
                     <span className={isPaid ? "text-lime-300 font-black" : "text-amber-300"}>{currentWorker}</span>
-                    {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">({isSkipped ? "건너뜀" : "대타"})</span>}
+                    {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">(대타)</span>}
                   </span>
                   <button
                     type="button"
@@ -468,19 +454,30 @@ export default function RoutineElementInCanvas({
                     type="button"
                     onClick={() => handleSkipWorker(workerIdx)}
                     className="w-full py-1.5 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 active:scale-95 text-amber-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-amber-500/30"
-                    title={isSubstituted ? "다음 순번 학생으로 다시 건너뜁니다" : "이 학생을 건너뛰고 다음 순번 학생을 대타로 지정합니다"}
+                    title="이 학생을 건너뛰고 다음 순번 학생으로 당깁니다"
                   >
                     <FastForward className="w-3.5 h-3.5" /><span>이 학생 건너뛰기</span>
                   </button>
-                  {(isSubstituted || Boolean(routine.skipHistory && routine.skipHistory.length > 0)) && (
+                  {isSubstituted && (
                     <button
                       type="button"
-                      onClick={() => handleCancelSkip(workerIdx)}
+                      onClick={() => handleCancelPinch(workerIdx)}
                       className="w-full py-1.5 px-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-rose-500/30 cursor-pointer"
-                      title={routine.skipHistory && routine.skipHistory.length > 0 ? `건너뛰기를 1회 취소하고 이전 순번으로 복원합니다 (${routine.skipHistory.length}회 남음)` : "대타 지정을 취소하고 원래 당번 학생으로 복원합니다"}
+                      title="대타 지정을 취소하고 원래 당번 학생으로 복원합니다"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span>{routine.skipHistory && routine.skipHistory.length > 0 ? `건너뛰기 취소 (${routine.skipHistory.length})` : "대타 취소"}</span>
+                      <span>대타 취소</span>
+                    </button>
+                  )}
+                  {Boolean(routine.skipHistory && routine.skipHistory.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={handleCancelSkip}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-rose-500/30 cursor-pointer"
+                      title={`가장 최근 건너뛴 학생부터 복원합니다 (${routine.skipHistory?.length || 0}회 남음)`}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>건너뛰기 취소 ({routine.skipHistory?.length || 0})</span>
                     </button>
                   )}
                 </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Coins, Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts, LedgerRecord } from "@/types/classroom";
-import { resolveStudentName, parseRoutineFormat, parsePinchHitters } from "@/lib/routineUtils";
+import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
@@ -272,20 +272,9 @@ export default function BoardClient({
       {/* 글상자 4: 루틴 당번 글상자 (각 업무별 독립 요소) */}
       {isBoxVisibleToday(layouts.routineBox?.visible, layouts.routineBox?.visibleDays) &&
         routines.filter((r) => r.visibleInNotice !== false).map((r, idx) => {
-          const rawWorkers =
-            r.order.length > 0
-              ? Array.from({ length: r.slots }, (_, i) => {
-                  const raw = r.order[(r.currentIdx + i) % r.order.length];
-                  return resolveStudentName(raw, students);
-                })
-              : [];
-          const pinchMap = parsePinchHitters(r.pinchHitterStudent);
-          const workerList = rawWorkers.map((originalName, wIdx) => {
-            const sub = pinchMap[wIdx];
-            const isSubstituted = Boolean(sub && sub !== "none");
-            const subName = isSubstituted ? resolveStudentName(sub, students) : "";
-            return isSubstituted ? `${subName} (대타)` : originalName;
-          });
+          const rawWorkers = getActiveRoutineWorkers(r, students, false);
+          const workerList = getActiveRoutineWorkers(r, students, true);
+          const pinchDetails = parsePinchHitterDetails(r.pinchHitterStudent);
 
           const segments = parseRoutineFormat(
             r.displayFormat,
@@ -334,10 +323,9 @@ export default function BoardClient({
                   );
                 }
                 const workerIdx = seg.workerIndex ?? 0;
-                const originalName = rawWorkers[workerIdx] || "";
-                const sub = pinchMap[workerIdx];
-                const isSubstituted = Boolean(sub && sub !== "none");
-                const currentWorker = isSubstituted ? resolveStudentName(sub, students) : originalName;
+                const currentWorker = rawWorkers[workerIdx] || "";
+                const detail = pinchDetails[workerIdx];
+                const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
                 const payStatus = checkStudentRoutinePaid(r, currentWorker, ledgerHistory);
 
                 let workerColorCls = "";

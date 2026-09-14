@@ -1,4 +1,4 @@
-import { ClassroomStudent } from "@/types/classroom";
+import { ClassroomStudent, ClassroomRoutine } from "@/types/classroom";
 
 /**
  * 루틴 담당자 항목(번호, 번호+이름, 또는 이름)을 실제 학생 이름으로 변환합니다.
@@ -178,4 +178,60 @@ export function serializePinchHitters(
   const obj: Record<string, string | PinchHitterEntry> = {};
   validEntries.forEach(([k, v]) => { obj[k] = v; });
   return JSON.stringify(obj);
+}
+
+/**
+ * 루틴의 현재 당번 목록을 계산합니다.
+ * 1. skipHistory (건너뛰기된 학생 이름/번호 목록)에 있는 학생은 건너뛰고,
+ *    다음 순번 학생들로 당겨서 r.slots 명을 채웁니다. (대타 표시 없음)
+ * 2. 수동 대타(pinchHitterStudent)가 지정된 슬롯이 있다면 해당 슬롯을 치환합니다.
+ *    (includePinchTag=true 인 경우 '홍길동 (대타)' 형식으로 반환)
+ */
+export function getActiveRoutineWorkers(
+  routine: ClassroomRoutine,
+  students: ClassroomStudent[] = [],
+  includePinchTag: boolean = false
+): string[] {
+  if (!routine.order || routine.order.length === 0) return [];
+
+  // 건너뛰기 목록을 학생 이름으로 정규화 (문자열 또는 기존 숫자 인덱스 지원)
+  const skipNames = (routine.skipHistory || []).map((item) => {
+    if (typeof item === "number") {
+      const raw = routine.order[item % routine.order.length];
+      return resolveStudentName(raw, students);
+    }
+    return resolveStudentName(item, students);
+  });
+
+  const slotsTarget = Math.max(1, routine.slots || 1);
+  const total = routine.order.length;
+  const activeWorkers: string[] = [];
+
+  let idx = routine.currentIdx || 0;
+  let inspectedCount = 0;
+  // 순환 목록을 돌면서 스킵되지 않은 학생을 slotsTarget 만큼 차례대로 수집
+  while (activeWorkers.length < Math.min(slotsTarget, total) && inspectedCount < total * 2) {
+    const rawStudent = routine.order[idx % total];
+    const studentName = resolveStudentName(rawStudent, students);
+
+    // 스킵 목록에 없고, 전체 인원이 slots 이상인 경우 active에 중복되지 않는 학생만 추가
+    if (!skipNames.includes(studentName)) {
+      if (!activeWorkers.includes(studentName) || total <= activeWorkers.length) {
+        activeWorkers.push(studentName);
+      }
+    }
+    idx++;
+    inspectedCount++;
+  }
+
+  // 수동 대타 지정(pinchHitterStudent) 치환 적용
+  const pinchMap = parsePinchHitters(routine.pinchHitterStudent);
+  return activeWorkers.map((name, slotIdx) => {
+    const manualSub = pinchMap[slotIdx];
+    if (manualSub && manualSub !== "none") {
+      const subName = resolveStudentName(manualSub, students);
+      return includePinchTag ? `${subName} (대타)` : subName;
+    }
+    return name;
+  });
 }

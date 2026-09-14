@@ -15,7 +15,7 @@ import {
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
 import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
-import { parsePinchHitters, parsePinchHitterDetails, serializePinchHitters, resolveStudentName } from "@/lib/routineUtils";
+import { parsePinchHitters, parsePinchHitterDetails, serializePinchHitters, resolveStudentName, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 
@@ -548,11 +548,13 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         prev.map((r) => {
           if (r.id !== id) return r;
           if (r.order.length === 0) return r;
-          const nextIdx = (r.currentIdx + r.slots) % r.order.length;
+          const skips = r.skipHistory?.length || 0;
+          const step = Math.max(1, r.slots + skips);
+          const nextIdx = (r.currentIdx + step) % r.order.length;
           return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined, skipHistory: undefined };
         })
       );
-      showToast("업무 순환이 진행되었습니다. (당일 대타 설정 초기화)");
+      showToast("업무 순환이 진행되었습니다. (당일 대타 및 건너뛰기 설정 초기화)");
     },
     [showToast]
   );
@@ -567,35 +569,38 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           return { ...r, currentIdx: prevIdx, pinchHitterStudent: undefined, skipHistory: undefined };
         })
       );
-      showToast("이전 순번으로 돌아갔습니다. (당일 대타 설정 초기화)");
+      showToast("이전 순번으로 돌아갔습니다. (당일 대타 및 건너뛰기 설정 초기화)");
     },
     [showToast]
   );
 
   const skipRoutineWorker = useCallback(
-    (id: string) => {
+    (id: string, workerIndex?: number) => {
       let skippedName = "";
-      let nextName = "";
       let remainingCount = 0;
       setRoutines((prev) =>
         prev.map((r) => {
           if (r.id !== id || r.order.length <= 1) return r;
-          const currentWorker = r.order[r.currentIdx % r.order.length];
-          skippedName = resolveStudentName(currentWorker, students);
-          const nextIdx = (r.currentIdx + 1) % r.order.length;
-          nextName = resolveStudentName(r.order[nextIdx], students);
-          const history = [...(r.skipHistory || []), r.currentIdx];
+          const activeWorkers = getActiveRoutineWorkers(r, students, false);
+          if (activeWorkers.length === 0) return r;
+          const targetIdx =
+            workerIndex !== undefined && workerIndex >= 0 && workerIndex < activeWorkers.length
+              ? workerIndex
+              : 0;
+          const targetStudent = activeWorkers[targetIdx];
+          if (!targetStudent) return r;
+
+          skippedName = targetStudent;
+          const history = [...(r.skipHistory || []), targetStudent];
           remainingCount = history.length;
           return {
             ...r,
-            currentIdx: nextIdx,
             skipHistory: history,
-            pinchHitterStudent: undefined,
           };
         })
       );
-      if (skippedName && nextName) {
-        showToast(`[건너뛰기] ${skippedName} 학생을 건너뛰고 ${nextName} 학생으로 밀렸습니다. (누적 ${remainingCount}회)`);
+      if (skippedName) {
+        showToast(`[건너뛰기] ${skippedName} 학생을 건너뛰고 다음 순번으로 당겨졌습니다. (누적 ${remainingCount}회)`);
       }
     },
     [students, showToast]
@@ -607,14 +612,16 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       let remainingCount = 0;
       setRoutines((prev) =>
         prev.map((r) => {
-          if (r.id !== id || r.order.length === 0 || !r.skipHistory || r.skipHistory.length === 0) return r;
+          if (r.id !== id || !r.skipHistory || r.skipHistory.length === 0) return r;
           const history = [...r.skipHistory];
-          const restoredIdx = history.pop()!;
-          restoredName = resolveStudentName(r.order[restoredIdx % r.order.length], students);
+          const popped = history.pop()!;
+          restoredName = resolveStudentName(
+            typeof popped === "number" ? r.order[popped % r.order.length] : popped,
+            students
+          );
           remainingCount = history.length;
           return {
             ...r,
-            currentIdx: restoredIdx,
             skipHistory: history.length > 0 ? history : undefined,
           };
         })
@@ -622,8 +629,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       if (restoredName) {
         showToast(
           remainingCount > 0
-            ? `[건너뛰기 취소] ${restoredName} 학생으로 복원되었습니다. (남은 취소 가능: ${remainingCount}회)`
-            : `[건너뛰기 취소] 최초 순번(${restoredName})으로 모두 복원되었습니다.`
+            ? `[건너뛰기 취소] 최근 건너뛴 ${restoredName} 학생으로 복원되었습니다. (남은 취소 가능: ${remainingCount}회)`
+            : `[건너뛰기 취소] 건너뛴 ${restoredName} 학생이 복원되어 최초 순번으로 돌아왔습니다.`
         );
       }
     },
@@ -634,11 +641,13 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     setRoutines((prev) =>
       prev.map((r) => {
         if (r.order.length === 0) return r;
-        const nextIdx = (r.currentIdx + r.slots) % r.order.length;
+        const skips = r.skipHistory?.length || 0;
+        const step = Math.max(1, r.slots + skips);
+        const nextIdx = (r.currentIdx + step) % r.order.length;
         return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined, skipHistory: undefined };
       })
     );
-    showToast("전체 학생 업무 순환이 진행되었습니다.");
+    showToast("전체 학생 업무 순환이 진행되었습니다. (당일 대타 및 건너뛰기 설정 초기화)");
   }, [showToast]);
 
   const updateRoutineOrder = useCallback(
@@ -665,19 +674,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const r = routines.find((x) => x.id === id);
       if (!r || r.pay <= 0 || r.order.length === 0) return;
 
-      const rawWorkers = Array.from(
-        { length: r.slots },
-        (_, i) => r.order[(r.currentIdx + i) % r.order.length]
-      );
-
-      const pinchMap = parsePinchHitters(r.pinchHitterStudent);
+      const activeWorkers = getActiveRoutineWorkers(r, students, false);
       const targetWorkers =
         customWorkerNames && customWorkerNames.length > 0
           ? customWorkerNames
-          : rawWorkers.map((raw, idx) => {
-              const sub = pinchMap[idx];
-              return sub && sub !== "none" ? resolveStudentName(sub, students) : raw;
-            });
+          : activeWorkers;
 
       // 세금 공제: applyTax가 true이고 비과세가 아닐 때 단일 세율 적용
       const shouldDeductTax = applyTax && taxConfig.taxMethod !== "TAX_FREE";
@@ -753,15 +754,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         const nextStudents = [...prev];
 
         for (const r of payable) {
-          const rawWorkers = Array.from(
-            { length: r.slots },
-            (_, i) => r.order[(r.currentIdx + i) % r.order.length]
-          );
-          const pinchMap = parsePinchHitters(r.pinchHitterStudent);
-          const targetWorkers = rawWorkers.map((raw, idx) => {
-            const sub = pinchMap[idx];
-            return sub && sub !== "none" ? resolveStudentName(sub, students) : raw;
-          });
+          const targetWorkers = getActiveRoutineWorkers(r, students, false);
 
           // 이미 지급된 당번 제외
           const unpaidWorkers = targetWorkers.filter(
