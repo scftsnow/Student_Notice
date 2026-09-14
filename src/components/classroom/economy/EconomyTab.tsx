@@ -1,6 +1,5 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ClassroomStudent, ClassroomRoutine, TaxConfig, CustomBundle, LedgerRecord } from "@/types/classroom";
 import TaxSettingsModal from "./TaxSettingsModal";
 import DirectTaxModal from "./DirectTaxModal";
@@ -9,9 +8,7 @@ import DepositModal from "./DepositModal";
 import UnifiedLedgerModal from "./UnifiedLedgerModal";
 import CreateBundleModal from "./CreateBundleModal";
 import QuickDepositBar from "./QuickDepositBar";
-
 import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, User, ArrowUpRight } from "lucide-react";
-
 interface EconomyTabProps {
   students: ClassroomStudent[]; routines: ClassroomRoutine[];
   treasuryBalance: number; totalTaxCollected: number;
@@ -29,7 +26,6 @@ interface EconomyTabProps {
   onUndoLedgerEntry?: (id?: number | string) => void;
   onRedoLedgerEntry?: (id?: number | string) => void;
 }
-
 export default function EconomyTab({
   students, routines, treasuryBalance, totalTaxCollected, taxConfig, customBundles,
   ledgerHistory, undoneLedgerHistory, currencyName = "원", onUpdateCurrencyName,
@@ -46,23 +42,46 @@ export default function EconomyTab({
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
   const [editingBundle, setEditingBundle] = useState<CustomBundle | null>(null);
   const [routineTaxChecked, setRoutineTaxChecked] = useState<Record<string, boolean>>({});
-
+  const [bundleOrder, setBundleOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("classroom_bundle_order");
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved);
+        const current = customBundles.map((b) => b.id);
+        const filtered = parsed.filter((id) => current.includes(id));
+        const added = current.filter((id) => !parsed.includes(id));
+        return [...filtered, ...added];
+      }
+    } catch {
+      // ignore
+    }
+    return customBundles.map((b) => b.id);
+  });
+  const dragIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    setBundleOrder((prev) => {
+      const existing = new Set(prev);
+      const newIds = customBundles.map((b) => b.id);
+      const filtered = prev.filter((id) => newIds.includes(id));
+      const added = newIds.filter((id) => !existing.has(id));
+      const next = [...filtered, ...added];
+      try { localStorage.setItem("classroom_bundle_order", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, [customBundles]);
   const handleOpenAddBundle = () => {
     setEditingBundle(null);
     setIsBundleModalOpen(true);
   };
-
   const handleEditBundle = (bundle: CustomBundle) => {
     setEditingBundle(bundle);
     setIsBundleModalOpen(true);
   };
-
   const handleDeleteBundle = (id: string, name: string) => {
     if (confirm(`복합 정산 항목 '${name}'을(를) 삭제하시겠습니까?`)) {
       onDeleteBundle?.(id);
     }
   };
-
   const handleSaveBundle = (bundle: CustomBundle) => {
     if (editingBundle && onUpdateBundle) {
       onUpdateBundle(bundle);
@@ -70,22 +89,18 @@ export default function EconomyTab({
       onAddBundle(bundle);
     }
   };
-
   const toggleCheck = (name: string) => {
     setCheckedNames((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
     );
   };
-
   const toggleAll = (checked: boolean) => {
     setCheckedNames(checked ? students.map((s) => s.name) : []);
   };
-
   const handleDepositSelected = () => {
     if (checkedNames.length === 0) { alert("선택된 학생이 없습니다."); return; }
     setIsDepositOpen(true);
   };
-
   const handleOpenEconomyBoard = () => {
     const width = 1280;
     const height = 720;
@@ -97,16 +112,33 @@ export default function EconomyTab({
       `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`
     );
   };
-
+  const handleBundleDragStart = (id: string) => {
+    dragIdRef.current = id;
+  };
+  const handleBundleDrop = (targetId: string) => {
+    const fromId = dragIdRef.current;
+    if (!fromId || fromId === targetId) return;
+    setBundleOrder((prev) => {
+      const arr = [...prev];
+      const fromIdx = arr.indexOf(fromId);
+      const toIdx = arr.indexOf(targetId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, fromId);
+      try { localStorage.setItem("classroom_bundle_order", JSON.stringify(arr)); } catch { /* ignore */ }
+      return arr;
+    });
+    dragIdRef.current = null;
+  };
   const payoutLabel = taxConfig.salaryPayoutMode === "AUTO_ON_CONFIRM" ? "즉시 자동" : "담임 승인제";
   const taxMethodLabel =
     taxConfig.taxMethod === "TAX_FREE" ? "세금없음" : "원천징수";
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start text-sm">
-      {/* ── 좌측: 기능 패널 ── */}
-      <div className="lg:col-span-4 xl:col-span-3 space-y-2">
-
+    <>
+      <div className="flex flex-col gap-3 text-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+          {/* ── 좌측: 기능 패널 ── */}
+          <div className="lg:col-span-4 space-y-2">
         {/* 1. 국고 — 1줄 */}
         <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-2">
           <span className="text-[11px] text-slate-400 font-bold shrink-0 flex items-center gap-1"><Landmark className="w-3.5 h-3.5" /> 국고</span>
@@ -129,7 +161,6 @@ export default function EconomyTab({
             입·출금
           </button>
         </div>
-
         {/* 2. 화폐·세무 정책 — 3열 */}
         <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-100 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
@@ -187,7 +218,6 @@ export default function EconomyTab({
             )}
           </dl>
         </div>
-
         {/* 3. 재정 실행 — 타이틀 없이 버튼 2개 */}
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -206,148 +236,9 @@ export default function EconomyTab({
             <span>입금 / 차감{checkedNames.length > 0 ? ` (${checkedNames.length}명)` : ""}</span>
           </button>
         </div>
-        {/* 4. 복합 정산 */}
-        <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-700 text-xs">복합 정산</span>
-            <button
-              type="button"
-              onClick={handleOpenAddBundle}
-              className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 font-bold text-[11px] border border-slate-200 transition-all"
-            >
-              + 항목 추가
-            </button>
-          </div>
-
-          {/* 루틴 급여 자동 항목 */}
-          {routines.filter((r) => r.pay > 0).length > 0 && (
-            <div className="space-y-1">
-              {routines
-                .filter((r) => r.pay > 0)
-                .map((r) => {
-                  const workers =
-                    r.order.length > 0
-                      ? Array.from({ length: r.slots }, (_, i) =>
-                          r.order[(r.currentIdx + i) % r.order.length]
-                        )
-                      : [];
-                  return (
-                    <div key={r.id} className="px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 text-xs truncate">{r.name}</div>
-                        <p className="text-[10px] text-slate-500 truncate">
-                          {workers.length > 0 ? workers.join(", ") : "당번 없음"} · {r.pay.toLocaleString()} {currencyName}
-                        </p>
-                      </div>
-                      {taxConfig.taxMethod !== "TAX_FREE" && (
-                        <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer select-none shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true}
-                            onChange={(e) => setRoutineTaxChecked((p) => ({ ...p, [r.id]: e.target.checked }))}
-                            className="rounded text-indigo-600 w-3 h-3"
-                          />
-                          <span>세금 부과</span>
-                        </label>
-                      )}
-                      <button
-                        type="button"
-                        disabled={workers.length === 0}
-                        onClick={() => {
-                          const isChecked = routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true;
-                          onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, isChecked);
-                        }}
-                        className="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                      >
-                        지급
-                      </button>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
-
-          {/* 커스텀 번들 */}
-          {customBundles.length === 0 && routines.filter((r) => r.pay > 0).length === 0 ? (
-            <p className="text-[11px] text-slate-400 text-center py-1">등록된 항목 없음</p>
-          ) : customBundles.length > 0 ? (
-            <div className="space-y-1">
-              {customBundles.map((b) => (
-                <div key={b.id} className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-slate-800 text-xs truncate">{b.name}</div>
-                    {b.desc && <p className="text-[10px] text-slate-400 truncate">{b.desc}</p>}
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {b.actions.map((act, i) => {
-                        const isTreasury = act.target === "treasury";
-                        const targetLabel = isTreasury
-                          ? "국고"
-                          : act.target === "all"
-                          ? "전체"
-                          : act.target === "selected"
-                          ? "선택"
-                          : act.target === "unselected"
-                          ? "미선택"
-                          : `${act.specificTargets?.length || 0}명`;
-                        const sign = act.type === "deposit" ? "+" : "-";
-                        return (
-                          <span
-                            key={i}
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold inline-flex items-center gap-0.5 ${
-                              isTreasury
-                                ? "bg-amber-100 text-amber-800 border border-amber-300"
-                                : act.type === "deposit"
-                                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                                : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}
-                          >
-                            <span>{targetLabel}</span>
-                            <span>
-                              {sign}
-                              {act.amount.toLocaleString()}
-                              {currencyName}
-                            </span>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleEditBundle(b)}
-                      title="복합 정산 수정"
-                      className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-200/70 transition-colors"
-                      aria-label="복합 정산 수정"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBundle(b.id, b.name)}
-                      title="복합 정산 삭제"
-                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                      aria-label="복합 정산 삭제"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onExecuteBundle(b.id, checkedNames)}
-                      className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
-                    >
-                      실행
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
       </div>
-
       {/* ── 우측: 학생 계좌 카드 그리드 ── */}
-      <div className="lg:col-span-8 xl:col-span-9 flex flex-col bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden h-[calc(100vh-10.5rem)] min-h-[520px]">
+      <div className="lg:col-span-8 flex flex-col bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden h-[calc(100vh-16rem)] min-h-[360px]">
         <div className="px-3.5 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="font-extrabold text-slate-900 text-sm shrink-0">학생별 계좌</span>
@@ -397,7 +288,6 @@ export default function EconomyTab({
             </button>
           </div>
         </div>
-
         <div className="flex-1 overflow-y-auto min-h-0 p-2.5">
           {students.length === 0 ? (
             <div className="h-full flex items-center justify-center text-slate-400 font-bold text-sm">
@@ -433,7 +323,6 @@ export default function EconomyTab({
                         className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5 shrink-0"
                       />
                     </div>
-
                     {/* 하단: 잔액 + 내역 버튼 */}
                     <div className="mt-1.5 pt-1 border-t border-slate-100 flex items-center justify-between gap-1">
                       <div className="font-black text-xs font-mono text-indigo-700 leading-none truncate">
@@ -458,7 +347,144 @@ export default function EconomyTab({
           )}
         </div>
       </div>
-
+      </div>{/* 상단 행 닫기 */}
+      {/* ── 하단: 복합 정산 전폭 패널 ── */}
+      <div className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-slate-700 text-xs">복합 정산</span>
+          <button
+            type="button"
+            onClick={handleOpenAddBundle}
+            className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-600 hover:text-indigo-700 font-bold text-[11px] border border-slate-200 transition-all"
+          >
+            + 항목 추가
+          </button>
+        </div>
+        {customBundles.length === 0 && routines.filter((r) => r.pay > 0).length === 0 ? (
+          <p className="text-[11px] text-slate-400 text-center py-1">등록된 항목 없음</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+            {/* 루틴 자동 항목 (드래그 불가) */}
+            {routines
+              .filter((r) => r.pay > 0)
+              .map((r) => {
+                const workers =
+                  r.order.length > 0
+                    ? Array.from({ length: r.slots }, (_, i) =>
+                        r.order[(r.currentIdx + i) % r.order.length]
+                      )
+                    : [];
+                return (
+                  <div key={r.id} className="px-2.5 py-2 rounded-lg bg-amber-50 border border-amber-200 flex flex-col gap-1.5">
+                    <div className="font-bold text-slate-800 text-xs truncate">{r.name}</div>
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {workers.length > 0 ? workers.join(", ") : "당번 없음"} · {r.pay.toLocaleString()} {currencyName}
+                    </p>
+                    <div className="flex items-center justify-between mt-auto pt-1 border-t border-amber-100">
+                      {taxConfig.taxMethod !== "TAX_FREE" && (
+                        <label className="flex items-center gap-1 text-[10px] text-slate-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true}
+                            onChange={(e) => setRoutineTaxChecked((p) => ({ ...p, [r.id]: e.target.checked }))}
+                            className="rounded text-indigo-600 w-3 h-3"
+                          />
+                          <span>세금</span>
+                        </label>
+                      )}
+                      <button
+                        type="button"
+                        disabled={workers.length === 0}
+                        onClick={() => {
+                          const isChecked = routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true;
+                          onExecuteBatchDeposit(workers, r.pay, `[${r.name}] 업무 급여`, isChecked);
+                        }}
+                        className="ml-auto px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                      >
+                        지급
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            {/* 커스텀 번들 (드래그로 재정렬 가능) */}
+            {bundleOrder
+              .map((id) => customBundles.find((b) => b.id === id))
+              .filter((b): b is CustomBundle => b !== undefined)
+              .map((b) => (
+                <div
+                  key={b.id}
+                  draggable
+                  onDragStart={() => handleBundleDragStart(b.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleBundleDrop(b.id)}
+                  className="px-2.5 py-2 rounded-lg bg-slate-50 border border-slate-200 flex flex-col gap-1.5 cursor-grab active:cursor-grabbing active:opacity-60 transition-opacity"
+                >
+                  <div className="font-bold text-slate-800 text-xs truncate">{b.name}</div>
+                  {b.desc && <p className="text-[10px] text-slate-400 truncate">{b.desc}</p>}
+                  <div className="flex flex-wrap gap-1">
+                    {b.actions.map((act, i) => {
+                      const isTreasury = act.target === "treasury";
+                      const targetLabel = isTreasury
+                        ? "국고"
+                        : act.target === "all"
+                        ? "전체"
+                        : act.target === "selected"
+                        ? "선택"
+                        : act.target === "unselected"
+                        ? "미선택"
+                        : `${act.specificTargets?.length || 0}명`;
+                      const sign = act.type === "deposit" ? "+" : "-";
+                      return (
+                        <span
+                          key={i}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold inline-flex items-center gap-0.5 ${
+                            isTreasury
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
+                              : act.type === "deposit"
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              : "bg-rose-50 text-rose-700 border border-rose-200"
+                          }`}
+                        >
+                          <span>{targetLabel}</span>
+                          <span>{sign}{act.amount.toLocaleString()}{currencyName}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-1 mt-auto pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleEditBundle(b)}
+                      title="복합 정산 수정"
+                      className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-slate-200/70 transition-colors"
+                      aria-label="복합 정산 수정"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBundle(b.id, b.name)}
+                      title="복합 정산 삭제"
+                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      aria-label="복합 정산 삭제"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onExecuteBundle(b.id, checkedNames)}
+                      className="ml-auto px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
+                    >
+                      실행
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+    </div>{/* flex flex-col 닫기 */}
       {/* ── 복합정산 등록/수정 모달 ── */}
       <CreateBundleModal
         isOpen={isBundleModalOpen}
@@ -472,7 +498,6 @@ export default function EconomyTab({
         onSave={handleSaveBundle}
         initialBundle={editingBundle}
       />
-
       {/* ── 모달 렌더링 ── */}
       <TaxSettingsModal
         isOpen={isTaxSettingsOpen}
@@ -518,6 +543,6 @@ export default function EconomyTab({
         initialStudentFilter={ledgerModalStudent || "all"}
         currencyName={currencyName}
       />
-    </div>
+    </>
   );
 }
