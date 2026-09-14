@@ -117,3 +117,56 @@ export interface LedgerEntryItem {
   account?: StudentAccount;
   createdAt: Date;
 }
+
+// --- Pick (뽑기 메뉴) 공용 타입 ---
+
+export interface PickStudent {
+  id: string;
+  studentNumber: number;
+  name: string;
+  gender: string | null;
+  status: string;
+}
+
+export type SeatFillFrom = "front" | "back";
+export type SeatGenderMode = "ignore" | "pair" | "separate";
+
+export interface SeatConfig {
+  divisions: number;
+  colsPerDivision: number;
+  fillFrom: SeatFillFrom;
+  genderMode: SeatGenderMode;
+}
+
+export interface SeatCellState {
+  key: string;
+  row: number;
+  col: number;
+  division: number;
+  enabled: boolean;
+  lockedGender: "남" | "여" | null;
+  fixedStudentId: string | null;
+  studentId: string | null;
+}
+
+export type ActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+export interface SeatLayoutItem {
+  id: string;
+  name: string;
+  divisions: number;
+  colsPerDivision: number;
+  fillFrom: string;
+  cellsJson: string;
+}
+
+export interface SeatAssignmentItem {
+  id: string;
+  name: string;
+  layoutId: string | null;
+  configJson: string;
+  cellsJson: string;
+  namesJson: string;
+}

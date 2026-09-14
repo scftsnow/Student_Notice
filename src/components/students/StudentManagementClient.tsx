@@ -27,6 +27,7 @@ export default function StudentManagementClient({
 }: StudentManagementClientProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "ABSENT">("ALL");
+  const [genderFilter, setGenderFilter] = useState<"ALL" | "남" | "여" | "NONE">("ALL");
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -50,7 +51,13 @@ export default function StudentManagementClient({
       String(s.studentNumber).includes(searchTerm);
     const matchesFilter =
       statusFilter === "ALL" ? true : s.status === statusFilter;
-    return matchesSearch && matchesFilter;
+    const matchesGender =
+      genderFilter === "ALL"
+        ? true
+        : genderFilter === "NONE"
+          ? s.gender !== "남" && s.gender !== "여"
+          : s.gender === genderFilter;
+    return matchesSearch && matchesFilter && matchesGender;
   });
 
   const handleOpenAddModal = () => {
@@ -215,6 +222,28 @@ export default function StudentManagementClient({
           >
             결석 ({initialStudents.filter((s) => s.status === "ABSENT").length})
           </button>
+        </div>
+
+        {/* Gender Filters */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          {(
+            [
+              { v: "ALL", label: "전체 성별" },
+              { v: "남", label: "남" },
+              { v: "여", label: "여" },
+              { v: "NONE", label: "미지정" },
+            ] as { v: "ALL" | "남" | "여" | "NONE"; label: string }[]
+          ).map((o) => (
+            <button
+              key={o.v}
+              onClick={() => setGenderFilter(o.v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                genderFilter === o.v ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
       </div>
 

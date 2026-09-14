@@ -142,3 +142,36 @@ model ClassroomSnapshot {
   data      String   // JSON blob of classroom_os_state_v3
   updatedAt DateTime @updatedAt
 }
+
+model SeatLayout {
+  id              String   @id @default(cuid())
+  name            String
+  divisions       Int
+  colsPerDivision Int
+  fillFrom        String   @default("back")
+  cellsJson       String // 틀 셀 배열 (enabled, lockedGender, row/col/division)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SeatAssignment {
+  id         String   @id @default(cuid())
+  name       String
+  layoutId   String?
+  configJson String // 사용된 SeatConfig 스냅샷
+  cellsJson  String // 셀별 studentId + fixedStudentId 스냅샷
+  namesJson  String // 학생 이름 스냅샷 (id → 이름)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model GroupSet {
+  id         String   @id @default(cuid())
+  name       String
+  mode       String // "uniform" | "custom"
+  genderMode String // "ignore" | "separate"
+  groupsJson String // 모둠별 학생 id 배열
+  namesJson  String // 학생 이름 스냅샷 (id → 이름)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
