@@ -77,7 +77,7 @@ export default function RecentLedgerPanel({
                 onOpenModal();
               }
             }}
-            title={onOpenModal ? "클릭 시 전체 입출금 이력 모달 열기" : undefined}
+            title={onOpenModal ? "클릭 시 전체 입출금 이력 보기" : undefined}
           >
             <History className="w-3.5 h-3.5 text-indigo-600 shrink-0 group-hover/title:scale-110 transition-transform" />
             <span className="text-[11px] font-extrabold text-slate-800 tracking-tight shrink-0 group-hover/title:text-indigo-600">
@@ -276,7 +276,7 @@ export default function RecentLedgerPanel({
                 className="flex-1 py-1.5 flex items-center justify-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors cursor-pointer select-none"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>전체 이력 모달 ↗</span>
+                <span>전체 이력 ↗</span>
               </button>
             )}
           </div>

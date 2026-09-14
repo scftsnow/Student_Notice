@@ -292,7 +292,7 @@ export default function EconomyTab({
               등록된 학생 계좌가 없습니다.
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(118px,1fr))] gap-1.5">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(155px,1fr))] gap-1.5">
               {students.map((s) => {
                 const isChecked = checkedNames.includes(s.name);
                 return (
@@ -378,14 +378,14 @@ export default function EconomyTab({
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {taxConfig.taxMethod !== "TAX_FREE" && (
-                        <label className="flex items-center gap-0.5 text-[10px] text-slate-600 cursor-pointer select-none">
+                        <label className="flex items-center gap-1 text-[11px] text-slate-600 cursor-pointer select-none shrink-0 whitespace-nowrap">
                           <input
                             type="checkbox"
                             checked={routineTaxChecked[r.id] !== undefined ? Boolean(routineTaxChecked[r.id]) : true}
                             onChange={(e) => setRoutineTaxChecked((p) => ({ ...p, [r.id]: e.target.checked }))}
-                            className="rounded text-indigo-600 w-3 h-3"
+                            className="rounded text-indigo-600 w-3.5 h-3.5 shrink-0"
                           />
-                          <span>세</span>
+                          <span className="font-semibold shrink-0">세금</span>
                         </label>
                       )}
                       <button
@@ -528,6 +528,9 @@ export default function EconomyTab({
         students={students}
         treasuryBalance={treasuryBalance}
         ledgerHistory={ledgerHistory}
+        undoneLedgerHistory={undoneLedgerHistory}
+        onUndo={onUndoLedgerEntry}
+        onRedo={onRedoLedgerEntry}
         initialStudentFilter={ledgerModalStudent || "all"}
         currencyName={currencyName}
       />

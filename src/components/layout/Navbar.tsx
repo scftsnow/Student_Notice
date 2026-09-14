@@ -287,6 +287,9 @@ export default function Navbar({
         students={students}
         treasuryBalance={liveTreasury}
         ledgerHistory={ledgerHistory}
+        undoneLedgerHistory={undoneLedgerHistory}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
         initialStudentFilter={ledgerModalFilter}
         currencyName={liveCurrency || currencyName}
       />
