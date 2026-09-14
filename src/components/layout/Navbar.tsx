@@ -10,6 +10,7 @@ import {
   Coins,
   Settings,
   Sparkles,
+  Dices,
 } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
 import UnifiedLedgerModal from "@/components/classroom/economy/UnifiedLedgerModal";
@@ -167,6 +168,7 @@ export default function Navbar({
     { href: "/students", label: "학생 명단", icon: Users },
     { href: "/routines", label: "학생 업무", icon: CheckSquare },
     { href: "/economy", label: "학급 화폐", icon: Coins },
+    { href: "/picks", label: "뽑기", icon: Dices },
     { href: "/settings", label: "설정", icon: Settings },
   ];
 
