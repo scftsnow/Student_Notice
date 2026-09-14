@@ -357,7 +357,7 @@ export default function EconomyTab({
         {customBundles.length === 0 && routines.filter((r) => r.pay > 0).length === 0 ? (
           <p className="text-[11px] text-slate-400 text-center py-1">등록된 항목 없음</p>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
             {/* 루틴 자동 항목 (드래그 불가, 컴팩트 1줄) */}
             {routines
               .filter((r) => r.pay > 0)
