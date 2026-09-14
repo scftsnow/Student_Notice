@@ -38,6 +38,7 @@ export default function StudentsPageClient() {
           students={state.students}
           onAddStudents={state.addStudents}
           onDeleteStudent={state.deleteStudent}
+          onUpdateGender={state.updateStudentGender}
         />
       </div>
 

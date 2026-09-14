@@ -16,15 +16,6 @@ export interface SeatLayoutRecord {
   updatedAt: Date;
 }
 
-export async function listSeatLayouts(): Promise<ActionResult<SeatLayoutRecord[]>> {
-  try {
-    const rows = await prisma.seatLayout.findMany({ orderBy: { updatedAt: "desc" } });
-    return { success: true, data: rows };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "자리 틀 목록 조회 실패" };
-  }
-}
-
 export async function saveSeatLayout(input: {
   id?: string;
   name: string;
@@ -73,15 +64,6 @@ export interface SeatAssignmentRecord {
   cellsJson: string;
   namesJson: string;
   updatedAt: Date;
-}
-
-export async function listSeatAssignments(): Promise<ActionResult<SeatAssignmentRecord[]>> {
-  try {
-    const rows = await prisma.seatAssignment.findMany({ orderBy: { updatedAt: "desc" } });
-    return { success: true, data: rows };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "자리 배치 목록 조회 실패" };
-  }
 }
 
 export async function saveSeatAssignment(input: {
@@ -134,15 +116,6 @@ export interface GroupSetRecord {
   updatedAt: Date;
 }
 
-export async function listGroupSets(): Promise<ActionResult<GroupSetRecord[]>> {
-  try {
-    const rows = await prisma.groupSet.findMany({ orderBy: { updatedAt: "desc" } });
-    return { success: true, data: rows };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "모둠 목록 조회 실패" };
-  }
-}
-
 export async function saveGroupSet(input: {
   id?: string;
   name: string;
@@ -178,39 +151,5 @@ export async function deleteGroupSet(id: string): Promise<ActionResult<null>> {
     return { success: true, data: null };
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : "모둠 결과 삭제 실패" };
-  }
-}
-
-// --- 순서 뽑기 → 학생 업무 순서 적용 ---
-
-export async function applyRoutineOrder(
-  routineId: string,
-  orderedStudentIds: string[]
-): Promise<ActionResult<null>> {
-  try {
-    const routine = await prisma.routine.findUnique({ where: { id: routineId } });
-    if (!routine) return { success: false, error: "선택한 업무를 찾을 수 없습니다." };
-
-    const members = await prisma.routineMember.findMany({
-      where: { routineId },
-      orderBy: { orderIndex: "asc" },
-    });
-    const rank = new Map(orderedStudentIds.map((sid, idx) => [sid, idx]));
-    const included = members
-      .filter((m) => rank.has(m.studentId))
-      .sort((a, b) => (rank.get(a.studentId) ?? 0) - (rank.get(b.studentId) ?? 0));
-    const excluded = members.filter((m) => !rank.has(m.studentId));
-    const finalOrder = [...included, ...excluded];
-
-    await prisma.$transaction(
-      finalOrder.map((m, idx) =>
-        prisma.routineMember.update({ where: { id: m.id }, data: { orderIndex: idx } })
-      )
-    );
-    revalidatePath("/routines");
-    revalidatePath("/picks");
-    return { success: true, data: null };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "업무 순서 적용 실패" };
   }
 }

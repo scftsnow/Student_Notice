@@ -57,16 +57,12 @@ export default function SeatPickPanel({
   initialLayouts,
   initialAssignments,
 }: SeatPickPanelProps) {
-  const defaultIds = useMemo(
-    () => students.filter((s) => s.status !== "ABSENT").map((s) => s.id),
-    [students]
-  );
+  const defaultIds = useMemo(() => students.map((s) => s.id), [students]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   const [layouts, setLayouts] = useState<SeatLayoutItem[]>(initialLayouts);
   const [assignments, setAssignments] = useState<SeatAssignmentItem[]>(initialAssignments);
   const [loadedLayoutId, setLoadedLayoutId] = useState("");
   const [loadedAssignmentId, setLoadedAssignmentId] = useState("");
-  const [namesSnap, setNamesSnap] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState("");
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [overlayResults, setOverlayResults] = useState<string[]>([]);
@@ -96,8 +92,7 @@ export default function SeatPickPanel({
   const displayName = (id: string | null): string => {
     if (!id) return "";
     const live = byId.get(id);
-    if (live) return formatPickName(live);
-    return `${namesSnap[id] ?? "?"} (전학/삭제)`;
+    return live ? formatPickName(live) : "?";
   };
 
   const showError = (msg: string) => {
@@ -124,7 +119,7 @@ export default function SeatPickPanel({
         .filter((c) => c.studentId)
         .map((c) => {
           const live = byId.get(c.studentId as string);
-          const who = live ? formatPickName(live) : (namesSnap[c.studentId as string] ?? "?");
+          const who = live ? formatPickName(live) : "?";
           return `${who} → ${c.division + 1}분단 ${c.row + 1}행`;
         });
       setOverlayResults(placed.length > 0 ? placed : selected.map(formatPickName));
@@ -132,14 +127,6 @@ export default function SeatPickPanel({
     } else {
       playError();
     }
-  };
-
-  const snapshotNames = (): Record<string, string> => {
-    const map: Record<string, string> = {};
-    students.forEach((s) => {
-      map[s.id] = formatPickName(s);
-    });
-    return map;
   };
 
   const handleSaveLayout = async (name: string) => {
@@ -222,7 +209,7 @@ export default function SeatPickPanel({
       layoutId: loadedLayoutId || null,
       configJson: JSON.stringify(config),
       cellsJson: JSON.stringify(seat.cells),
-      namesJson: JSON.stringify(snapshotNames()),
+      namesJson: "{}",
     });
     if (!res.success) {
       showError(res.error);
@@ -238,15 +225,15 @@ export default function SeatPickPanel({
     if (!target) return;
     const cfg = parseConfig(target.configJson);
     if (cfg) seat.setConfig(cfg);
-    try {
-      setNamesSnap(JSON.parse(target.namesJson) as Record<string, string>);
-    } catch {
-      setNamesSnap({});
-    }
-    if (seat.loadCellsJson(target.cellsJson)) {
+    const result = seat.loadCellsForRoster(target.cellsJson, new Set(students.map((s) => s.name)));
+    if (result) {
       setLoadedAssignmentId(id);
       setLoadedLayoutId(target.layoutId ?? "");
-      setNotice(`자리 배치 '${target.name}'을(를) 불러왔습니다.`);
+      setNotice(
+        result.dropped > 0
+          ? `자리 배치 '${target.name}'을(를) 불러왔습니다 (전학/삭제 ${result.dropped}자리는 비움).`
+          : `자리 배치 '${target.name}'을(를) 불러왔습니다.`
+      );
     } else {
       playError();
     }

@@ -8,12 +8,20 @@ interface StudentTabProps {
   students: ClassroomStudent[];
   onAddStudents: (names: string[]) => void;
   onDeleteStudent: (name: string) => void;
+  onUpdateGender: (name: string, gender: "남" | "여" | null) => void;
+}
+
+function nextGender(g: "남" | "여" | undefined): "남" | "여" | null {
+  if (!g) return "남";
+  if (g === "남") return "여";
+  return null;
 }
 
 export default function StudentTab({
   students,
   onAddStudents,
   onDeleteStudent,
+  onUpdateGender,
 }: StudentTabProps) {
   const [inputText, setInputText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -98,7 +106,20 @@ export default function StudentTab({
               className="group p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-xs flex items-center justify-between gap-2 transition-all"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <User className="w-4 h-4 text-slate-400 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => onUpdateGender(s.name, nextGender(s.gender))}
+                  title={`성별 지정 (현재: ${s.gender ?? "미지정"})`}
+                  className={`w-6 h-6 rounded-full text-xs font-black shrink-0 transition-all ${
+                    s.gender === "남"
+                      ? "bg-blue-100 text-blue-600"
+                      : s.gender === "여"
+                        ? "bg-rose-100 text-rose-500"
+                        : "bg-slate-100 text-slate-300 hover:text-slate-400"
+                  }`}
+                >
+                  {s.gender === "남" ? "♂" : s.gender === "여" ? "♀" : "·"}
+                </button>
                 <span className="font-bold text-slate-800 text-sm truncate">{s.name}</span>
               </div>
               <button

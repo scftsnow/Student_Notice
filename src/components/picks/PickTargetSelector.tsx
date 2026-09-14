@@ -16,7 +16,6 @@ export default function PickTargetSelector({
   onChange,
 }: PickTargetSelectorProps) {
   const [search, setSearch] = useState("");
-  const [includeAbsent, setIncludeAbsent] = useState(false);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -30,10 +29,7 @@ export default function PickTargetSelector({
     });
   }, [students, search]);
 
-  const selectable = useMemo(
-    () => visible.filter((s) => includeAbsent || s.status !== "ABSENT"),
-    [visible, includeAbsent]
-  );
+  const selectable = useMemo(() => visible, [visible]);
 
   const toggleOne = (id: string) => {
     if (selectedSet.has(id)) {
@@ -54,30 +50,17 @@ export default function PickTargetSelector({
     onChange(selectedIds.filter((sid) => !removable.has(sid)));
   };
 
-  const absentCount = students.filter((s) => s.status === "ABSENT").length;
-
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="이름 또는 번호 검색..."
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={includeAbsent}
-            onChange={(e) => setIncludeAbsent(e.target.checked)}
-            className="accent-indigo-600"
-          />
-          결석자 포함 ({absentCount}명)
-        </label>
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="이름 또는 번호 검색..."
+          className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
       </div>
 
       <div className="flex items-center justify-between">
@@ -104,21 +87,16 @@ export default function PickTargetSelector({
 
       <div className="max-h-44 overflow-y-auto flex flex-wrap gap-1.5 pr-1">
         {visible.map((s) => {
-          const isAbsent = s.status === "ABSENT";
-          const disabled = isAbsent && !includeAbsent;
-          const checked = selectedSet.has(s.id) && !disabled;
+          const checked = selectedSet.has(s.id);
           return (
             <button
               key={s.id}
               type="button"
-              disabled={disabled}
               onClick={() => toggleOne(s.id)}
               className={`text-xs px-2.5 py-1.5 rounded-xl font-medium flex items-center gap-1.5 border transition-all ${
-                disabled
-                  ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through"
-                  : checked
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                checked
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
               }`}
             >
               <span

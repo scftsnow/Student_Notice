@@ -34,10 +34,7 @@ function evenSplit(total: number, parts: number): number[] {
 }
 
 export default function GroupPickPanel({ students, initialSets }: GroupPickPanelProps) {
-  const defaultIds = useMemo(
-    () => students.filter((s) => s.status !== "ABSENT").map((s) => s.id),
-    [students]
-  );
+  const defaultIds = useMemo(() => students.map((s) => s.id), [students]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   const [mode, setMode] = useState<Mode>("count");
   const [countValue, setCountValue] = useState(4);
@@ -111,14 +108,6 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
     });
   };
 
-  const snapshotNames = (): Record<string, string> => {
-    const map: Record<string, string> = {};
-    students.forEach((s) => {
-      map[s.id] = formatPickName(s);
-    });
-    return map;
-  };
-
   const handleSave = async (name: string) => {
     setError("");
     setNotice("");
@@ -128,13 +117,14 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
       return;
     }
     const existing = sets.find((s) => s.id === loadedId && s.name === name);
+    // 학생 식별은 이름 기준 (명단에서 이름 중복 불가) → id 배열이 곧 이름 배열
     const res = await saveGroupSet({
       id: existing?.id,
       name,
       mode,
       genderMode: separateGender ? "separate" : "ignore",
-      groupsJson: JSON.stringify(groups.map((g) => g.map((s) => s.id))),
-      namesJson: JSON.stringify(snapshotNames()),
+      groupsJson: JSON.stringify(groups.map((g) => g.map((s) => s.name))),
+      namesJson: "{}",
     });
     if (!res.success) {
       setError(res.error);
@@ -163,26 +153,22 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
     const target = sets.find((s) => s.id === id);
     if (!target) return;
     try {
-      const idGroups = JSON.parse(target.groupsJson) as string[][];
-      const names = JSON.parse(target.namesJson) as Record<string, string>;
-      const restored = idGroups.map((g) =>
-        g.map((sid) => {
-          const live = byId.get(sid);
-          if (live) return live;
-          return {
-            id: sid,
-            studentNumber: 0,
-            name: `${names[sid] ?? "알 수 없음"} (전학/삭제)`,
-            gender: null,
-            status: "ABSENT",
-          } satisfies PickStudent;
-        })
+      const nameGroups = JSON.parse(target.groupsJson) as string[][];
+      const restored = nameGroups.map((g) =>
+        g
+          .map((studentName) => byId.get(studentName))
+          .filter((s): s is PickStudent => s !== undefined)
       );
+      const dropped = nameGroups.flat().length - restored.flat().length;
       setGroups(restored);
       setMode(target.mode === "custom" ? "custom" : "count");
       setSeparateGender(target.genderMode === "separate");
       setLoadedId(id);
-      setNotice(`'${target.name}' 모둠을 불러왔습니다.`);
+      setNotice(
+        dropped > 0
+          ? `'${target.name}' 모둠을 불러왔습니다 (전학/삭제 ${dropped}명은 제외).`
+          : `'${target.name}' 모둠을 불러왔습니다.`
+      );
       setError("");
     } catch {
       setError("저장된 모둠 데이터를 읽지 못했습니다.");

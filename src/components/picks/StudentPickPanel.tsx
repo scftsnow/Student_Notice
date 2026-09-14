@@ -14,10 +14,7 @@ interface StudentPickPanelProps {
 }
 
 export default function StudentPickPanel({ students }: StudentPickPanelProps) {
-  const defaultIds = useMemo(
-    () => students.filter((s) => s.status !== "ABSENT").map((s) => s.id),
-    [students]
-  );
+  const defaultIds = useMemo(() => students.map((s) => s.id), [students]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   const [count, setCount] = useState(1);
   const [rounds, setRounds] = useState(1);

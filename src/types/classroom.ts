@@ -2,6 +2,7 @@ export interface ClassroomStudent {
   no?: number;
   name: string;
   balance: number;
+  gender?: "남" | "여";
 }
 
 export interface ClassroomRoutine {

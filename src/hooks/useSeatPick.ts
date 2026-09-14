@@ -166,6 +166,37 @@ export function useSeatPick() {
     }
   };
 
+  /**
+   * 배치 결과 불러오기 + 명단에 없는 이름의 배치 정리.
+   * 성공 시 정리된 명수 반환, 형식 오류 시 null.
+   */
+  const loadCellsForRoster = (
+    cellsJson: string,
+    validIds: Set<string>
+  ): { dropped: number } | null => {
+    setError("");
+    try {
+      const cells = normalizeCells(JSON.parse(cellsJson));
+      if (!cells || cells.length === 0) throw new Error("invalid");
+      let dropped = 0;
+      const cleaned = cells.map((c) => {
+        const keep = (id: string | null): string | null =>
+          id !== null && validIds.has(id) ? id : null;
+        const studentId = keep(c.studentId);
+        const fixedStudentId = keep(c.fixedStudentId);
+        if ((c.studentId && !studentId) || (c.fixedStudentId && !fixedStudentId)) {
+          dropped++;
+        }
+        return { ...c, studentId, fixedStudentId };
+      });
+      setCells(cleaned);
+      return { dropped };
+    } catch {
+      setError("저장된 자리 데이터를 읽지 못했습니다.");
+      return null;
+    }
+  };
+
   const unplacedIds = (students: PickStudent[]): PickStudent[] => {
     const placed = new Set(
       cells.flatMap((c) => [c.studentId, c.fixedStudentId]).filter((id): id is string => id !== null)
@@ -196,6 +227,7 @@ export function useSeatPick() {
     clearCell,
     unfixCell,
     loadCellsJson,
+    loadCellsForRoster,
     unplacedIds,
     placedCount,
     fixedCount,
