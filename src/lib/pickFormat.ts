@@ -1,17 +1,21 @@
 import type { PickStudent } from "@/types";
+import type { ClassroomStudent } from "@/types/classroom";
 
 /** `3번 김철수` 형식 표시명 */
 export function formatPickName(s: PickStudent): string {
   return `${s.studentNumber}번 ${s.name}`;
 }
 
-/** 스냅샷 이름 (전학/삭제된 학생 표시용 폴백 포함) */
-export function snapshotName(
-  studentId: string,
-  live: Map<string, PickStudent>,
-  snapshot: Record<string, string>
-): string {
-  const found = live.get(studentId);
-  if (found) return formatPickName(found);
-  return `${snapshot[studentId] ?? "알 수 없음"} (전학/삭제)`;
+/**
+ * 실명단(ClassroomStudent) → 뽑기용 변환.
+ * 명단은 이름 중복 등록을 막으므로 이름이 식별 키. 번호 미지정 시 명단 순서.
+ */
+export function toPickStudents(roster: ClassroomStudent[]): PickStudent[] {
+  return roster.map((s, idx) => ({
+    id: s.name,
+    studentNumber: s.no ?? idx + 1,
+    name: s.name,
+    gender: s.gender ?? null,
+    status: "ACTIVE",
+  }));
 }

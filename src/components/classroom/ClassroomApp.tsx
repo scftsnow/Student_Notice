@@ -268,6 +268,7 @@ export default function ClassroomApp() {
             students={state.students}
             onAddStudents={state.addStudents}
             onDeleteStudent={state.deleteStudent}
+            onUpdateGender={state.updateStudentGender}
           />
         )}
 

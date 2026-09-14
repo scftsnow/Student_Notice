@@ -6,27 +6,23 @@ import PickTargetSelector from "./PickTargetSelector";
 import DrawOverlay from "./DrawOverlay";
 import { formatPickName } from "@/lib/pickFormat";
 import { shuffle } from "@/lib/pickRandom";
-import { applyRoutineOrder } from "@/app/pickActions";
 import { playError, unlockAudio } from "@/lib/pickSound";
 import type { PickStudent } from "@/types";
 
 interface OrderPickPanelProps {
   students: PickStudent[];
-  routines: { id: string; title: string }[];
+  routines: { id: string; title: string; order: string[] }[];
+  onApplyOrder: (routineId: string, orderedNames: string[]) => void;
 }
 
-export default function OrderPickPanel({ students, routines }: OrderPickPanelProps) {
-  const defaultIds = useMemo(
-    () => students.filter((s) => s.status !== "ABSENT").map((s) => s.id),
-    [students]
-  );
+export default function OrderPickPanel({ students, routines, onApplyOrder }: OrderPickPanelProps) {
+  const defaultIds = useMemo(() => students.map((s) => s.id), [students]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   const [routineId, setRoutineId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [ordered, setOrdered] = useState<PickStudent[]>([]);
-  const [applying, setApplying] = useState(false);
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const selected = useMemo(
@@ -55,7 +51,7 @@ export default function OrderPickPanel({ students, routines }: OrderPickPanelPro
     setOverlayOpen(true);
   };
 
-  const handleApply = async () => {
+  const handleApply = () => {
     if (!routineId || ordered.length === 0) return;
     const routine = routines.find((r) => r.id === routineId);
     if (!routine) return;
@@ -66,20 +62,13 @@ export default function OrderPickPanel({ students, routines }: OrderPickPanelPro
     ) {
       return;
     }
-    setApplying(true);
     setError("");
-    setNotice("");
-    const res = await applyRoutineOrder(
-      routineId,
-      ordered.map((s) => s.id)
-    );
-    setApplying(false);
-    if (res.success) {
-      setNotice(`'${routine.title}' 업무 순서에 적용했습니다. (선택 밖 학생은 뒤로 유지)`);
-    } else {
-      setError(res.error);
-      playError();
-    }
+    const drawn = ordered.map((s) => s.name);
+    const drawnSet = new Set(drawn);
+    // 선택 밖 학생은 기존 순서 그대로 뒤에 유지
+    const rest = (routine.order ?? []).filter((name) => !drawnSet.has(name));
+    onApplyOrder(routineId, [...drawn, ...rest]);
+    setNotice(`'${routine.title}' 업무 순서에 적용했습니다. (선택 밖 학생은 기존 순서 뒤에 유지)`);
   };
 
   return (
@@ -133,11 +122,10 @@ export default function OrderPickPanel({ students, routines }: OrderPickPanelPro
               <button
                 type="button"
                 onClick={handleApply}
-                disabled={applying}
-                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
-                {applying ? "적용 중..." : "업무 순서에 적용"}
+                업무 순서에 적용
               </button>
             )}
           </div>

@@ -4,19 +4,21 @@
 
 - 위치: 상단 내비(`Navbar`)에 `뽑기` 메뉴 추가 (`/picks`)
 - 하위 4종: 학생 뽑기 / 순서 뽑기 / 모둠 뽑기 / 자리 뽑기
-- 데이터 소스: 기존 `Student` 테이블 재사용 (번호, 이름, 성별, 상태)
+- 데이터 소스 (2026-09-14 실측 확정): `useClassroomState` 실명단 (localStorage `classroom_os_state_v3`)
+  - prisma `Student` 테이블이 아님! 명단·업무 페이지는 전부 로컬 교실 상태를 사용.
+  - 학생 식별 키는 이름 (명단에서 이름 중복 등록 불가). `toPickStudents`로 변환.
 - 저장 정책 (2026-09-14 확정):
   - 저장함: 자리 틀(`SeatLayout`), 자리 배치 결과(`SeatAssignment`), 모둠 결과(`GroupSet`)
   - 저장 안 함: 학생 뽑기·순서 뽑기 결과 (세션 상태만)
-  - 서버 반영: 순서 뽑기 → 학생 업무(`Routine` / `RoutineMember.orderIndex`) 순서 적용
+  - 서버 반영: 순서 뽑기 → 로컬 학생 업무 순서 적용 (`updateRoutineOrder`, 이름 배열)
 - 코딩 컨벤션 준수: `any` 금지, Server/Client 분리, `ActionResult` 패턴, `PascalCase` 컴포넌트
 
 ## 2. 공통 기반
 
 ### 2.1 대상 선택기 (`PickTargetSelector`)
 - 전체 선택 / 해제, 개별 체크, 검색(이름/번호)
-- 결석자 처리 (2026-09-14 확정): 별도 로직 없이 선택기에서 제외하는 방식으로 통일
-  - `결석자 포함` 토글 기본 OFF → 결석자는 목록에 표시되지만 체크 불가(또는 기본 미선택)
+- 결석자 처리 (2026-09-14 실측): 명단에 결석 개념이 없어 전원 대상
+  - 제외하고 싶은 학생은 직접 체크 해제 (결석은 당번 대타/건너뛰기로 일별 처리하는 기존 구조 유지)
   - 순서·모둠·자리 모두 동일 규칙, 예외 없음
 - 성별 필터는 각 뽑기 설정에서 별도 처리
 - 선택 인원 실시간 표시 (`선택 24/28명`)
@@ -79,13 +81,12 @@
 - 동작
   - 선택 학생 전체를 셔플해 1번~N번 순서 생성
   - 연출 창으로 한 명씩 공개 (순차 공개 모드)
-- 업무 연동
+- 업무 연동 (2026-09-14 실측: 로컬 업무 기준)
   - 업무를 선택한 경우에만 `적용` 버튼 노출
-  - 적용 시 서버 액션 `applyRoutineOrder(routineId, orderedStudentIds)` 호출
-  - 서버에서 해당 `Routine`의 `RoutineMember.orderIndex`를 순서대로 갱신
-  - 미포함 학생(결석 등)은 기존 순서 뒤로 유지
-  - 적용 후 `/routines` revalidate
-- 주의: 기존 스케줄러(`scheduler.ts`, `routineUtils.ts`)가 `orderIndex` 기준이므로 덮어쓰기 전 확인 문구 노출
+  - 적용 시 `useClassroomState.updateRoutineOrder(routineId, 이름배열)` 호출 (prisma 아님)
+  - 선택 학생을 뽑힌 순서대로 + 선택 밖 학생은 기존 순서 그대로 뒤에 유지
+  - 로컬 즉시 반영 + 토스트, revalidate 불필요
+  - 덮어쓰기 전 확인 문구 노출
 
 ## 5. 모둠 뽑기 (`GroupPick`)
 
@@ -100,15 +101,16 @@
   - Fisher-Yates 셔플 후 스네이크 분배 (실력 편중 방지용 단순 순차 분배가 아닌 라운드로빈)
   - 성별 분리 모드: 남/여 그룹별 셔플 후 각 모둠에 비율대로 분배
 - 결과 뷰: 모둠별 카드 그리드, 드래그로 학생 이동(수동 조정), 다시 섞기
-- 저장 (2026-09-14 확정): `GroupSet` 테이블에 저장
-  - 저장 내용: 이름, 모드(통일/개별), 성별 모드, 모둠별 학생 id 배열 + 저장 시점 학생 이름 스냅샷
-  - 이름 스냅샷을 함께 저장해 전학·개명 후에도 과거 결과가 깨지지 않게 함
+- 저장 (2026-09-14 확정, 이름 기반): `GroupSet` 테이블에 저장
+  - 저장 내용: 이름, 모드(통일/개별), 성별 모드, 모둠별 학생 이름 배열
+  - 불러오기 시 명단에 없는 이름은 제외하고 안내 (전학/삭제 대응)
   - UI: 이름 입력 + `저장` 버튼, 저장 목록 드롭다운 (불러오기/삭제/덮어쓰기)
 
-### 5.1 학생 명단 성별 설정
-- DB `Student.gender` 이미 존재 (`남`/`여`/`null`)
-- 현 `StudentManagementClient`에 남/여 라디오 이미 있음 → 그대로 활용
-- 추가 개선: 목록에 성별 필터(전체/남/여/미지정) 추가, 미지정 학생은 모둠·자리 성별 로직에서 무관 취급
+### 5.1 학생 명단 성별 설정 (2026-09-14 실측)
+- 실명단(`ClassroomStudent`)에는 성별이 없었음 → `gender?: "남" | "여"` 필드 신규 추가
+- `StudentTab` 학생 카드에 ♂/♀/· 순환 버튼 추가 (`updateStudentGender` 액션)
+- localStorage + DB 스냅샷에 배열 통째로 저장되므로 자동 persist, 기존 데이터는 미지정 취급
+- 목록 성별 필터는 추가하지 않음 (사망 코드인 prisma 기반 관리 화면과 무관)
 - 값 정규화: `남`/`여` 외 값은 클라이언트에서 무관 취급
 
 ## 6. 자리 뽑기 (`SeatPick`) — 스펙 추천안
@@ -169,10 +171,13 @@ type SeatConfig = {
 };
 ```
 
-### 6.7 자리 저장 (틀 / 배치 결과 분리 저장, 2026-09-14 확정)
+### 6.7 자리 저장 (틀 / 배치 결과 분리 저장, 2026-09-14 확정, 이름 기반)
+- 학생 식별은 이름 (명단 이름 중복 불가). 셀의 `studentId`/`fixedStudentId` 자리에 이름 저장
 - 틀 저장(`SeatLayout`): 이름, `SeatConfig`, 셀 틀 정보만 (`enabled`, `lockedGender`, 행/열/분단 구조)
   - 학생 배치(`studentId`, `fixedStudentId`)는 저장하지 않음 → 새 학기·새 반에 틀 재사용 가능
-- 배치 결과 저장(`SeatAssignment`): 이름, 사용된 `SeatConfig` 스냅샷, 셀별 `studentId` + `fixedStudentId` 스냅샷, 저장 시점 학생 이름 스냅샷
+- 배치 결과 저장(`SeatAssignment`): 이름, 사용된 `SeatConfig` 스냅샷, 셀별 이름 배치 스냅샷
+  - `namesJson` 컬럼은 미사용(`"{}"` 저장, 하위호환 유지)
+  - 불러오기 시 명단에 없는 이름의 배치는 비우고 안내 (`loadCellsForRoster`)
   - `layoutId` nullable로 틀과 연결 유지 (틀이 삭제돼도 결과는 유지)
 - UI
   - 틀 바: 틀 이름 입력 + `틀 저장`, 틀 목록 (불러오기/삭제)
@@ -192,8 +197,8 @@ type SeatConfig = {
 
 ## 7. 라우팅 / 파일 구조 (추천)
 
-- `src/app/picks/page.tsx` (Server: 학생 목록 + 저장된 틀/배치/모둠 목록 조회 후 클라이언트에 전달)
-- `src/components/picks/PicksPageClient.tsx` (탭 전환)
+- `src/app/picks/page.tsx` (Server: 저장된 틀/배치/모둠 목록만 조회. 학생·업무는 클라이언트가 실명단에서 직접 읽음)
+- `src/components/picks/PicksPageClient.tsx` (탭 전환 + `useClassroomState` 연결)
 - `src/components/picks/PickTargetSelector.tsx`
 - `src/components/picks/DrawOverlay.tsx` (애니메이션 + `pickSound` 재생)
 - `src/components/picks/SaveBar.tsx` (이름 입력 + 저장 + 목록 공용 바)
@@ -204,7 +209,8 @@ type SeatConfig = {
 - `src/lib/pickRandom.ts`
 - `src/lib/pickSound.ts` (Web Audio 합성 효과음, 의존성 없음)
 - `prisma/schema.prisma`에 3개 모델 추가 (아래 7.1)
-- `src/app/actions.ts`에 저장 액션 + `applyRoutineOrder` 추가 (아래 7.2)
+- `src/app/pickActions.ts`에 저장 액션만 (`save/delete × 3종`. 목록 조회·순서 적용은 불필요해 삭제)
+  - 목록 조회: `/picks` Server Component 직접 조회 / 순서 적용: `updateRoutineOrder` 훅 호출
 - `Navbar`에 `/picks` 링크 추가 (Sparkles 또는 Dices 아이콘)
 
 ### 7.1 Prisma 모델 (SQLite, 2026-09-14 확정)
@@ -245,11 +251,11 @@ model GroupSet {
 ```
 
 ### 7.2 서버 액션 (컨벤션의 `ActionResult` 패턴 준수)
-- `listSeatLayouts / saveSeatLayout / deleteSeatLayout`
-- `listSeatAssignments / saveSeatAssignment / deleteSeatAssignment`
-- `listGroupSets / saveGroupSet / deleteGroupSet`
-- `applyRoutineOrder(routineId, orderedStudentIds)`
+- `saveSeatLayout / deleteSeatLayout`
+- `saveSeatAssignment / deleteSeatAssignment`
+- `saveGroupSet / deleteGroupSet`
 - 목록 조회는 `/picks` Server Component에서 직접 prisma 조회 (액션 불필요)
+- 순서 적용은 로컬 훅 `updateRoutineOrder` 호출 (서버 액션 불필요)
 
 ## 8. 검증 계획
 
@@ -265,7 +271,7 @@ model GroupSet {
 ## 9. 미결정 / 확인 필요 (2026-09-14 업데이트)
 
 1. ~~자리·모둠 결과를 DB에 저장할지~~ → 저장으로 확정 (`SeatLayout`/`SeatAssignment`/`GroupSet`)
-2. ~~순서 뽑기 적용 시 결석자 처리~~ → 선택기 제외 방식으로 확정 (예외 없음)
+2. ~~순서 뽑기 적용 시 결석자 처리~~ → 실측 결과 명단에 결석 개념이 없어 폐기. 전원 대상 + 직접 체크해제로 대체
 3. ~~자리 고정 아이콘 노출~~ → 기본 숨김 + `고정 표시` 토글로 확정
 4. ~~효과음~~ → Phase 1 Web Audio 합성으로 확정, Phase 2 mp3+Howler 확장 가능 구조
 5. 저장 목록 상한 (예: 틀 20개, 결과 50개) 필요 여부 — 구현 시 기본 무제한 + 삭제 UI로 시작 제안

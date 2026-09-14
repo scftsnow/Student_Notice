@@ -505,6 +505,23 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     [showToast]
   );
 
+  const updateStudentGender = useCallback(
+    (name: string, gender: "남" | "여" | null) => {
+      setStudents((prev) =>
+        prev.map((s) => {
+          if (s.name !== name) return s;
+          if (gender === null) {
+            const next = { ...s };
+            delete next.gender;
+            return next;
+          }
+          return { ...s, gender };
+        })
+      );
+    },
+    []
+  );
+
   // 2. Routine Actions
   const addRoutine = useCallback(
     (newRoutine: Omit<ClassroomRoutine, "id" | "currentIdx">) => {
@@ -1205,6 +1222,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     showToast,
     addStudents,
     deleteStudent,
+    updateStudentGender,
     addRoutine,
     deleteRoutine,
     advanceRoutine,

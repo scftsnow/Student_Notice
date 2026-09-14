@@ -4,15 +4,9 @@ import PicksPageClient from "@/components/picks/PicksPageClient";
 export const dynamic = "force-dynamic";
 
 export default async function PicksPage() {
-  const [students, routines, layouts, assignments, sets] = await Promise.all([
-    prisma.student.findMany({
-      orderBy: { studentNumber: "asc" },
-      select: { id: true, studentNumber: true, name: true, gender: true, status: true },
-    }),
-    prisma.routine.findMany({
-      orderBy: { order: "asc" },
-      select: { id: true, title: true },
-    }),
+  // 학생·업무는 실명단(localStorage 교실 상태)에서 클라이언트가 직접 읽음.
+  // 서버에서는 저장된 틀/배치/모둠 목록만 조회.
+  const [layouts, assignments, sets] = await Promise.all([
     prisma.seatLayout.findMany({ orderBy: { updatedAt: "desc" } }),
     prisma.seatAssignment.findMany({ orderBy: { updatedAt: "desc" } }),
     prisma.groupSet.findMany({ orderBy: { updatedAt: "desc" } }),
@@ -20,8 +14,6 @@ export default async function PicksPage() {
 
   return (
     <PicksPageClient
-      students={students}
-      routines={routines}
       initialLayouts={layouts.map((l) => ({
         id: l.id,
         name: l.name,
