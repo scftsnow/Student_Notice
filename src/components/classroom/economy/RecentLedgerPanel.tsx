@@ -33,6 +33,20 @@ function typeBadgeClass(type: string): string {
   return "bg-indigo-50 text-indigo-700 border-indigo-200";
 }
 
+function formatShortDateTime(dateStr?: string): string {
+  if (!dateStr) return "";
+  const parts = dateStr.trim().split(" ");
+  if (parts.length >= 2) {
+    const [d, t] = parts;
+    const currentYear = new Date().getFullYear().toString();
+    const shortDate = d.startsWith(currentYear)
+      ? d.slice(5).replace(/-/g, ".")
+      : d.slice(2).replace(/-/g, ".");
+    return `${shortDate} ${t}`;
+  }
+  return dateStr;
+}
+
 function amountText(type: string, amount: number, currencyName: string): string {
   const abs = Math.abs(amount).toLocaleString();
   const sign = type === "차감" ? "-" : type === "거래" ? "↔" : "+";
@@ -90,6 +104,11 @@ export default function RecentLedgerPanel({
               <span className={`shrink-0 px-1 py-0.2 rounded text-[9px] font-bold border ${typeBadgeClass(latest.type)}`}>
                 {typeLabel(latest.type, latest.amount)}
               </span>
+              {latest.date && (
+                <span className="text-[9.5px] font-mono text-slate-400 shrink-0 hidden sm:inline" title={latest.date}>
+                  {formatShortDateTime(latest.date)}
+                </span>
+              )}
               <span className="text-[10px] text-slate-700 truncate font-semibold">
                 {latest.targetDisplay}
               </span>
@@ -196,9 +215,16 @@ export default function RecentLedgerPanel({
                     {typeLabel(rec.type, rec.amount)}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-semibold text-slate-800 truncate leading-tight">
-                      {rec.targetDisplay}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[11px] font-semibold text-slate-800 truncate leading-tight">
+                        {rec.targetDisplay}
+                      </p>
+                      {rec.date && (
+                        <span className="text-[9.5px] font-mono text-slate-400 shrink-0 leading-tight" title={rec.date}>
+                          {formatShortDateTime(rec.date)}
+                        </span>
+                      )}
+                    </div>
                     {rec.desc && (
                       <p className="text-[10px] text-slate-400 truncate leading-tight">
                         {rec.desc}
@@ -242,6 +268,11 @@ export default function RecentLedgerPanel({
                       <span className="line-through text-slate-400 flex-1 truncate">
                         {rec.targetDisplay} ({amountText(rec.type, rec.amount, currencyName)})
                       </span>
+                      {rec.date && (
+                        <span className="text-[9px] font-mono text-amber-700/70 shrink-0">
+                          {formatShortDateTime(rec.date)}
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => onRedo(rec.id)}

@@ -18,6 +18,17 @@ interface UnifiedLedgerModalProps {
   currencyName?: string;
 }
 
+function formatLedgerDateTime(dateStr?: string): { date: string; time: string } {
+  if (!dateStr) return { date: "-", time: "" };
+  const parts = dateStr.trim().split(" ");
+  if (parts.length >= 2) {
+    const [d, t] = parts;
+    const formattedDate = d.length >= 10 ? d.slice(2).replace(/-/g, ".") : d;
+    return { date: formattedDate, time: t };
+  }
+  return { date: dateStr, time: "" };
+}
+
 export default function UnifiedLedgerModal({
   isOpen,
   onClose,
@@ -84,23 +95,118 @@ export default function UnifiedLedgerModal({
 
   if (!isOpen || !mounted) return null;
 
-  // Filter records
-  const filteredRecords = ledgerHistory.filter((item) => {
-    // Student / Treasury filter
-    if (studentFilter !== "all") {
-      if (studentFilter === "treasury") {
-        const isTreasuryRelated =
-          item.targets.includes("treasury") ||
-          item.from.includes("국고") ||
-          item.to.includes("국고") ||
-          item.targetDisplay.includes("국고");
-        if (!isTreasuryRelated) return false;
-      } else if (!item.targets.includes(studentFilter)) {
-        return false;
+  // 국고/학생/전체 관점별 레코드 정규화
+  const displayRecords: {
+    id: number | string;
+    date: string;
+    type: string;
+    targetDisplay: string;
+    desc: string;
+    amount: number;
+    originalId: number | string;
+  }[] = [];
+
+  for (const item of ledgerHistory) {
+    if (studentFilter === "treasury") {
+      // 국고 관점: 국고 잔액이 실제로 변동한 내역만 추출
+      if (item.targets.includes("treasury")) {
+        if (item.type === "입금") {
+          if (item.from.includes("국고")) {
+            // 국고에서 학생에게 세금 환급
+            displayRecords.push({
+              id: `${item.id}-refund`,
+              date: item.date,
+              type: "출금",
+              targetDisplay: `${item.to || item.targetDisplay} (환급)`,
+              desc: item.desc || "세금 환급 출금",
+              amount: -Math.abs(item.amount),
+              originalId: item.id,
+            });
+          } else {
+            // 국고 세수 직접 입금
+            displayRecords.push({
+              id: `${item.id}-deposit`,
+              date: item.date,
+              type: "입금",
+              targetDisplay: "학급 국고",
+              desc: item.desc || "국고 세수 편입",
+              amount: Math.abs(item.amount),
+              originalId: item.id,
+            });
+          }
+        } else if (item.type === "차감") {
+          // 국고 공동 지출
+          displayRecords.push({
+            id: `${item.id}-withdraw`,
+            date: item.date,
+            type: "출금",
+            targetDisplay: "공동 지출",
+            desc: item.desc || "학급 공동 지출",
+            amount: -Math.abs(item.amount),
+            originalId: item.id,
+          });
+        } else if (item.type === "거래") {
+          if (item.to.includes("국고") || item.targets[1] === "treasury") {
+            displayRecords.push({
+              id: `${item.id}-tx-in`,
+              date: item.date,
+              type: "입금",
+              targetDisplay: `${item.from} → 국고`,
+              desc: item.desc || "국고 송금",
+              amount: Math.abs(item.amount),
+              originalId: item.id,
+            });
+          } else if (item.from.includes("국고") || item.targets[0] === "treasury") {
+            displayRecords.push({
+              id: `${item.id}-tx-out`,
+              date: item.date,
+              type: "출금",
+              targetDisplay: `국고 → ${item.to}`,
+              desc: item.desc || "국고 출금",
+              amount: -Math.abs(item.amount),
+              originalId: item.id,
+            });
+          }
+        }
+      } else if (item.tax && item.tax > 0) {
+        // 급여 지급 또는 거래 시 원천징수되어 국고로 실제 유입된 세금만 반영
+        displayRecords.push({
+          id: `${item.id}-tax`,
+          date: item.date,
+          type: "세금",
+          targetDisplay: `세수 편입 (${item.targetDisplay})`,
+          desc: `[세금 징수] ${item.desc || item.targetDisplay}`,
+          amount: item.tax,
+          originalId: item.id,
+        });
+      }
+    } else if (studentFilter === "all") {
+      displayRecords.push({
+        id: item.id,
+        date: item.date,
+        type: item.type,
+        targetDisplay: item.targetDisplay,
+        desc: item.desc,
+        amount: item.amount,
+        originalId: item.id,
+      });
+    } else {
+      if (item.targets.includes(studentFilter)) {
+        displayRecords.push({
+          id: item.id,
+          date: item.date,
+          type: item.type,
+          targetDisplay: item.targetDisplay,
+          desc: item.desc,
+          amount: item.amount,
+          originalId: item.id,
+        });
       }
     }
+  }
 
-    // Period filter
+  // 기간 필터 적용
+  const filteredRecords = displayRecords.filter((item) => {
     if (periodPreset === "today") {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -128,10 +234,10 @@ export default function UnifiedLedgerModal({
     return true;
   });
 
-  // Aggregates
+  // 집계 계산 (국고 관점일 때는 정확한 국고 입출금 반영)
   const totalDeposit = filteredRecords.reduce((acc, cur) => (cur.amount > 0 ? acc + cur.amount : acc), 0);
   const totalWithdraw = filteredRecords.reduce((acc, cur) => (cur.amount < 0 ? acc + Math.abs(cur.amount) : acc), 0);
-  const totalTax = filteredRecords.reduce((acc, cur) => acc + (cur.tax || 0), 0);
+  const totalTax = filteredRecords.reduce((acc, cur) => (cur.type === "세금" ? acc + cur.amount : acc), 0);
   const netAmount = totalDeposit - totalWithdraw;
 
   return createPortal(
@@ -148,9 +254,9 @@ export default function UnifiedLedgerModal({
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              disabled={ledgerHistory.length === 0}
-              onClick={() => handleUndo(ledgerHistory[0]?.id)}
-              title={ledgerHistory[0] ? `최근 건 취소 (${ledgerHistory[0].targetDisplay})` : "취소할 내역 없음"}
+              disabled={filteredRecords.length === 0}
+              onClick={() => handleUndo(filteredRecords[0]?.originalId || filteredRecords[0]?.id)}
+              title={filteredRecords[0] ? `최근 건 취소 (${filteredRecords[0].targetDisplay})` : "취소할 내역 없음"}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -306,7 +412,7 @@ export default function UnifiedLedgerModal({
         {/* 입출금 내역 테이블 */}
         <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs">
           <div className="sticky top-0 bg-slate-100 p-2 font-bold text-slate-600 grid grid-cols-12 text-center items-center">
-            <span className="col-span-2">시각</span>
+            <span className="col-span-2">일시</span>
             <span className="col-span-1">유형</span>
             <span className="col-span-2">대상</span>
             <span className="col-span-4 text-left">내용</span>
@@ -318,10 +424,13 @@ export default function UnifiedLedgerModal({
           ) : (
             filteredRecords.map((item) => (
               <div key={item.id} className="p-2 grid grid-cols-12 items-center text-center hover:bg-slate-50">
-                <span className="col-span-2 font-mono text-slate-400 text-[11px] truncate">{item.date.split(" ")[1] || item.date}</span>
+                <div className="col-span-2 flex flex-col items-center justify-center font-mono leading-tight py-0.5" title={item.date}>
+                  <span className="text-[10px] text-slate-400">{formatLedgerDateTime(item.date).date}</span>
+                  <span className="text-[11px] font-bold text-slate-700">{formatLedgerDateTime(item.date).time}</span>
+                </div>
                 <span className="col-span-1">
                   <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${
-                    item.type === "거래" ? "bg-blue-100 text-blue-800" : item.type === "입금" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                    item.type === "거래" ? "bg-blue-100 text-blue-800" : item.type === "입금" ? "bg-emerald-100 text-emerald-800" : item.type === "세금" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
                   }`}>
                     {item.type}
                   </span>
@@ -334,7 +443,7 @@ export default function UnifiedLedgerModal({
                 <span className="col-span-1 flex justify-center">
                   <button
                     type="button"
-                    onClick={() => handleUndo(item.id)}
+                    onClick={() => handleUndo(item.originalId || item.id)}
                     title={`이 내역 취소: ${item.targetDisplay}`}
                     className="px-1.5 py-0.5 rounded text-[10px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
                   >
@@ -368,6 +477,11 @@ export default function UnifiedLedgerModal({
                   <span className="line-through text-slate-400 truncate flex-1">
                     {rec.targetDisplay} · {rec.desc || rec.type} ({rec.amount >= 0 ? `+${rec.amount.toLocaleString()}` : rec.amount.toLocaleString()} {currencyName})
                   </span>
+                  {rec.date && (
+                    <span className="text-[9.5px] font-mono text-amber-800/70 shrink-0">
+                      {rec.date.length >= 16 ? `${rec.date.slice(2, 10).replace(/-/g, ".")} ${rec.date.slice(11, 16)}` : rec.date}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleRedo(rec.id)}
