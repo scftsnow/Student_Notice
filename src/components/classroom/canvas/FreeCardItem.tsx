@@ -165,7 +165,7 @@ export default function FreeCardItem({
       className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden relative ${
         isSelected
           ? "border-indigo-400 ring-2 ring-indigo-400/40 bg-white/5"
-          : "border-white/20 hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
+          : "border-transparent hover:border-indigo-400/60 hover:ring-1 hover:ring-indigo-400/30 bg-transparent"
       } cursor-grab active:cursor-grabbing`}
     >
       {/* 상단 드래그 핸들 및 닫기 버튼 바 — absolute overlay (나머지 캔버스 요소와 100% 동일 스타일) */}
@@ -211,14 +211,17 @@ export default function FreeCardItem({
             onSelect?.(card.id);
             // 드래그 직후 발생하는 click은 편집 진입 무시
             if (isDraggingRef.current) return;
-            // 비편집 모드: 첫 클릭에서 편집 진입 + 포커스 (preventDefault로 막힌 자동 포커스 수동 복구)
+            // 비편집 모드: 첫 클릭에서 편집 진입 + 포커스
             if (!isFocused.current) {
-              setIsEditing(true);
+              // isFocused를 즉시 설정 → 이후 onMouseDown이 올바른 모드로 판단
+              isFocused.current = true;
               wasFocusedRef.current = true;
+              setIsEditing(true);
+              // 50ms: 브라우저 click 커서 배치(mouseup 처리)가 완료된 후 실행
               setTimeout(() => {
                 editorRef.current?.focus();
                 selectAllContent();
-              }, 0);
+              }, 50);
             }
           }}
           onMouseDown={(e) => {
