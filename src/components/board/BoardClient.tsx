@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Coins, Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
-import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts } from "@/types/classroom";
+import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts, LedgerRecord } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat, parsePinchHitters } from "@/lib/routineUtils";
+import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 
@@ -26,6 +27,7 @@ export default function BoardClient({
   const [theme, setTheme] = useState<BoardTheme>("chalkboard");
   const [routines, setRoutines] = useState<ClassroomRoutine[]>([]);
   const [students, setStudents] = useState<ClassroomStudent[]>([]);
+  const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
@@ -77,6 +79,7 @@ export default function BoardClient({
         if (parsed.theme) setTheme(parsed.theme);
         if (Array.isArray(parsed.routines)) setRoutines(parsed.routines);
         if (Array.isArray(parsed.students)) setStudents(parsed.students);
+        if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory);
         if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards);
       }
       const savedFont = localStorage.getItem("classroom_default_font_family");
@@ -108,6 +111,7 @@ export default function BoardClient({
       if (data.defaultFontFamily) setDefaultFontFamily(data.defaultFontFamily);
       if (Array.isArray(data.routines)) setRoutines(data.routines);
       if (Array.isArray(data.students)) setStudents(data.students);
+      if (Array.isArray(data.ledgerHistory)) setLedgerHistory(data.ledgerHistory);
       if (Array.isArray(data.freeCards)) setFreeCards(data.freeCards);
       if (data.layouts) setLayouts(data.layouts);
       if (data.showEconomyShortcut !== undefined) setShowEconomyShortcut(Boolean(data.showEconomyShortcut));
@@ -329,10 +333,31 @@ export default function BoardClient({
                     </span>
                   );
                 }
+                const workerIdx = seg.workerIndex ?? 0;
+                const originalName = rawWorkers[workerIdx] || "";
+                const sub = pinchMap[workerIdx];
+                const isSubstituted = Boolean(sub && sub !== "none");
+                const currentWorker = isSubstituted ? resolveStudentName(sub, students) : originalName;
+                const payStatus = checkStudentRoutinePaid(r, currentWorker, ledgerHistory);
+
+                let workerColorCls = "";
+                if (payStatus.isPaid) {
+                  workerColorCls =
+                    theme === "white"
+                      ? "text-lime-700 bg-lime-100/90 px-1 rounded font-black drop-shadow-xs"
+                      : "text-lime-300 font-extrabold drop-shadow-[0_0_8px_rgba(163,230,53,0.85)]";
+                } else if (isSubstituted) {
+                  workerColorCls = "text-amber-400 font-black drop-shadow-xs";
+                } else {
+                  workerColorCls = routineColor ? "" : themeStyle.routineWorker;
+                }
+
                 return (
                   <span
                     key={`b-worker-${sIdx}`}
-                    className={`font-black drop-shadow-xs ${themeStyle.routineWorker}`}
+                    className={`font-black drop-shadow-xs transition-colors ${workerColorCls}`}
+                    style={routineColor && !isSubstituted && !payStatus.isPaid ? { color: routineColor } : undefined}
+                    title={payStatus.isPaid ? `${currentWorker} — ${payStatus.periodLabel} 지급 완료` : undefined}
                   >
                     {seg.text}
                   </span>

@@ -298,6 +298,8 @@ export default function EconomyTab({
                           ? "전체"
                           : act.target === "selected"
                           ? "선택"
+                          : act.target === "unselected"
+                          ? "미선택"
                           : `${act.specificTargets?.length || 0}명`;
                         const sign = act.type === "deposit" ? "+" : "-";
                         return (

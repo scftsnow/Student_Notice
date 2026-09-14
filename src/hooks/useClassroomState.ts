@@ -911,6 +911,12 @@ export function useClassroomState(options?: ClassroomStateOptions) {
             if (targets.length === 0) {
               continue;
             }
+          } else if (act.target === "unselected") {
+            const selSet = new Set(selectedNames || []);
+            targets = students.map((s) => s.name).filter((n) => !selSet.has(n));
+            if (targets.length === 0) {
+              continue;
+            }
           } else if (act.target === "specific") {
             targets = act.specificTargets || [];
             if (targets.length === 0) {

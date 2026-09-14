@@ -39,7 +39,7 @@ export interface TaxConfig {
 
 export interface BundleAction {
   type: "deposit" | "deduct";
-  target: "all" | "selected" | "treasury" | "specific" | string;
+  target: "all" | "selected" | "unselected" | "treasury" | "specific" | string;
   specificTargets?: string[];
   amount: number;
   desc: string;

@@ -6,7 +6,7 @@ import { ClassroomStudent, CustomBundle, BundleAction, TaxConfig } from "@/types
 import { isTaxEnabled } from "@/lib/taxEngine";
 
 interface DraftAction {
-  target: "all" | "selected" | "treasury" | "specific";
+  target: "all" | "selected" | "unselected" | "treasury" | "specific";
   specificTargets: string[];
   amountInput: string;
   desc: string;
@@ -71,8 +71,8 @@ export default function CreateBundleModal({
         setDraftActions(
           initialBundle.actions.length > 0
             ? initialBundle.actions.map((a) => {
-                const target: "all" | "selected" | "treasury" | "specific" =
-                  a.target === "selected" || a.target === "treasury" || a.target === "specific"
+                const target: "all" | "selected" | "unselected" | "treasury" | "specific" =
+                  a.target === "selected" || a.target === "unselected" || a.target === "treasury" || a.target === "specific"
                     ? a.target
                     : "all";
                 const isDeduct = a.type === "deduct";
@@ -230,13 +230,14 @@ export default function CreateBundleModal({
                         value={action.target}
                         onChange={(e) =>
                           updateAction(idx, {
-                            target: e.target.value as "all" | "selected" | "treasury" | "specific",
+                            target: e.target.value as "all" | "selected" | "unselected" | "treasury" | "specific",
                           })
                         }
                         className="px-2 py-1 rounded-md border border-slate-200 bg-white font-bold focus:outline-none text-[11px]"
                       >
                         <option value="all">전체 학생</option>
                         <option value="selected">카드 선택 학생</option>
+                        <option value="unselected">카드 미선택 학생</option>
                         <option value="specific">특정 학생 지정</option>
                         <option value="treasury">학급 국고</option>
                       </select>
