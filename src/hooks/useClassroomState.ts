@@ -549,7 +549,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           if (r.id !== id) return r;
           if (r.order.length === 0) return r;
           const nextIdx = (r.currentIdx + r.slots) % r.order.length;
-          return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined };
+          return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined, skipHistory: undefined };
         })
       );
       showToast("업무 순환이 진행되었습니다. (당일 대타 설정 초기화)");
@@ -564,7 +564,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           if (r.id !== id) return r;
           if (r.order.length === 0) return r;
           const prevIdx = (r.currentIdx - r.slots + r.order.length) % r.order.length;
-          return { ...r, currentIdx: prevIdx, pinchHitterStudent: undefined };
+          return { ...r, currentIdx: prevIdx, pinchHitterStudent: undefined, skipHistory: undefined };
         })
       );
       showToast("이전 순번으로 돌아갔습니다. (당일 대타 설정 초기화)");
@@ -576,6 +576,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     (id: string) => {
       let skippedName = "";
       let nextName = "";
+      let remainingCount = 0;
       setRoutines((prev) =>
         prev.map((r) => {
           if (r.id !== id || r.order.length <= 1) return r;
@@ -583,16 +584,18 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           skippedName = resolveStudentName(currentWorker, students);
           const nextIdx = (r.currentIdx + 1) % r.order.length;
           nextName = resolveStudentName(r.order[nextIdx], students);
+          const history = [...(r.skipHistory || []), r.currentIdx];
+          remainingCount = history.length;
           return {
             ...r,
             currentIdx: nextIdx,
-            prevIdxBeforeSkip: r.currentIdx,
+            skipHistory: history,
             pinchHitterStudent: undefined,
           };
         })
       );
       if (skippedName && nextName) {
-        showToast(`[건너뛰기] ${skippedName} 학생을 건너뛰고 ${nextName} 학생으로 순번이 1칸 밀렸습니다.`);
+        showToast(`[건너뛰기] ${skippedName} 학생을 건너뛰고 ${nextName} 학생으로 밀렸습니다. (누적 ${remainingCount}회)`);
       }
     },
     [students, showToast]
@@ -601,20 +604,27 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const cancelSkipRoutineWorker = useCallback(
     (id: string) => {
       let restoredName = "";
+      let remainingCount = 0;
       setRoutines((prev) =>
         prev.map((r) => {
-          if (r.id !== id || r.order.length === 0 || r.prevIdxBeforeSkip === undefined) return r;
-          const restoredIdx = r.prevIdxBeforeSkip;
+          if (r.id !== id || r.order.length === 0 || !r.skipHistory || r.skipHistory.length === 0) return r;
+          const history = [...r.skipHistory];
+          const restoredIdx = history.pop()!;
           restoredName = resolveStudentName(r.order[restoredIdx % r.order.length], students);
+          remainingCount = history.length;
           return {
             ...r,
             currentIdx: restoredIdx,
-            prevIdxBeforeSkip: undefined,
+            skipHistory: history.length > 0 ? history : undefined,
           };
         })
       );
       if (restoredName) {
-        showToast(`[건너뛰기 취소] 이전 순번(${restoredName})으로 복원되었습니다.`);
+        showToast(
+          remainingCount > 0
+            ? `[건너뛰기 취소] ${restoredName} 학생으로 복원되었습니다. (남은 취소 가능: ${remainingCount}회)`
+            : `[건너뛰기 취소] 최초 순번(${restoredName})으로 모두 복원되었습니다.`
+        );
       }
     },
     [students, showToast]
@@ -625,7 +635,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       prev.map((r) => {
         if (r.order.length === 0) return r;
         const nextIdx = (r.currentIdx + r.slots) % r.order.length;
-        return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined };
+        return { ...r, currentIdx: nextIdx, pinchHitterStudent: undefined, skipHistory: undefined };
       })
     );
     showToast("전체 학생 업무 순환이 진행되었습니다.");

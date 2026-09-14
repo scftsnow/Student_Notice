@@ -16,7 +16,7 @@ export interface ClassroomRoutine {
   currentIdx: number;
   absenceMode?: "next" | "defer" | "pass" | "manual";
   pinchHitterStudent?: string;
-  prevIdxBeforeSkip?: number;
+  skipHistory?: number[];
   displayFormat?: string;
   visibleInNotice?: boolean;
   layout?: Partial<ElementLayout>;

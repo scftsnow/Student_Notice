@@ -95,7 +95,7 @@ export default function RoutineElementInCanvas({
       const nextIdx = (routine.currentIdx + 1) % routine.order.length;
       onUpdateRoutine(routine.id, {
         currentIdx: nextIdx,
-        prevIdxBeforeSkip: routine.currentIdx,
+        skipHistory: [...(routine.skipHistory || []), routine.currentIdx],
         pinchHitterStudent: undefined,
       });
     }
@@ -103,9 +103,13 @@ export default function RoutineElementInCanvas({
   };
 
   const handleCancelSkip = (workerIdx: number | null) => {
-    if (routine.prevIdxBeforeSkip !== undefined) {
+    if (routine.skipHistory && routine.skipHistory.length > 0) {
       if (onCancelSkipRoutineWorker) onCancelSkipRoutineWorker(routine.id);
-      else if (onUpdateRoutine) onUpdateRoutine(routine.id, { currentIdx: routine.prevIdxBeforeSkip, prevIdxBeforeSkip: undefined });
+      else if (onUpdateRoutine) {
+        const hist = [...routine.skipHistory];
+        const prevIdx = hist.pop()!;
+        onUpdateRoutine(routine.id, { currentIdx: prevIdx, skipHistory: hist.length > 0 ? hist : undefined });
+      }
     } else if (workerIdx !== null && onUpdateRoutine) {
       const updated = { ...pinchDetails };
       delete updated[workerIdx];
@@ -468,14 +472,15 @@ export default function RoutineElementInCanvas({
                   >
                     <FastForward className="w-3.5 h-3.5" /><span>이 학생 건너뛰기</span>
                   </button>
-                  {(isSubstituted || routine.prevIdxBeforeSkip !== undefined) && (
+                  {(isSubstituted || Boolean(routine.skipHistory && routine.skipHistory.length > 0)) && (
                     <button
                       type="button"
                       onClick={() => handleCancelSkip(workerIdx)}
-                      className="w-full py-1.5 px-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-rose-500/30"
-                      title={routine.prevIdxBeforeSkip !== undefined || isSkipped ? "건너뛰기를 취소하고 원래 순번으로 복원합니다" : "대타 지정을 취소하고 원래 당번 학생으로 복원합니다"}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 active:scale-95 text-rose-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-rose-500/30 cursor-pointer"
+                      title={routine.skipHistory && routine.skipHistory.length > 0 ? `건너뛰기를 1회 취소하고 이전 순번으로 복원합니다 (${routine.skipHistory.length}회 남음)` : "대타 지정을 취소하고 원래 당번 학생으로 복원합니다"}
                     >
-                      <RotateCcw className="w-3.5 h-3.5" /><span>{routine.prevIdxBeforeSkip !== undefined || isSkipped ? "건너뛰기 취소" : "대타 취소"}</span>
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>{routine.skipHistory && routine.skipHistory.length > 0 ? `건너뛰기 취소 (${routine.skipHistory.length})` : "대타 취소"}</span>
                     </button>
                   )}
                 </div>
