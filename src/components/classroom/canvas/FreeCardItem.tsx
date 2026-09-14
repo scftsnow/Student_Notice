@@ -82,14 +82,6 @@ export default function FreeCardItem({
     }
   }, [isSelected]);
 
-  const selectAllContent = () => {
-    if (!editorRef.current) return;
-    const range = document.createRange();
-    range.selectNodeContents(editorRef.current);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-  };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -130,7 +122,7 @@ export default function FreeCardItem({
       position={{ x, y }}
       size={{ width, height }}
       minWidth={120}
-      cancel={isEditing ? ".freecard-editor-text, button, input, select, textarea, [role='dialog']" : "button, input, select, textarea, [role='dialog']"}
+      cancel="button, select, input, [contenteditable='true'], [role='dialog'], .freecard-editor-text"
       enableUserSelectHack={false}
       enableResizing={RESIZE_ENABLE}
       resizeHandleComponent={RESIZE_HANDLES}
@@ -160,7 +152,6 @@ export default function FreeCardItem({
         if (isDraggingRef.current) return;
         e.stopPropagation();
         onSelect?.(card.id);
-        // 에디터 영역 클릭은 editorRef.onClick 에서 처리 (stopPropagation으로 여기까지 오지 않음)
       }}
       className={`z-20 group rounded-2xl border transition-colors flex flex-col overflow-hidden relative ${
         isSelected
@@ -199,42 +190,25 @@ export default function FreeCardItem({
         )}
       </div>
 
-      {/* 자유 글상자 본문 */}
-      <div className={`w-full h-full overflow-hidden flex flex-col ${isEditing ? "cursor-text" : "cursor-grab active:cursor-grabbing"}`}>
+      {/* 자유 글상자 본문 컨테이너 — 빈 영역은 언제나 cursor-grab이며 Rnd 이동 가능 (업무 요소와 동일) */}
+      <div
+        className="w-full h-full p-2 overflow-y-auto overflow-x-hidden cursor-grab active:cursor-grabbing flex flex-col box-border"
+        style={{ textAlign: card.align || "left" }}
+        onClick={(e) => {
+          if (isDraggingRef.current) return;
+          e.stopPropagation();
+          onSelect?.(card.id);
+        }}
+      >
         <div
           ref={editorRef}
           data-card-id={card.id}
           contentEditable={true}
           suppressContentEditableWarning
-          onClick={(e) => {
+          onMouseDown={(e) => {
             e.stopPropagation();
             onSelect?.(card.id);
-            // 드래그 직후 발생하는 click은 편집 진입 무시
-            if (isDraggingRef.current) return;
-            // 비편집 모드: 첫 클릭에서 편집 진입 + 포커스
-            if (!isFocused.current) {
-              // isFocused를 즉시 설정 → 이후 onMouseDown이 올바른 모드로 판단
-              isFocused.current = true;
-              wasFocusedRef.current = true;
-              setIsEditing(true);
-              // 50ms: 브라우저 click 커서 배치(mouseup 처리)가 완료된 후 실행
-              setTimeout(() => {
-                editorRef.current?.focus();
-                selectAllContent();
-              }, 50);
-            }
-          }}
-          onMouseDown={(e) => {
             wasFocusedRef.current = document.activeElement === editorRef.current;
-            if (isFocused.current) {
-              // 편집 모드: 버블링 차단하여 Rnd 드래그를 막고 텍스트 블록 선택 허용
-              e.stopPropagation();
-            } else {
-              // 비편집 모드: 버블링 통과 → Rnd가 mousedown을 수신하여 드래그 시작
-              // 단, 텍스트 커서/선택 삽입은 방지
-              e.preventDefault();
-            }
-            onSelect?.(card.id);
           }}
           onFocus={() => {
             isFocused.current = true;
@@ -246,12 +220,18 @@ export default function FreeCardItem({
             wasFocusedRef.current = false;
             setIsEditing(false);
           }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect?.(card.id);
+            setIsEditing(true);
+            isFocused.current = true;
+            wasFocusedRef.current = true;
+          }}
           onPaste={handlePaste}
           onInput={(e) => onUpdate(card.id, e.currentTarget.innerHTML)}
-          className={`w-full h-full p-2 outline-none font-bold overflow-y-auto overflow-x-hidden leading-relaxed tracking-tight freecard-editor-text box-border ${isEditing ? "select-text cursor-text" : "select-none cursor-grab"}`}
+          className="inline-block max-w-full min-h-[1.4em] min-w-[60px] outline-none font-bold cursor-text select-text leading-relaxed tracking-tight freecard-editor-text box-border break-words"
           style={{
             fontSize: `${card.fontSize || 42}px`,
-            textAlign: card.align || "left",
             color: card.color || "inherit",
             fontFamily: card.fontFamily || undefined,
             lineHeight: card.lineHeight
@@ -260,7 +240,6 @@ export default function FreeCardItem({
                 : card.lineHeight
               : "1.4",
             letterSpacing: "-0.02em",
-            wordBreak: "break-word",
           }}
           data-placeholder={placeholder}
         />
