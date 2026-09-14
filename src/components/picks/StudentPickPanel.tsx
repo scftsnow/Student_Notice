@@ -6,7 +6,7 @@ import PickTargetSelector from "./PickTargetSelector";
 import DrawOverlay from "./DrawOverlay";
 import { dealRounds } from "@/lib/pickRandom";
 import { formatPickName } from "@/lib/pickFormat";
-import { playError } from "@/lib/pickSound";
+import { playError, unlockAudio } from "@/lib/pickSound";
 import type { PickStudent } from "@/types";
 
 interface StudentPickPanelProps {
@@ -39,6 +39,7 @@ export default function StudentPickPanel({ students }: StudentPickPanelProps) {
 
   const runDraw = () => {
     setError("");
+    unlockAudio();
     if (selected.length === 0) {
       setError("뽑을 학생을 1명 이상 선택해 주세요.");
       playError();

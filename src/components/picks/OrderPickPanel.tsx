@@ -7,7 +7,7 @@ import DrawOverlay from "./DrawOverlay";
 import { formatPickName } from "@/lib/pickFormat";
 import { shuffle } from "@/lib/pickRandom";
 import { applyRoutineOrder } from "@/app/pickActions";
-import { playError } from "@/lib/pickSound";
+import { playError, unlockAudio } from "@/lib/pickSound";
 import type { PickStudent } from "@/types";
 
 interface OrderPickPanelProps {
@@ -45,6 +45,7 @@ export default function OrderPickPanel({ students, routines }: OrderPickPanelPro
   const runDraw = () => {
     setError("");
     setNotice("");
+    unlockAudio();
     if (selected.length < 2) {
       setError("순서를 뽑으려면 학생을 2명 이상 선택해 주세요.");
       playError();

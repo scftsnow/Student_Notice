@@ -93,8 +93,8 @@ function interleaveByGender<T>(pools: T[][], rand: Rand): T[] {
 
 /**
  * 모둠 분배. sizes 합계가 인원과 다르면 throw.
- * - 무관: 전체 셔플 후 sizes 순서대로 자르기
- * - 분리: 성별 풀을 번갈아 병합한 뒤 자르기 (각 모둠에 남녀가 균등 분산)
+ * - 무관: 전체 셔플 후 라운드로빈으로 한 명씩 배분
+ * - 분리: 성별 풀을 번갈아 병합한 뒤 라운드로빈 배분 (각 모둠에 남녀가 균등 분산)
  */
 export function dealGroups<T>(
   input: readonly T[],
@@ -119,11 +119,25 @@ export function dealGroups<T>(
         rand
       )
     : shuffle(input, rand);
-  const groups: T[][] = [];
-  let offset = 0;
-  for (const size of sizes) {
-    groups.push(ordered.slice(offset, offset + size));
-    offset += size;
+  // 분리 모드: 성별 교대 순서를 그대로 잘라 각 모둠에 비율대로 분배
+  // 무관 모드: 라운드로빈으로 한 명씩 배분
+  if (separateGender) {
+    const groups: T[][] = [];
+    let offset = 0;
+    for (const size of sizes) {
+      groups.push(ordered.slice(offset, offset + size));
+      offset += size;
+    }
+    return groups;
+  }
+  const groups: T[][] = sizes.map(() => []);
+  let gi = 0;
+  for (const item of ordered) {
+    while (groups[gi].length >= sizes[gi]) {
+      gi = (gi + 1) % groups.length;
+    }
+    groups[gi].push(item);
+    gi = (gi + 1) % groups.length;
   }
   return groups;
 }
@@ -228,6 +242,23 @@ export function autoAssignSeats(
   if (remaining.length > usable.length) {
     throw new Error(
       `사용 가능한 자리(${usable.length}석)보다 배치할 학생(${remaining.length}명)이 많습니다. 자리를 열거나 학생 선택을 줄여 주세요.`
+    );
+  }
+
+  // 성별 지정 자리 수요가 해당 성별 공급보다 많으면 실행 차단
+  // (통과 시 아래 1순위 단계에서 지정 자리가 항상 충족되므로 폴백이 지정을 깨지 않음)
+  const demandMale = usable.filter((c) => c.lockedGender === "남").length;
+  const demandFemale = usable.filter((c) => c.lockedGender === "여").length;
+  const supplyMale = remaining.filter((s) => genderOf(s) === "남").length;
+  const supplyFemale = remaining.filter((s) => genderOf(s) === "여").length;
+  if (demandMale > supplyMale) {
+    throw new Error(
+      `♂ 지정 자리(${demandMale}석)에 배치할 남학생(${supplyMale}명)이 부족합니다. 지정을 풀거나 대상을 추가해 주세요.`
+    );
+  }
+  if (demandFemale > supplyFemale) {
+    throw new Error(
+      `♀ 지정 자리(${demandFemale}석)에 배치할 여학생(${supplyFemale}명)이 부족합니다. 지정을 풀거나 대상을 추가해 주세요.`
     );
   }
 

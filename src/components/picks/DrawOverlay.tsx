@@ -49,6 +49,8 @@ export default function DrawOverlay({
   const timers = useRef<number[]>([]);
   const rollingRef = useRef(rollingNames);
   rollingRef.current = rollingNames;
+  const phaseRef = useRef<Phase>("rolling");
+  phaseRef.current = phase;
 
   const clearTimers = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
@@ -112,7 +114,19 @@ export default function DrawOverlay({
     }, elapsed + 150);
 
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.code === "Space" && !e.repeat && phaseRef.current === "done") {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName ?? "";
+        if (tag === "BUTTON" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+          return;
+        }
+        e.preventDefault();
+        onRedraw();
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => {
@@ -197,7 +211,7 @@ export default function DrawOverlay({
             {results.slice(0, revealed).map((r, i) => (
               <div
                 key={`${r}-${i}`}
-                className="mx-auto max-w-xl px-6 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-2xl sm:text-4xl font-black shadow-lg animate-[pick-pop_0.3s_ease-out]"
+                className="mx-auto max-w-xl px-6 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-3xl sm:text-5xl font-black shadow-lg animate-[pick-pop_0.3s_ease-out]"
               >
                 {r}
               </div>
@@ -240,6 +254,9 @@ export default function DrawOverlay({
               닫기
             </button>
           </div>
+        )}
+        {phase === "done" && (
+          <p className="mt-3 text-[11px] text-slate-400">스페이스: 다시 뽑기 · ESC: 닫기</p>
         )}
       </div>
       <style>{`@keyframes pick-pop { 0% { transform: scale(0.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }`}</style>

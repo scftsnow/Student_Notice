@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Users, GripVertical } from "lucide-react";
+import { Users, GripVertical, Shuffle } from "lucide-react";
 import PickTargetSelector from "./PickTargetSelector";
 import DrawOverlay from "./DrawOverlay";
 import SaveBar from "./SaveBar";
 import { dealGroups, parseGroupSizes } from "@/lib/pickRandom";
 import { formatPickName } from "@/lib/pickFormat";
 import { saveGroupSet, deleteGroupSet } from "@/app/pickActions";
-import { playError } from "@/lib/pickSound";
+import { playError, unlockAudio } from "@/lib/pickSound";
 import type { PickStudent } from "@/types";
 
 export interface GroupSetItem {
@@ -82,6 +82,7 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
   const runDraw = () => {
     setError("");
     setNotice("");
+    unlockAudio();
     if (selected.length < 2) {
       setError("모둠을 나누려면 학생을 2명 이상 선택해 주세요.");
       playError();
@@ -299,7 +300,17 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
 
       {groups.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs text-slate-400">학생을 드래그해 모둠 간 이동 가능</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">학생을 드래그해 모둠 간 이동 가능</p>
+            <button
+              type="button"
+              onClick={runDraw}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold flex items-center gap-1"
+            >
+              <Shuffle className="w-3.5 h-3.5" />
+              다시 섞기
+            </button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {groups.map((group, gi) => (
               <div

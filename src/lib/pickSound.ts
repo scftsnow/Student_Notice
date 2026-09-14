@@ -24,8 +24,7 @@ export function setMuted(muted: boolean): void {
   }
 }
 
-function getContext(): AudioContext | null {
-  try {
+function getContext(): AudioContext | null {  try {
     if (typeof window === "undefined") return null;
     const Ctor =
       window.AudioContext ??
@@ -37,6 +36,11 @@ function getContext(): AudioContext | null {
   } catch {
     return null;
   }
+}
+
+/** 자동재생 정책 대응: 사용자 제스처(뽑기 버튼 클릭) 시점에 미리 깨워 둠 */
+export function unlockAudio(): void {
+  getContext();
 }
 
 function tone(

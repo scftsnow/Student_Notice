@@ -15,7 +15,7 @@ import {
   saveSeatAssignment,
   deleteSeatAssignment,
 } from "@/app/pickActions";
-import { playError } from "@/lib/pickSound";
+import { playError, unlockAudio } from "@/lib/pickSound";
 import type {
   PickStudent,
   SeatAssignmentItem,
@@ -73,6 +73,10 @@ export default function SeatPickPanel({
 
   const seat = useSeatPick();
   const { config } = seat;
+  const defaultAssignmentName = useMemo(() => {
+    const today = new Date();
+    return `${today.getMonth() + 1}월 ${today.getDate()}일 자리`;
+  }, []);
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const selected = useMemo(
@@ -113,6 +117,7 @@ export default function SeatPickPanel({
 
   const handleDraw = () => {
     setNotice("");
+    unlockAudio();
     const next = seat.randomAssign(selected);
     if (next) {
       const placed = next
@@ -170,10 +175,25 @@ export default function SeatPickPanel({
       fillFrom: target.fillFrom === "front" ? "front" : "back",
       genderMode: config.genderMode,
     });
+    let enabledCount = 0;
+    try {
+      const raw = JSON.parse(target.cellsJson) as { enabled?: unknown }[];
+      if (Array.isArray(raw)) {
+        enabledCount = raw.filter((c) => c.enabled !== false).length;
+      }
+    } catch {
+      enabledCount = 0;
+    }
     if (seat.loadCellsJson(target.cellsJson)) {
       setLoadedLayoutId(id);
       setLoadedAssignmentId("");
-      setNotice(`자리 틀 '${target.name}'을(를) 불러왔습니다.`);
+      if (enabledCount > 0 && enabledCount < selected.length) {
+        setNotice(
+          `자리 틀 '${target.name}'을(를) 불러왔으나 현재 선택 인원(${selected.length}명)보다 자리(${enabledCount}석)가 부족합니다. 분단·열수를 조정해 자리를 다시 생성해 주세요.`
+        );
+      } else {
+        setNotice(`자리 틀 '${target.name}'을(를) 불러왔습니다.`);
+      }
     } else {
       playError();
     }
@@ -413,7 +433,7 @@ export default function SeatPickPanel({
       <SaveBar
         items={assignments}
         placeholder="배치 결과 이름 (예: 3월 자리)"
-        defaultName=""
+        defaultName={defaultAssignmentName}
         onSave={handleSaveAssignment}
         onLoad={handleLoadAssignment}
         onDelete={handleDeleteAssignment}

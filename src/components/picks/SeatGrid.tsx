@@ -160,8 +160,13 @@ export default function SeatGrid({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-      <div className="mx-auto max-w-md py-2 rounded-xl bg-emerald-700 text-white text-center text-sm font-bold tracking-[0.5em]">
-        칠판
+      <div className="flex items-stretch gap-2">
+        <div className="w-16 shrink-0 rounded-xl bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center">
+          교탁
+        </div>
+        <div className="flex-1 py-2 rounded-xl bg-emerald-700 text-white text-center text-sm font-bold tracking-[0.5em]">
+          칠판
+        </div>
       </div>
       {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex items-stretch gap-2 sm:gap-4">
