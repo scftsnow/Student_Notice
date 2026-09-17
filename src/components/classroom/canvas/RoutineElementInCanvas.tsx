@@ -63,9 +63,9 @@ export default function RoutineElementInCanvas({
     () => getActiveRoutineWorkers(routine, students, false),
     [routine, students]
   );
-  // 표시용 당번 목록 (수동 대타 지정 시에만 (대타) 태그 포함)
+  // 표시용 당번 목록 (대타 지정 시 대타 이름만 표시, '(대타)' 태그 없음)
   const workerList = useMemo(
-    () => getActiveRoutineWorkers(routine, students, true),
+    () => getActiveRoutineWorkers(routine, students, false),
     [routine, students]
   );
 

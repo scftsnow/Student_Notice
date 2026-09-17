@@ -329,13 +329,12 @@ export default function BoardClient({
       {isBoxVisibleToday(layouts.routineBox?.visible, layouts.routineBox?.visibleDays) &&
         routines.filter((r) => r.visibleInNotice !== false).map((r, idx) => {
           const rawWorkers = getActiveRoutineWorkers(r, students, false);
-          const workerList = getActiveRoutineWorkers(r, students, true);
           const pinchDetails = parsePinchHitterDetails(r.pinchHitterStudent);
 
           const segments = parseRoutineFormat(
             r.displayFormat,
             r.name,
-            workerList,
+            rawWorkers,
             r.icon
           );
 
