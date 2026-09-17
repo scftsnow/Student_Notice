@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Maximize2, Minimize2, Coins, Users, User } from "lucide-react";
+import { Maximize2, Minimize2, Coins, Users, User, ChevronUp, ChevronDown, Wallet } from "lucide-react";
 import { ClassroomStudent, BoardTheme } from "@/types/classroom";
+import BoardManagePanel from "./BoardManagePanel";
 
 interface EconomyBoardClientProps {
   initialClassName?: string;
@@ -22,6 +23,7 @@ export default function EconomyBoardClient({
   const [liveDateStr, setLiveDateStr] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<"input" | "name" | "balance_desc">("input");
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
   // 실시간 시계 및 날짜
   useEffect(() => {
@@ -122,7 +124,7 @@ export default function EconomyBoardClient({
         return {
           bg: "bg-[#0b132b] text-slate-100",
           headerBorder: "border-white/10 bg-black/20",
-          cardBg: "bg-white/10 border-white/15 text-white backdrop-blur-xs",
+          cardBg: "bg-white/10 border-white/15 text-white backdrop-blur-sm",
           badgeBg: "bg-amber-400/20 text-amber-300 border-amber-400/30",
           balanceText: "text-amber-300",
           statBg: "bg-white/10 text-slate-200",
@@ -141,9 +143,9 @@ export default function EconomyBoardClient({
         return {
           bg: "bg-[#1a382b] text-white",
           headerBorder: "border-white/15 bg-black/25",
-          cardBg: "bg-white/10 border-white/20 text-white backdrop-blur-xs",
+          cardBg: "bg-white/10 border-white/20 text-white backdrop-blur-sm",
           badgeBg: "bg-emerald-400/20 text-emerald-200 border-emerald-400/30",
-          balanceText: "text-amber-300 drop-shadow-xs",
+          balanceText: "text-amber-300 drop-shadow-sm",
           statBg: "bg-white/10 text-white/90",
         };
     }
@@ -169,9 +171,9 @@ export default function EconomyBoardClient({
 
           {/* 우측 배지: 국고 단독 노출 및 대형 폰트 */}
           <div className="flex items-center">
-            <span className={`px-4 py-1.5 rounded-xl border border-white/20 font-black text-base sm:text-lg lg:text-xl flex items-center gap-2 shadow-xs ${style.statBg}`}>
+            <span className={`px-4 py-1.5 rounded-xl border border-white/20 font-black text-base sm:text-lg lg:text-xl flex items-center gap-2 shadow-sm ${style.statBg}`}>
               <span className="opacity-80 font-bold">국고</span>
-              <span className="font-mono text-amber-300 drop-shadow-xs">
+              <span className="font-mono text-amber-300 drop-shadow-sm">
                 {treasuryBalance.toLocaleString()} {currencyName}
               </span>
             </span>
@@ -191,7 +193,7 @@ export default function EconomyBoardClient({
               type="button"
               onClick={() => setSortBy("input")}
               className={`px-2.5 py-1 rounded-md transition-all ${
-                sortBy === "input" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+                sortBy === "input" ? "bg-white text-slate-900 shadow-sm" : "opacity-75 hover:opacity-100"
               }`}
             >
               입력 순
@@ -200,7 +202,7 @@ export default function EconomyBoardClient({
               type="button"
               onClick={() => setSortBy("name")}
               className={`px-2.5 py-1 rounded-md transition-all ${
-                sortBy === "name" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+                sortBy === "name" ? "bg-white text-slate-900 shadow-sm" : "opacity-75 hover:opacity-100"
               }`}
             >
               이름순
@@ -209,7 +211,7 @@ export default function EconomyBoardClient({
               type="button"
               onClick={() => setSortBy("balance_desc")}
               className={`px-2.5 py-1 rounded-md transition-all ${
-                sortBy === "balance_desc" ? "bg-white text-slate-900 shadow-xs" : "opacity-75 hover:opacity-100"
+                sortBy === "balance_desc" ? "bg-white text-slate-900 shadow-sm" : "opacity-75 hover:opacity-100"
               }`}
             >
               잔액순
@@ -240,7 +242,7 @@ export default function EconomyBoardClient({
             {sortedStudents.map((s) => (
               <div
                 key={s.name}
-                className={`px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 shadow-xs ${style.cardBg}`}
+                className={`px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl border transition-all duration-200 flex items-center justify-between gap-3 shadow-sm ${style.cardBg}`}
               >
                 {/* 1행 좌측: 학생 이름 */}
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -262,6 +264,24 @@ export default function EconomyBoardClient({
           </div>
         )}
       </main>
+
+      {/* 하단 학급돈 관리 패널 (접기/펼치기) */}
+      <div className={`shrink-0 border-t ${style.headerBorder}`}>
+        <button
+          type="button"
+          onClick={() => setIsManageOpen((prev) => !prev)}
+          className="w-full px-4 sm:px-6 py-2.5 flex items-center justify-center gap-2 text-sm font-black tracking-tight hover:opacity-80 transition-opacity"
+        >
+          <Wallet className="w-4 h-4 text-amber-400" />
+          <span>학급돈 관리</span>
+          {isManageOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        </button>
+        {isManageOpen && (
+          <div className="max-h-[46vh] overflow-y-auto bg-slate-50 text-slate-900 border-t border-white/10">
+            <BoardManagePanel />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

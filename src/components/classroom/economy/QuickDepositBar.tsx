@@ -83,7 +83,7 @@ export default function QuickDepositBar({
   const isNegative = amountInput.trim().replace(/[－—–]/g, "-").startsWith("-");
 
   return (
-    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-indigo-50/95 border border-indigo-200 shadow-2xs flex-wrap">
+    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-indigo-50/95 border border-indigo-200 shadow-sm flex-wrap">
       <span className="text-xs font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 shrink-0 select-none">
         {checkedNames.length}명
       </span>
@@ -143,7 +143,7 @@ export default function QuickDepositBar({
         type="button"
         tabIndex={4}
         onClick={handleExecute}
-        className={`px-2 py-0.5 rounded-lg text-white font-bold text-xs flex items-center gap-1 transition-all shadow-2xs shrink-0 cursor-pointer ${
+        className={`px-2 py-0.5 rounded-lg text-white font-bold text-xs flex items-center gap-1 transition-all shadow-sm shrink-0 cursor-pointer ${
           isNegative
             ? "bg-rose-600 hover:bg-rose-700 active:scale-95"
             : "bg-indigo-600 hover:bg-indigo-700 active:scale-95"

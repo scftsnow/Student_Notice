@@ -196,9 +196,9 @@ export default function NoticeTab({
   };
 
   return (
-    <div className="rounded-2xl bg-slate-50 border border-slate-200 shadow-2xs divide-y divide-slate-200/80">
-      {/* 1행: 상단 서식 편집 툴바 */}
-      <div className="p-2.5 rounded-t-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+    <div className="rounded-2xl bg-slate-50 border border-slate-200 shadow-sm divide-y divide-slate-200/80">
+      {/* 1행: 상단 서식 편집 툴바 (이 행 클릭은 요소 선택을 유지) */}
+      <div data-keep-selection className="p-2.5 rounded-t-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           {/* 서식 적용 대상 선택 */}
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 font-bold text-xs select-none">
@@ -486,8 +486,8 @@ export default function NoticeTab({
                 <Plus className="w-3.5 h-3.5" />
               </button>
               <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
-              <button type="button" onClick={() => handleScaleChange(75)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`} title="기본 배율 (75%) 복원">기본</button>
-              <button type="button" onClick={() => handleScaleChange(100)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-2xs" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`} title="100% 원본 배율">100%</button>
+              <button type="button" onClick={() => handleScaleChange(75)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 75 ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`} title="기본 배율 (75%) 복원">기본</button>
+              <button type="button" onClick={() => handleScaleChange(100)} className={`px-1.5 py-0.5 text-[10px] font-bold rounded transition-all cursor-pointer ${previewScale === 100 ? "bg-indigo-600 text-white shadow-sm" : "text-slate-600 hover:text-slate-900 hover:bg-white"}`} title="100% 원본 배율">100%</button>
             </div>
           )}
           {/* 칠판 표시 업무 설정 버튼 */}
@@ -495,7 +495,7 @@ export default function NoticeTab({
             <button
               type="button"
               onClick={onOpenRoutineNoticeSettings}
-              className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
               title="알림장 칠판에 노출할 학생 업무 및 문구 서식을 설정합니다"
             >
               <ClipboardList className="w-3.5 h-3.5" />

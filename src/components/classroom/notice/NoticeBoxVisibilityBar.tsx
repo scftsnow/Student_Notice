@@ -8,7 +8,6 @@ import {
   Coins,
   SquarePen,
   Plus,
-  Pencil,
   CalendarDays,
   X,
   Check,
@@ -31,9 +30,10 @@ interface NoticeBoxVisibilityBarProps {
 
 type StandardBoxKey = "dateBox" | "clockBox";
 
+/** 평일만 사용 (토·일은 선택지에서 제외). */
 const DAYS_BUTTONS = [
   { day: 1, label: "월" }, { day: 2, label: "화" }, { day: 3, label: "수" },
-  { day: 4, label: "목" }, { day: 5, label: "금" }, { day: 6, label: "토" }, { day: 0, label: "일" },
+  { day: 4, label: "목" }, { day: 5, label: "금" },
 ];
 
 export default function NoticeBoxVisibilityBar({
@@ -127,7 +127,8 @@ export default function NoticeBoxVisibilityBar({
     visibleDays?: number[]
   ) => {
     setScheduleTarget({ id, name, type, visibleDays });
-    setTempDays(visibleDays ? [...visibleDays] : []);
+    // 토·일은 선택지에서 제외 — 기존 저장값에 섞여 있어도 평일만 이어받는다.
+    setTempDays(visibleDays ? visibleDays.filter((d) => d >= 1 && d <= 5) : []);
   };
 
   const toggleTempDay = (day: number) => {
@@ -138,7 +139,8 @@ export default function NoticeBoxVisibilityBar({
 
   const saveSchedule = () => {
     if (!scheduleTarget) return;
-    const finalDays = tempDays.length === 0 || tempDays.length === 7 ? undefined : tempDays;
+    // 평일 5일 전부 선택 = 항상 표시와 동일하므로 저장하지 않는다.
+    const finalDays = tempDays.length === 0 || tempDays.length === 5 ? undefined : tempDays;
 
     if (scheduleTarget.type === "freeCard") {
       const card = freeCards.find((c) => c.id === scheduleTarget.id);
@@ -202,7 +204,7 @@ export default function NoticeBoxVisibilityBar({
           return (
             <div
               key={key}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-2xs ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
                 isVisible
                   ? "bg-white border-slate-200 text-slate-700"
                   : "bg-slate-100 border-slate-200 text-slate-400"
@@ -231,21 +233,14 @@ export default function NoticeBoxVisibilityBar({
                   className="w-20 px-1 py-0.5 border border-indigo-300 rounded text-xs bg-white text-slate-800 font-bold focus:outline-none"
                 />
               ) : (
-                <span
-                  onDoubleClick={() => startRename(key, displayName)}
-                  className="cursor-pointer hover:underline flex items-center gap-1 select-none"
-                  title="더블클릭하여 이름 변경"
+                <button
+                  type="button"
+                  onClick={() => startRename(key, displayName)}
+                  className="hover:underline hover:text-indigo-600 select-none"
+                  title="클릭하여 이름 변경"
                 >
-                  <span>{displayName}</span>
-                  <button
-                    type="button"
-                    onClick={() => startRename(key, displayName)}
-                    className="p-0.5 hover:text-indigo-600 text-slate-300 transition-colors"
-                    title="이름 수정"
-                  >
-                    <Pencil className="w-2.5 h-2.5" />
-                  </button>
-                </span>
+                  {displayName}
+                </button>
               )}
 
               {/* 요일 자동 표시 버튼 & 뱃지 */}
@@ -276,7 +271,7 @@ export default function NoticeBoxVisibilityBar({
           return (
             <div
               key={r.id}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-2xs ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
                 isVisible
                   ? "bg-white border-slate-200 text-slate-700"
                   : "bg-slate-100 border-slate-200 text-slate-400"
@@ -305,21 +300,14 @@ export default function NoticeBoxVisibilityBar({
                   className="w-20 px-1 py-0.5 border border-indigo-300 rounded text-xs bg-white text-slate-800 font-bold focus:outline-none"
                 />
               ) : (
-                <span
-                  onDoubleClick={() => startRename(r.id, displayName)}
-                  className="cursor-pointer hover:underline flex items-center gap-1 select-none max-w-[120px] truncate"
-                  title="더블클릭하여 업무 이름 변경"
+                <button
+                  type="button"
+                  onClick={() => startRename(r.id, displayName)}
+                  className="hover:underline hover:text-indigo-600 select-none max-w-[120px] truncate"
+                  title="클릭하여 업무 이름 변경"
                 >
-                  <span className="truncate">{displayName}</span>
-                  <button
-                    type="button"
-                    onClick={() => startRename(r.id, displayName)}
-                    className="p-0.5 hover:text-indigo-600 text-slate-300 transition-colors"
-                    title="이름 수정"
-                  >
-                    <Pencil className="w-2.5 h-2.5" />
-                  </button>
-                </span>
+                  {displayName}
+                </button>
               )}
 
               {/* 요일 자동 표시 버튼 & 뱃지 */}
@@ -342,7 +330,7 @@ export default function NoticeBoxVisibilityBar({
 
         {/* 5. 학생 계좌 바로가기 아이콘 토글 */}
         {onToggleEconomyShortcut && (
-          <label className="flex items-center gap-1.5 cursor-pointer select-none px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs font-semibold text-slate-700 text-xs">
+          <label className="flex items-center gap-1.5 cursor-pointer select-none px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-sm font-semibold text-slate-700 text-xs">
             <input
               type="checkbox"
               checked={Boolean(showEconomyShortcut)}
@@ -366,7 +354,7 @@ export default function NoticeBoxVisibilityBar({
           return (
             <div
               key={card.id}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-2xs ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
                 isVisible
                   ? "bg-white border-slate-200 text-slate-700"
                   : "bg-slate-100 border-slate-200 text-slate-400"
@@ -395,21 +383,14 @@ export default function NoticeBoxVisibilityBar({
                   className="w-20 px-1 py-0.5 border border-indigo-300 rounded text-xs bg-white text-slate-800 font-bold focus:outline-none"
                 />
               ) : (
-                <span
-                  onDoubleClick={() => startRename(card.id, displayName)}
-                  className="cursor-pointer hover:underline flex items-center gap-1 select-none max-w-[120px] truncate"
-                  title="더블클릭하여 이름 변경"
+                <button
+                  type="button"
+                  onClick={() => startRename(card.id, displayName)}
+                  className="hover:underline hover:text-indigo-600 select-none max-w-[120px] truncate"
+                  title="클릭하여 이름 변경"
                 >
-                  <span className="truncate">{displayName}</span>
-                  <button
-                    type="button"
-                    onClick={() => startRename(card.id, displayName)}
-                    className="p-0.5 hover:text-indigo-600 text-slate-300 transition-colors"
-                    title="이름 수정"
-                  >
-                    <Pencil className="w-2.5 h-2.5" />
-                  </button>
-                </span>
+                  {displayName}
+                </button>
               )}
 
               {/* 요일 자동 표시 버튼 & 뱃지 */}
@@ -436,7 +417,7 @@ export default function NoticeBoxVisibilityBar({
         <button
           type="button"
           onClick={onAddFreeCard}
-          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition-all flex items-center gap-1 ml-auto shrink-0 cursor-pointer"
+          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-sm transition-all flex items-center gap-1 ml-auto shrink-0 cursor-pointer"
           title="새 자유 글상자를 칠판에 추가합니다"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -447,7 +428,7 @@ export default function NoticeBoxVisibilityBar({
       {/* 요일별 자동 표시 설정 모달 */}
       {scheduleTarget && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={() => setScheduleTarget(null)}
         >
           <div
@@ -474,8 +455,8 @@ export default function NoticeBoxVisibilityBar({
               선택한 요일에만 전자칠판과 학생 화면에 자동으로 표시됩니다. 아무 요일도 선택하지 않으면 항상 표시됩니다.
             </p>
 
-            {/* 요일 토글 버튼들 */}
-            <div className="grid grid-cols-7 gap-1.5 py-2">
+            {/* 요일 토글 버튼들 (월~금) */}
+            <div className="grid grid-cols-5 gap-1.5 py-2">
               {DAYS_BUTTONS.map(({ day, label }) => {
                 const isSelected = tempDays.includes(day);
                 return (
@@ -485,7 +466,7 @@ export default function NoticeBoxVisibilityBar({
                     onClick={() => toggleTempDay(day)}
                     className={`py-2 rounded-xl font-extrabold text-xs transition-all border ${
                       isSelected
-                        ? "bg-indigo-600 text-white border-indigo-700 shadow-xs scale-105"
+                        ? "bg-indigo-600 text-white border-indigo-700 shadow-sm scale-105"
                         : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                     }`}
                   >
@@ -495,13 +476,10 @@ export default function NoticeBoxVisibilityBar({
               })}
             </div>
 
-            {/* 빠른 프리셋 버튼 */}
+            {/* 빠른 프리셋 버튼 (월~금 전체 선택 = 항상 표시와 동일) */}
             <div className="flex items-center gap-2 pt-1">
               <button type="button" onClick={() => setTempDays([1, 2, 3, 4, 5])} className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors">
                 평일 (월~금)
-              </button>
-              <button type="button" onClick={() => setTempDays([])} className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] transition-colors">
-                매일 (항상 표시)
               </button>
             </div>
 
@@ -510,7 +488,7 @@ export default function NoticeBoxVisibilityBar({
               <button type="button" onClick={() => setScheduleTarget(null)} className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors">
                 취소
               </button>
-              <button type="button" onClick={saveSchedule} className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors">
+              <button type="button" onClick={saveSchedule} className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-colors">
                 <Check className="w-3.5 h-3.5" /><span>저장 완료</span>
               </button>
             </div>

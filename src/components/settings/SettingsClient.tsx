@@ -5,6 +5,11 @@ import { Settings as SettingsIcon, Save, CheckCircle } from "lucide-react";
 import { updateClassSettings } from "@/app/actions";
 import type { ClassSetting } from "@/types";
 import { CLASSROOM_FONTS, DEFAULT_CLASSROOM_FONT } from "@/lib/classroomFonts";
+import {
+  DEFAULT_FONT_STORAGE_KEY,
+  applyDefaultFontFamily,
+} from "@/lib/defaultFont";
+import FontSelectorDropdown from "@/components/classroom/notice/FontSelectorDropdown";
 import ResetSection from "./ResetSection";
 
 interface SettingsClientProps {
@@ -32,7 +37,7 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
 
   useEffect(() => {
     try {
-      const savedFont = localStorage.getItem("classroom_default_font_family");
+      const savedFont = localStorage.getItem(DEFAULT_FONT_STORAGE_KEY);
       if (savedFont) setDefaultFontFamily(savedFont);
       const savedRaw =
         localStorage.getItem("classroom_os_state_v3") ||
@@ -73,7 +78,8 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
           parsed.currencyName = currencyName;
           localStorage.setItem(key, JSON.stringify(parsed));
         }
-        localStorage.setItem("classroom_default_font_family", defaultFontFamily);
+        localStorage.setItem(DEFAULT_FONT_STORAGE_KEY, defaultFontFamily);
+        applyDefaultFontFamily(defaultFontFamily);
         const channel = new BroadcastChannel("classroom_os_sync");
         channel.postMessage({ className, currencyName, defaultFontFamily });
         channel.close();
@@ -100,7 +106,7 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
             학급 기본 정보 설정
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            학급 명칭 및 칠판 기본 글꼴을 관리합니다 (화폐 및 세율/급여는 [학급 화폐], 대타는 [학생 업무]에서 설정).
+            학급 명칭 및 기본 글꼴을 관리합니다 (화폐 및 세율/급여는 [학급 화폐], 대타는 [학생 업무]에서 설정).
           </p>
         </div>
       </div>
@@ -137,21 +143,21 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
         {/* Global Default Font Family */}
         <div>
           <label className="text-sm font-bold text-slate-700 block mb-1.5">
-            학급 칠판 기본 글꼴 (전역 설정)
+            기본 글꼴
           </label>
-          <select
-            value={defaultFontFamily}
-            onChange={(e) => setDefaultFontFamily(e.target.value)}
-            className="w-full p-3 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-          >
-            {CLASSROOM_FONTS.map((f) => (
-              <option key={f.id} value={f.family}>
-                {f.name} — {f.desc}
-              </option>
-            ))}
-          </select>
+          <FontSelectorDropdown
+            size="lg"
+            selectedFontId={
+              CLASSROOM_FONTS.find((f) => f.family === defaultFontFamily)?.id ||
+              DEFAULT_CLASSROOM_FONT.id
+            }
+            onSelectFont={(fontId) => {
+              const font = CLASSROOM_FONTS.find((f) => f.id === fontId);
+              if (font) setDefaultFontFamily(font.family);
+            }}
+          />
           <p className="text-xs text-slate-400 mt-1">
-            전자칠판 및 알림장 화면 전반에 기본 적용되는 글꼴입니다 (완전 무료 오픈 폰트).
+            시스템 전체 화면에 기본 적용되는 글꼴입니다 (알림장 미리보기는 제외, 완전 무료 오픈 폰트).
           </p>
         </div>
 

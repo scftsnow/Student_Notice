@@ -106,13 +106,18 @@ export function normalizeLedgerRecords(
         });
       }
     } else if (studentFilter === "all") {
+      const net = item.type === "입금" && item.tax ? item.amount - item.tax : item.amount;
+      const hasTaxNotice = Boolean(item.desc && item.desc.includes("원천징수"));
+      const descText = item.tax && item.tax > 0 && !hasTaxNotice
+        ? `${item.desc || item.type} (세금 ${item.tax.toLocaleString()} ${currencyName} 원천징수)`
+        : (item.desc || item.type);
       displayRecords.push({
         id: item.id,
         date: item.date,
         type: item.type,
         targetDisplay: item.targetDisplay,
-        desc: item.desc,
-        amount: item.amount,
+        desc: descText,
+        amount: net,
         originalId: item.id,
       });
     } else {
@@ -120,12 +125,16 @@ export function normalizeLedgerRecords(
       if (item.targets.includes(studentFilter)) {
         if (item.type === "입금") {
           const net = item.amount - (item.tax || 0);
+          const hasTaxNotice = Boolean(item.desc && item.desc.includes("원천징수"));
+          const descText = item.tax && item.tax > 0 && !hasTaxNotice
+            ? `${item.desc || "입금"} (세금 ${item.tax.toLocaleString()} ${currencyName} 원천징수)`
+            : (item.desc || "입금");
           displayRecords.push({
             id: item.id,
             date: item.date,
             type: "입금",
             targetDisplay: item.targetDisplay,
-            desc: item.tax && item.tax > 0 ? `${item.desc || "입금"} (세금 ${item.tax.toLocaleString()} ${currencyName} 원천징수)` : (item.desc || "입금"),
+            desc: descText,
             amount: net,
             originalId: item.id,
           });
@@ -141,13 +150,16 @@ export function normalizeLedgerRecords(
           });
         } else if (item.type === "거래") {
           if (item.to === studentFilter) {
+            const net = item.tax ? item.amount - item.tax : item.amount;
+            const hasTaxNotice = Boolean(item.desc && item.desc.includes("원천징수"));
+            const taxNotice = item.tax && item.tax > 0 && !hasTaxNotice ? ` (세금 ${item.tax.toLocaleString()} ${currencyName} 원천징수)` : "";
             displayRecords.push({
               id: item.id,
               date: item.date,
               type: "입금",
               targetDisplay: `${item.from} → 나`,
-              desc: item.desc ? `${item.from} 송금 (${item.desc})` : `${item.from} 송금`,
-              amount: Math.abs(item.amount),
+              desc: (item.desc ? `${item.from} 송금 (${item.desc})` : `${item.from} 송금`) + taxNotice,
+              amount: net,
               originalId: item.id,
             });
           } else if (item.from === studentFilter) {

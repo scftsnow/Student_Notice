@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { ClassroomStudent, CustomBundle, BundleAction, TaxConfig } from "@/types/classroom";
-import { isTaxEnabled } from "@/lib/taxEngine";
+import { isTaxEnabled, calculateTax } from "@/lib/taxEngine";
 
 interface DraftAction {
   target: "all" | "selected" | "unselected" | "treasury" | "specific";
@@ -109,8 +109,13 @@ export default function CreateBundleModal({
         // 세금 적용은 입금(양수)이면서 국고가 아닐 때만 가능
         if (isDeduct || updated.target === "treasury") {
           updated.applyTax = false;
-        } else if (patch.amountInput !== undefined && !isDeduct && a.target !== "treasury" && isActionDeduct(a.amountInput)) {
-          updated.applyTax = isTaxOn;
+        } else {
+          // [Bug 3 수정] target을 treasury/차감 → 입금으로 되돌릴 때 세금 체크박스 복원
+          // 기존이 false로 강제된 케이스(이전 target=treasury 또는 isDeduct였을 때)에서만 복원
+          const wasForceOff = a.target === "treasury" || isActionDeduct(a.amountInput);
+          if (wasForceOff && !a.applyTax) {
+            updated.applyTax = isTaxOn;
+          }
         }
         return updated;
       })
@@ -164,7 +169,7 @@ export default function CreateBundleModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col max-h-[90vh] text-xs overflow-hidden">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50 shrink-0">
@@ -287,6 +292,16 @@ export default function CreateBundleModal({
                           className="rounded text-indigo-600 w-3 h-3 disabled:opacity-30"
                         />
                         <span>세금 부과</span>
+                        {taxConfig && canApplyTax && action.applyTax && parseActionAmount(action.amountInput) > 0 && (() => {
+                          const amt = parseActionAmount(action.amountInput);
+                          const tax = calculateTax("income", amt, taxConfig);
+                          const net = Math.max(0, amt - tax);
+                          return (
+                            <span className="text-[10px] text-emerald-600 font-bold ml-1">
+                              (실지급 {net.toLocaleString()}{currencyName}, 세금 {tax.toLocaleString()}{currencyName})
+                            </span>
+                          );
+                        })()}
                       </label>
 
                       {draftActions.length > 1 && (
@@ -316,7 +331,7 @@ export default function CreateBundleModal({
                                 onClick={() => toggleSpecificStudent(idx, s.name)}
                                 className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
                                   isSelected
-                                    ? "bg-indigo-600 text-white shadow-2xs"
+                                    ? "bg-indigo-600 text-white shadow-sm"
                                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                                 }`}
                               >

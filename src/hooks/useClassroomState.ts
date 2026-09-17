@@ -11,7 +11,11 @@ import {
   NoticeFontSize,
   FreeCardData,
   BoardElementLayouts,
+  SavedOrderPreset,
+  SavedGroupPreset,
+  SavedSeatPreset,
 } from "@/types/classroom";
+import type { SeatCellState } from "@/types";
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
 import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
 import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
@@ -31,6 +35,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const [currencyName, setCurrencyName] = useState(options?.initialCurrencyName || "원");
   const [students, setStudents] = useState<ClassroomStudent[]>([]);
   const [routines, setRoutines] = useState<ClassroomRoutine[]>([]);
+  const [savedOrders, setSavedOrders] = useState<SavedOrderPreset[]>([]);
+  const [savedGroups, setSavedGroups] = useState<SavedGroupPreset[]>([]);
+  const [savedSeats, setSavedSeats] = useState<SavedSeatPreset[]>([]);
   const [treasuryBalance, setTreasuryBalance] = useState(0);
   const [totalTaxCollected, setTotalTaxCollected] = useState(0);
   const [taxConfig, setTaxConfig] = useState<TaxConfig>(DEFAULT_TAX_CONFIG);
@@ -64,6 +71,36 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     }
     if (Array.isArray(parsed.students)) setStudents(parsed.students as ClassroomStudent[]);
     if (Array.isArray(parsed.routines)) setRoutines(parsed.routines as ClassroomRoutine[]);
+    if (Array.isArray(parsed.savedOrders)) {
+      setSavedOrders(parsed.savedOrders as SavedOrderPreset[]);
+    } else {
+      try {
+        const fallback = localStorage.getItem("classroom_saved_orders");
+        if (fallback) setSavedOrders(JSON.parse(fallback));
+      } catch {
+        // noop
+      }
+    }
+    if (Array.isArray(parsed.savedGroups)) {
+      setSavedGroups(parsed.savedGroups as SavedGroupPreset[]);
+    } else {
+      try {
+        const fallback = localStorage.getItem("classroom_saved_groups");
+        if (fallback) setSavedGroups(JSON.parse(fallback));
+      } catch {
+        // noop
+      }
+    }
+    if (Array.isArray(parsed.savedSeats)) {
+      setSavedSeats(parsed.savedSeats as SavedSeatPreset[]);
+    } else {
+      try {
+        const fallback = localStorage.getItem("classroom_saved_seats");
+        if (fallback) setSavedSeats(JSON.parse(fallback));
+      } catch {
+        // noop
+      }
+    }
     if (typeof parsed.treasuryBalance === "number") setTreasuryBalance(parsed.treasuryBalance);
     if (typeof parsed.totalTaxCollected === "number") setTotalTaxCollected(parsed.totalTaxCollected);
     if (parsed.taxConfig) setTaxConfig({ ...DEFAULT_TAX_CONFIG, ...(parsed.taxConfig as TaxConfig) });
@@ -173,6 +210,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       currencyName,
       students,
       routines,
+      savedOrders,
+      savedGroups,
+      savedSeats,
       treasuryBalance,
       totalTaxCollected,
       taxConfig,
@@ -209,6 +249,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         theme,
         targetLabel: noticeTarget === "today" ? "오늘" : "내일",
         routines,
+        savedOrders,
+        savedGroups,
+        savedSeats,
         students,
         freeCards,
         layouts,
@@ -223,7 +266,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("classroom_state_sync", {
-            detail: { treasuryBalance, currencyName, className, ledgerHistory, undoneLedgerHistory, students },
+            detail: { treasuryBalance, currencyName, className, ledgerHistory, undoneLedgerHistory, students, savedOrders, savedGroups, savedSeats },
           })
         );
       }
@@ -234,6 +277,9 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     currencyName,
     students,
     routines,
+    savedOrders,
+    savedGroups,
+    savedSeats,
     treasuryBalance,
     totalTaxCollected,
     taxConfig,
@@ -686,6 +732,323 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     []
   );
 
+  const saveOrderPreset = useCallback(
+    (name: string, order: string[]) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast("순서 이름을 입력해 주세요.");
+        return;
+      }
+      if (order.length === 0) {
+        showToast("순서에 포함할 학생이 없습니다.");
+        return;
+      }
+      const newPreset: SavedOrderPreset = {
+        id: `order-preset-${Date.now()}`,
+        name: trimmed,
+        order: [...order],
+        createdAt: new Date().toISOString(),
+      };
+      setSavedOrders((prev) => {
+        const next = [newPreset, ...prev.filter((p) => p.name !== trimmed)];
+        try {
+          localStorage.setItem("classroom_saved_orders", JSON.stringify(next));
+        } catch {
+          // noop
+        }
+        return next;
+      });
+      showToast(`'${trimmed}' 순서가 저장되었습니다.`);
+    },
+    [showToast]
+  );
+
+  const deleteOrderPreset = useCallback(
+    (id: string) => {
+      setSavedOrders((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        try {
+          localStorage.setItem("classroom_saved_orders", JSON.stringify(next));
+        } catch {
+          // noop
+        }
+        return next;
+      });
+      showToast("저장된 순서가 삭제되었습니다.");
+    },
+    [showToast]
+  );
+
+  // 뽑기 실행 시 최근 기록 자동 보관 (최대 3개, 조용히 저장)
+  const pushRecentOrder = useCallback((order: string[]) => {
+    if (order.length === 0) return;
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const autoName = `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} 순서`;
+    const newPreset: SavedOrderPreset = {
+      id: `order-recent-${Date.now()}`,
+      name: autoName,
+      order: [...order],
+      createdAt: new Date().toISOString(),
+      auto: true,
+    };
+    setSavedOrders((prev) => {
+      let autoCount = 0;
+      const next = [newPreset, ...prev].filter((p) => {
+        if (!p.auto) return true;
+        autoCount += 1;
+        return autoCount <= 3;
+      });
+      try {
+        localStorage.setItem("classroom_saved_orders", JSON.stringify(next));
+      } catch {
+        // noop
+      }
+      return next;
+    });
+  }, []);
+
+  // 프리셋 수정 (이름·순서 변경, 자동 저장은 이름 지정 시 프리셋으로 승격)
+  const updateOrderPreset = useCallback(
+    (id: string, name: string, order: string[]) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast("순서 이름을 입력해 주세요.");
+        return;
+      }
+      if (order.length === 0) {
+        showToast("순서에 포함할 학생이 없습니다.");
+        return;
+      }
+      let wasAuto = false;
+      setSavedOrders((prev) => {
+        const next = prev.map((p) => {
+          if (p.id !== id) return p;
+          wasAuto = Boolean(p.auto);
+          return { ...p, name: trimmed, order: [...order], auto: false };
+        });
+        try {
+          localStorage.setItem("classroom_saved_orders", JSON.stringify(next));
+        } catch {
+          // noop
+        }
+        return next;
+      });
+      showToast(
+        wasAuto
+          ? `'${trimmed}' 순서가 프리셋으로 저장되었습니다.`
+          : `'${trimmed}' 순서가 수정되었습니다.`
+      );
+    },
+    [showToast]
+  );
+
+  // ---- 모둠 프리셋 (순서 프리셋과 동일 메커니즘, 업무 연동 없음) ----
+  const persistSavedGroups = (next: SavedGroupPreset[]) => {
+    try {
+      localStorage.setItem("classroom_saved_groups", JSON.stringify(next));
+    } catch {
+      // noop
+    }
+  };
+
+  const saveGroupPreset = useCallback(
+    (name: string, groups: string[][]) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast("모둠 이름을 입력해 주세요.");
+        return;
+      }
+      if (groups.length === 0) {
+        showToast("저장할 모둠 결과가 없습니다.");
+        return;
+      }
+      const newPreset: SavedGroupPreset = {
+        id: `group-preset-${Date.now()}`,
+        name: trimmed,
+        groups: groups.map((g) => [...g]),
+        createdAt: new Date().toISOString(),
+      };
+      setSavedGroups((prev) => {
+        const next = [newPreset, ...prev.filter((p) => p.name !== trimmed)];
+        persistSavedGroups(next);
+        return next;
+      });
+      showToast(`'${trimmed}' 모둠이 저장되었습니다.`);
+    },
+    [showToast]
+  );
+
+  const deleteGroupPreset = useCallback(
+    (id: string) => {
+      setSavedGroups((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        persistSavedGroups(next);
+        return next;
+      });
+      showToast("저장된 모둠이 삭제되었습니다.");
+    },
+    [showToast]
+  );
+
+  const pushRecentGroups = useCallback((groups: string[][]) => {
+    if (groups.length === 0) return;
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const autoName = `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} 모둠`;
+    const newPreset: SavedGroupPreset = {
+      id: `group-recent-${Date.now()}`,
+      name: autoName,
+      groups: groups.map((g) => [...g]),
+      createdAt: new Date().toISOString(),
+      auto: true,
+    };
+    setSavedGroups((prev) => {
+      let autoCount = 0;
+      const next = [newPreset, ...prev].filter((p) => {
+        if (!p.auto) return true;
+        autoCount += 1;
+        return autoCount <= 3;
+      });
+      persistSavedGroups(next);
+      return next;
+    });
+  }, []);
+
+  const updateGroupPreset = useCallback(
+    (id: string, name: string, groups: string[][]) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast("모둠 이름을 입력해 주세요.");
+        return;
+      }
+      const cleaned = groups.map((g) => [...g]).filter((g) => g.length > 0);
+      if (cleaned.length === 0) {
+        showToast("모둠에 포함할 학생이 없습니다.");
+        return;
+      }
+      let wasAuto = false;
+      setSavedGroups((prev) => {
+        const next = prev.map((p) => {
+          if (p.id !== id) return p;
+          wasAuto = Boolean(p.auto);
+          return { ...p, name: trimmed, groups: cleaned, auto: false };
+        });
+        persistSavedGroups(next);
+        return next;
+      });
+      showToast(
+        wasAuto
+          ? `'${trimmed}' 모둠이 프리셋으로 저장되었습니다.`
+          : `'${trimmed}' 모둠이 수정되었습니다.`
+      );
+    },
+    [showToast]
+  );
+
+  // ---- 자리 프리셋 (모둠 프리셋과 동일 메커니즘, 프리셋 자동 3개 유지) ----
+  const persistSavedSeats = (next: SavedSeatPreset[]) => {
+    try {
+      localStorage.setItem("classroom_saved_seats", JSON.stringify(next));
+    } catch {
+      // noop
+    }
+  };
+
+  const saveSeatPreset = useCallback(
+    (name: string, cells: SeatCellState[]) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast("자리 이름을 입력해 주세요.");
+        return;
+      }
+      if (cells.length === 0) {
+        showToast("저장할 자리 결과가 없습니다.");
+        return;
+      }
+      const newPreset: SavedSeatPreset = {
+        id: `seat-preset-${Date.now()}`,
+        name: trimmed,
+        cells: cells.map((c) => ({ ...c })),
+        createdAt: new Date().toISOString(),
+      };
+      setSavedSeats((prev) => {
+        const next = [newPreset, ...prev.filter((p) => p.name !== trimmed)];
+        persistSavedSeats(next);
+        return next;
+      });
+      showToast(`'${trimmed}' 자리가 저장되었습니다.`);
+    },
+    [showToast]
+  );
+
+  const deleteSeatPreset = useCallback(
+    (id: string) => {
+      setSavedSeats((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        persistSavedSeats(next);
+        return next;
+      });
+      showToast("저장된 자리가 삭제되었습니다.");
+    },
+    [showToast]
+  );
+
+  // 그리드 생성/변경 시 최근 기록 자동 보관 (최대 3개, 조용히 저장)
+  const pushRecentSeats = useCallback((cells: SeatCellState[]) => {
+    if (cells.length === 0) return;
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const autoName = `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} 자리`;
+    const newPreset: SavedSeatPreset = {
+      id: `seat-recent-${Date.now()}`,
+      name: autoName,
+      cells: cells.map((c) => ({ ...c })),
+      createdAt: new Date().toISOString(),
+      auto: true,
+    };
+    setSavedSeats((prev) => {
+      let autoCount = 0;
+      const next = [newPreset, ...prev].filter((p) => {
+        if (!p.auto) return true;
+        autoCount += 1;
+        return autoCount <= 3;
+      });
+      persistSavedSeats(next);
+      return next;
+    });
+  }, []);
+
+  const updateSeatPreset = useCallback(
+    (id: string, name: string, cells: SeatCellState[]) => {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast("자리 이름을 입력해 주세요.");
+        return;
+      }
+      if (cells.length === 0) {
+        showToast("저장할 자리 결과가 없습니다.");
+        return;
+      }
+      let wasAuto = false;
+      setSavedSeats((prev) => {
+        const next = prev.map((p) => {
+          if (p.id !== id) return p;
+          wasAuto = Boolean(p.auto);
+          return { ...p, name: trimmed, cells: cells.map((c) => ({ ...c })), auto: false };
+        });
+        persistSavedSeats(next);
+        return next;
+      });
+      showToast(
+        wasAuto
+          ? `'${trimmed}' 자리가 프리셋으로 저장되었습니다.`
+          : `'${trimmed}' 자리가 수정되었습니다.`
+      );
+    },
+    [showToast]
+  );
+
   const payRoutineToday = useCallback(
     (id: string, customWorkerNames?: string[], applyTax: boolean = false) => {
       const r = routines.find((x) => x.id === id);
@@ -845,6 +1208,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       if (fromVal === "treasury") {
         if (treasuryBalance < amount) throw new Error("학급 국고 잔고가 부족합니다.");
         setTreasuryBalance((prev) => prev - amount + tax);
+        // [Bug 1 수정] 국고→학생 방향에서도 세금 누적 통계 반영
+        if (tax > 0) {
+          setTotalTaxCollected((prev) => prev + tax);
+        }
       } else {
         const fromStudent = students.find((s) => String(s.no) === fromVal || s.name === fromVal);
         if (!fromStudent) throw new Error("송금 학생을 찾을 수 없습니다.");
@@ -869,9 +1236,18 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         );
       }
 
-      const fromName = fromVal === "treasury" ? "학급 국고" : `${fromVal}번 학생`;
-      const toName = toVal === "treasury" ? "학급 국고" : `${toVal}번 학생`;
-      addLedgerEntry("거래", fromName, toName, `${fromName} → ${toName}`, desc, amount, tax, [fromVal, toVal]);
+      // [Bug 2 수정] 장부 이름: 번호(fromVal/toVal) → 실제 학생 이름으로 표시
+      const fromStudentResolved = fromVal !== "treasury"
+        ? (students.find((s) => String(s.no) === fromVal || s.name === fromVal)?.name ?? fromVal)
+        : null;
+      const toStudentResolved = toVal !== "treasury"
+        ? (students.find((s) => String(s.no) === toVal || s.name === toVal)?.name ?? toVal)
+        : null;
+      const fromName = fromVal === "treasury" ? "학급 국고" : fromStudentResolved!;
+      const toName   = toVal   === "treasury" ? "학급 국고" : toStudentResolved!;
+      const fromTarget = fromVal === "treasury" ? "treasury" : fromStudentResolved!;
+      const toTarget   = toVal   === "treasury" ? "treasury" : toStudentResolved!;
+      addLedgerEntry("거래", fromName, toName, `${fromName} → ${toName}`, desc, amount, tax, [fromTarget, toTarget]);
       showToast(`[거래 완료] ${fromName} → ${toName}: ${amount.toLocaleString()} ${currencyName} (세금: ${tax} ${currencyName})`);
     },
     [students, treasuryBalance, taxConfig, currencyName, addLedgerEntry, showToast]
@@ -903,6 +1279,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         setTotalTaxCollected((prev) => prev + totalTax);
       }
 
+      const descWithTax = perStudentTax > 0 ? `${desc} (세금 ${perStudentTax.toLocaleString()} ${currencyName} 원천징수)` : desc;
       for (const name of targetNames) {
         addLedgerEntry(
           amount > 0 ? "입금" : "차감",
@@ -911,14 +1288,15 @@ export function useClassroomState(options?: ClassroomStateOptions) {
             ? name
             : (taxConfig.penaltyDisposition === "void" ? "화폐 소멸(소각)" : "학급 국고"),
           name,
-          desc,
+          descWithTax,
           amount,
           perStudentTax,
           [name]
         );
       }
+      const taxNotice = perStudentTax > 0 ? ` (세금 ${perStudentTax.toLocaleString()} ${currencyName} 원천징수)` : "";
       showToast(
-        `총 ${targetNames.length}명에게 ${Math.abs(amount).toLocaleString()} ${currencyName} ${amount > 0 ? "지급" : "차감"} 완료`
+        `총 ${targetNames.length}명에게 ${amount > 0 ? `실지급 ${netPerStudent.toLocaleString()} ${currencyName}${taxNotice}` : `${Math.abs(amount).toLocaleString()} ${currencyName} 차감`} 완료`
       );
     },
     [taxConfig, currencyName, addLedgerEntry, showToast]
@@ -998,14 +1376,21 @@ export function useClassroomState(options?: ClassroomStateOptions) {
 
           if (targets.length > 0) {
             const amt = act.type === "deposit" ? act.amount : -act.amount;
+            const willApplyTax = act.type === "deposit" ? act.applyTax : false;
             executeBatchDeposit(
               targets,
               amt,
               `[${b.name}] ${act.desc}`,
-              act.type === "deposit" ? act.applyTax : false
+              willApplyTax
             );
             executedCount++;
-            summaryDetails.push(`${targets.length}명 ${amt > 0 ? "+" : ""}${amt.toLocaleString()}${currencyName}`);
+            let taxPerWorker = 0;
+            if (willApplyTax && amt > 0) {
+              taxPerWorker = calculateTax("income", amt, taxConfig);
+            }
+            const netAmt = amt > 0 ? amt - taxPerWorker : amt;
+            const taxTag = taxPerWorker > 0 ? ` (세금 -${taxPerWorker.toLocaleString()})` : "";
+            summaryDetails.push(`${targets.length}명 ${netAmt > 0 ? "+" : ""}${netAmt.toLocaleString()}${currencyName}${taxTag}`);
           }
         }
       }
@@ -1017,7 +1402,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         showToast(`[복합 정산 완료] '${b.name}'${detailStr} 처리 완료`);
       }
     },
-    [customBundles, students, currencyName, executeBatchDeposit, executeDirectTax, showToast]
+    [customBundles, students, currencyName, taxConfig, executeBatchDeposit, executeDirectTax, showToast]
   );
 
   const addCustomBundle = useCallback(
@@ -1232,6 +1617,24 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     cancelSkipRoutineWorker,
     updateRoutineOrder,
     updateRoutine,
+    savedOrders,
+    setSavedOrders,
+    saveOrderPreset,
+    deleteOrderPreset,
+    pushRecentOrder,
+    updateOrderPreset,
+    savedGroups,
+    setSavedGroups,
+    saveGroupPreset,
+    deleteGroupPreset,
+    pushRecentGroups,
+    updateGroupPreset,
+    savedSeats,
+    setSavedSeats,
+    saveSeatPreset,
+    deleteSeatPreset,
+    pushRecentSeats,
+    updateSeatPreset,
     payRoutineToday,
     payAllRoutinesToday,
     executeTransaction,

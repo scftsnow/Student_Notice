@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PickStudent, SeatCellState, SeatConfig } from "@/types";
 import { buildSeatCells, autoAssignSeats } from "@/lib/pickRandom";
+import { ensureFreeCoords, isVersionedSeatDoc, normalizeSeatCell } from "@/lib/seatFree";
 
 const DEFAULT_CONFIG: SeatConfig = {
   divisions: 3,
@@ -9,35 +10,20 @@ const DEFAULT_CONFIG: SeatConfig = {
   genderMode: "ignore",
 };
 
-function isValidCell(raw: unknown): raw is SeatCellState {
-  if (typeof raw !== "object" || raw === null) return false;
-  const c = raw as Record<string, unknown>;
-  return (
-    typeof c.key === "string" &&
-    typeof c.row === "number" &&
-    typeof c.col === "number" &&
-    typeof c.division === "number" &&
-    typeof c.enabled === "boolean"
-  );
-}
-
+/**
+ * cellsJson 파싱용 정규화. v1(배열) / v2(봉투) 모두 수용.
+ * x/y 누락분은 격자 위치에서 유도한 % 좌표로 채워 항상 자유 좌표로 반환.
+ */
 function normalizeCells(raw: unknown): SeatCellState[] | null {
-  if (!Array.isArray(raw)) return null;
+  const arr = isVersionedSeatDoc(raw) ? raw.cells : raw;
+  if (!Array.isArray(arr)) return null;
   const cells: SeatCellState[] = [];
-  for (const item of raw) {
-    if (!isValidCell(item)) return null;
-    cells.push({
-      key: item.key,
-      row: item.row,
-      col: item.col,
-      division: item.division,
-      enabled: item.enabled,
-      lockedGender: item.lockedGender === "남" || item.lockedGender === "여" ? item.lockedGender : null,
-      fixedStudentId: typeof item.fixedStudentId === "string" ? item.fixedStudentId : null,
-      studentId: typeof item.studentId === "string" ? item.studentId : null,
-    });
+  for (const item of arr) {
+    const c = normalizeSeatCell(item);
+    if (!c) return null;
+    cells.push(c);
   }
-  return cells;
+  return ensureFreeCoords(cells);
 }
 
 export function useSeatPick() {

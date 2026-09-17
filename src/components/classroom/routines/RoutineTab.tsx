@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Settings, X, Plus, ClipboardList, ArrowRight, CheckSquare, CheckCircle2 } from "lucide-react";
-import { ClassroomStudent, ClassroomRoutine, LedgerRecord } from "@/types/classroom";
+import { ClassroomStudent, ClassroomRoutine, LedgerRecord, SavedOrderPreset } from "@/types/classroom";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import AddRoutineModal from "./AddRoutineModal";
 
@@ -11,6 +11,7 @@ interface RoutineTabProps {
   students: ClassroomStudent[];
   currencyName?: string;
   ledgerHistory?: LedgerRecord[];
+  savedOrders?: SavedOrderPreset[];
   onAddRoutine: (routine: Omit<ClassroomRoutine, "id" | "currentIdx">) => void;
   onDeleteRoutine: (id: string) => void;
   onAdvanceRoutine?: (id: string) => void;
@@ -24,6 +25,7 @@ export default function RoutineTab({
   students,
   currencyName = "원",
   ledgerHistory = [],
+  savedOrders = [],
   onAddRoutine,
   onDeleteRoutine,
   onUpdateRoutine,
@@ -44,7 +46,7 @@ export default function RoutineTab({
         <button
           type="button"
           onClick={() => setIsAddOpen(true)}
-          className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold shadow-xs hover:bg-indigo-700 flex items-center gap-1.5 transition-all text-xs"
+          className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold shadow-sm hover:bg-indigo-700 flex items-center gap-1.5 transition-all text-xs"
         >
           <Plus className="w-4 h-4" />
           <span>새 학생 업무 등록</span>
@@ -83,7 +85,7 @@ export default function RoutineTab({
             return (
               <div
                 key={r.id}
-                className={`p-4 rounded-2xl bg-white border transition-all flex flex-col justify-between space-y-3.5 shadow-xs ${
+                className={`p-4 rounded-2xl bg-white border transition-all flex flex-col justify-between space-y-3.5 shadow-sm ${
                   r.visibleInNotice !== false
                     ? "border-slate-200 hover:border-indigo-300 hover:shadow-md"
                     : "border-dashed border-slate-300 bg-slate-50/60 opacity-85"
@@ -140,7 +142,7 @@ export default function RoutineTab({
                     {/* 일당/주당/월당 지급 완료 여부 배지 */}
                     {r.pay > 0 && activeWorkerNames.length > 0 && (
                       isAllPaid ? (
-                        <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                        <span className="text-emerald-700 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-300 inline-flex items-center gap-1 shadow-sm">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                           <span>{periodLabel} {paidWorkers.join(", ")} 지급 완료</span>
                         </span>
@@ -198,7 +200,7 @@ export default function RoutineTab({
                   <button
                     type="button"
                     onClick={() => setEditingRoutine(r)}
-                    className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors text-center flex items-center justify-center gap-1.5 shadow-2xs"
+                    className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors text-center flex items-center justify-center gap-1.5 shadow-sm"
                   >
                     <Settings className="w-3.5 h-3.5 text-slate-600" />
                     <span>설정</span>
@@ -217,6 +219,7 @@ export default function RoutineTab({
         students={students}
         currencyName={currencyName}
         onSave={onAddRoutine}
+        savedOrders={savedOrders}
       />
 
       {/* 업무 설정(수정) 모달 - 등록 모달과 동일한 화면 */}
@@ -227,6 +230,7 @@ export default function RoutineTab({
         currencyName={currencyName}
         initialRoutine={editingRoutine}
         onUpdateRoutine={onUpdateRoutine}
+        savedOrders={savedOrders}
       />
     </div>
   );

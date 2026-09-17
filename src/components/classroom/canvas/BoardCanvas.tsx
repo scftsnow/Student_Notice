@@ -14,6 +14,7 @@ import {
   BoardTargetElement, TaxConfig, LedgerRecord,
 } from "@/types/classroom";
 import { DEFAULT_LAYOUTS, isBoxVisibleToday } from "@/lib/boardDefaults";
+import { FALLBACK_FONT_FAMILY } from "@/lib/defaultFont";
 import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler, selectedBorderClass } from "@/lib/canvasUtils";
 
 interface BoardCanvasProps {
@@ -38,6 +39,7 @@ interface BoardCanvasProps {
   onSelectElement?: (elem: BoardTargetElement) => void;
   onCurrentFontSize?: (size: number) => void;
   onCurrentLineHeight?: (lineHeight: number) => void;
+  onCurrentFontFamily?: (family: string | undefined) => void;
   showEconomyShortcut?: boolean;
   layouts?: BoardElementLayouts;
   onUpdateLayouts?: (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => void;
@@ -57,15 +59,16 @@ export default function BoardCanvas({
   students = [], currencyName = "원",
   onPayRoutineToday, onUpdateRoutine,
   onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onCancelSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
-  targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight,
+  targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight, onCurrentFontFamily,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
   previewScale = 75, taxConfig, ledgerHistory, onUndoLedgerEntry,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
-  const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
   const [internalLayouts, setInternalLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
   const layouts = externalLayouts ?? internalLayouts;
   const parentRef = useRef<HTMLDivElement>(null);
+  /** 실제 미리보기 박스 (1000px 캔버스를 감싸는 고정 크기 래퍼). 바깥 클릭 판정의 기준. */
+  const canvasBoxRef = useRef<HTMLDivElement>(null);
   const [parentWidth, setParentWidth] = useState<number>(1000);
   const containerSize = useMemo(() => ({ width: 1000, height: 562.5 }), []);
 
@@ -83,11 +86,27 @@ export default function BoardCanvas({
     return () => ro.disconnect();
   }, []);
 
-  // Load layout and default font from localStorage
+  // 미리보기 바깥(페이지 배경·여백 등)을 누르면 요소 선택 해제.
+  // 기준은 미리보기 박스 본체이므로, 중앙 정렬로 생긴 좌우 여백 클릭도 해제된다.
+  // 캡처 단계에서 처리해 툴바 버튼의 명시적 선택이 나중에 덮어쓰도록 한다.
+  // 미리보기 내부와 서식 툴바(data-keep-selection)는 제외되어
+  // 드래그·편집·연속 서식 적용 중 해제가 일어나지 않는다.
+  useEffect(() => {
+    if (!onSelectElement) return;
+    const handleOutsidePointerDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t || !canvasBoxRef.current) return;
+      if (canvasBoxRef.current.contains(t)) return;
+      if (typeof t.closest === "function" && t.closest("[data-keep-selection]")) return;
+      onSelectElement("all");
+    };
+    document.addEventListener("mousedown", handleOutsidePointerDown, true);
+    return () => document.removeEventListener("mousedown", handleOutsidePointerDown, true);
+  }, [onSelectElement]);
+
+  // Load layout from localStorage (기본 글꼴은 시스템 전역에서 적용되며 미리보기는 제외)
   useEffect(() => {
     try {
-      const savedFont = localStorage.getItem("classroom_default_font_family");
-      if (savedFont) setDefaultFontFamily(savedFont);
       if (!externalUpdateLayouts) {
         const saved = localStorage.getItem("classroom_board_layouts");
         if (saved) {
@@ -99,7 +118,6 @@ export default function BoardCanvas({
       }
       const ch = new BroadcastChannel("classroom_os_sync");
       ch.onmessage = (e) => {
-        if (e.data?.defaultFontFamily) setDefaultFontFamily(e.data.defaultFontFamily);
         if (!externalUpdateLayouts && e.data?.layouts) {
           setInternalLayouts({ ...DEFAULT_LAYOUTS, ...e.data.layouts, accountBox: e.data.layouts.accountBox || DEFAULT_LAYOUTS.accountBox });
         }
@@ -220,6 +238,26 @@ export default function BoardCanvas({
   useEffect(() => { onCurrentFontSize?.(targetFontSize); }, [targetFontSize, onCurrentFontSize]);
   useEffect(() => { onCurrentLineHeight?.(targetLineHeight); }, [targetLineHeight, onCurrentLineHeight]);
 
+  // 선택 요소 변경 시 해당 요소의 실제 글씨체를 부모 툴바로 전달 (미지정 시 undefined → 드롭박스 기본값)
+  const targetFontFamily = useMemo(() => {
+    if (targetElement === "all" || targetElement === "noticeBox") {
+      return freeCards.find((c) => c.id === "noticeBox")?.fontFamily;
+    }
+    if (targetElement === "dateBox") return layouts.dateBox.fontFamily;
+    if (targetElement === "clockBox") return layouts.clockBox.fontFamily;
+    if (targetElement === "routineBox") return layouts.routineBox.fontFamily;
+    if (targetElement && targetElement.startsWith("free-")) {
+      return freeCards.find((c) => c.id === targetElement)?.fontFamily;
+    }
+    if (targetElement && targetElement.startsWith("routine-")) {
+      const r = routines.find((item) => item.id === targetElement);
+      return r?.layout?.fontFamily || layouts.routineBox.fontFamily;
+    }
+    return undefined;
+  }, [targetElement, layouts.dateBox.fontFamily, layouts.clockBox.fontFamily, layouts.routineBox.fontFamily, freeCards, routines]);
+
+  useEffect(() => { onCurrentFontFamily?.(targetFontFamily); }, [targetFontFamily, onCurrentFontFamily]);
+
   // Live date
   useEffect(() => {
     const update = () => {
@@ -243,6 +281,7 @@ export default function BoardCanvas({
       {/* 16:9 캔버스 본체 (가로/세로 비율 100% 고정 뷰포트) */}
       <div
         id="preview-16-9-wrapper"
+        ref={canvasBoxRef}
         className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-300 select-none bg-slate-900"
         style={{
           width: `${previewWidth}px`,
@@ -255,7 +294,7 @@ export default function BoardCanvas({
             height: "562.5px",
             transform: `scale(${scale})`,
             transformOrigin: "top left",
-            fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontFamily: FALLBACK_FONT_FAMILY,
           }}
           className="relative"
         >
@@ -323,7 +362,7 @@ export default function BoardCanvas({
                   const txt = e.currentTarget.innerText.trim();
                   if (txt) setLiveDateStr(txt);
                 }}
-                className="inline-block cursor-text focus:outline-hidden focus:ring-1 focus:ring-indigo-400/60 rounded px-0.5"
+                className="inline-block cursor-text focus:outline-none focus:ring-1 focus:ring-indigo-400/60 rounded px-0.5"
               >
                 {liveDateStr || "오늘의 날짜"}
               </span>
@@ -407,7 +446,8 @@ export default function BoardCanvas({
                       enableResizing={RESIZE_ENABLE}
                       resizeHandleComponent={RESIZE_HANDLES}
                       onClick={(e: ReactMouseEvent<HTMLElement>) => { e.stopPropagation(); onSelectElement?.(r.id); }}
-                      className={`group rounded-xl border transition-all font-bold opacity-95 leading-snug cursor-grab active:cursor-grabbing relative ${
+                      minWidth={120}
+                      className={`group rounded-2xl border transition-all font-bold leading-snug cursor-grab active:cursor-grabbing relative overflow-hidden ${
                         isSelected ? "z-30" : "z-10"
                       } ${selectedBorderClass(isSelected)}`}
                       style={{
@@ -466,7 +506,7 @@ export default function BoardCanvas({
                         </div>
                       </div>
 
-                      <div className="px-2 py-1 w-full">
+                      <div className="p-2 w-full overflow-y-auto overflow-x-hidden">
                         <RoutineElementInCanvas
                           routine={r}
                           students={students}

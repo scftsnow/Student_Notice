@@ -147,6 +147,34 @@ export interface SeatCellState {
   lockedGender: "남" | "여" | null;
   fixedStudentId: string | null;
   studentId: string | null;
+  /** 자유 배치 X 좌표 (0~100, % 단위, 교실 캔버스 기준). 없으면 레거시 격자 셀로 취급. */
+  x?: number;
+  /** 자유 배치 Y 좌표 (0~100, % 단위, 교실 캔버스 기준). 없으면 레거시 격자 셀로 취급. */
+  y?: number;
+}
+
+// --- Seat 자유 배치 (v2, 교실 캔버스 % 좌표) ---
+
+/** 위치(x/y)가 확정된 자유 배치 셀. 캔버스 UI는 이 타입을 사용한다. */
+export type SeatFreeCell = SeatCellState & { x: number; y: number };
+
+/** cellsJson 버전 태그. 1 = 레거시 배열, 2 = 버전 봉투(free). */
+export const SEAT_CELLS_JSON_VERSION = 2 as const;
+
+/** 교실 캔버스 고정 종횡비. CSS `aspect-[4/3]`과 대응. */
+export const SEAT_CANVAS_ASPECT = "4:3" as const;
+
+export interface SeatCanvasMeta {
+  unit: "%";
+  aspect: string;
+}
+
+/** cellsJson v2 봉투. DB(Prisma) 변경 없이 JSON 안에서 버전 관리. */
+export interface SeatCellsDocV2 {
+  version: typeof SEAT_CELLS_JSON_VERSION;
+  kind: "free";
+  canvas: SeatCanvasMeta;
+  cells: SeatCellState[];
 }
 
 export type ActionResult<T> =

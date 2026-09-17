@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Coins, Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
 import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts, LedgerRecord } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
+import { FALLBACK_FONT_FAMILY } from "@/lib/defaultFont";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 
 interface BoardClientProps {
@@ -15,6 +17,64 @@ interface BoardClientProps {
   classNameTitle: string;
   initialContent: string;
   initialRoutines?: DailyRoutineAssignment[];
+}
+
+interface BoardTextBoxProps {
+  left: string;
+  top: string;
+  width?: string;
+  height?: string;
+  fontSizePx: number;
+  color?: string;
+  fontFamily?: string;
+  lineHeight?: string;
+  align?: "left" | "center" | "right";
+  z?: string;
+  html?: string;
+  children?: ReactNode;
+}
+
+/**
+ * 학생창 텍스트 박스 공용 껍데기 (업무 요소·자유 글상자 공통).
+ * 박스 모델(p-2·overflow-hidden·border-box)과 인라인 흐름을 하나로 통일해
+ * 요소별 너비 어긋남을 없앤다. html이 있으면 원시 HTML, 없으면 children 렌더.
+ */
+function BoardTextBox({
+  left,
+  top,
+  width,
+  height,
+  fontSizePx,
+  color,
+  fontFamily,
+  lineHeight,
+  align,
+  z = "z-20",
+  html,
+  children,
+}: BoardTextBoxProps) {
+  const cls = `absolute ${z} font-bold p-2 leading-relaxed tracking-tight overflow-hidden box-border`;
+  const style = {
+    left,
+    top,
+    width,
+    height,
+    fontSize: `${fontSizePx}px`,
+    textAlign: align || "left",
+    color: color || "inherit",
+    fontFamily: fontFamily || undefined,
+    lineHeight: lineHeight || "1.4",
+    letterSpacing: "-0.02em",
+    wordBreak: "break-word" as const,
+  };
+  if (html !== undefined) {
+    return <div className={cls} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+  return (
+    <div className={cls} style={style}>
+      {children}
+    </div>
+  );
 }
 
 export default function BoardClient({
@@ -31,7 +91,6 @@ export default function BoardClient({
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
-  const [defaultFontFamily, setDefaultFontFamily] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(false);
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
@@ -82,8 +141,6 @@ export default function BoardClient({
         if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory);
         if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards);
       }
-      const savedFont = localStorage.getItem("classroom_default_font_family");
-      if (savedFont) setDefaultFontFamily(savedFont);
       const savedLayouts = localStorage.getItem("classroom_board_layouts");
       if (savedLayouts) {
         const parsedLayouts = JSON.parse(savedLayouts);
@@ -108,7 +165,6 @@ export default function BoardClient({
 
       if (data.fontSize !== undefined) setFontSize(Number(data.fontSize));
       if (data.theme !== undefined) setTheme(data.theme);
-      if (data.defaultFontFamily) setDefaultFontFamily(data.defaultFontFamily);
       if (Array.isArray(data.routines)) setRoutines(data.routines);
       if (Array.isArray(data.students)) setStudents(data.students);
       if (Array.isArray(data.ledgerHistory)) setLedgerHistory(data.ledgerHistory);
@@ -187,7 +243,7 @@ export default function BoardClient({
   return (
     <div
       className={`fixed inset-0 z-50 w-screen h-screen select-none overflow-hidden flex items-center justify-center ${themeStyle.bg}`}
-      style={{ fontFamily: defaultFontFamily || "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" }}
+      style={{ fontFamily: FALLBACK_FONT_FAMILY }}
     >
       {/* 
         교사 미리보기(BoardCanvas)의 1000x562.5 기준 캔버스를 100% 동일하게 스케일링하여 투영
@@ -292,30 +348,30 @@ export default function BoardClient({
           const routineLh = r.layout?.lineHeight || layouts.routineBox.lineHeight;
 
           return (
-            <div
+            <BoardTextBox
               key={r.id}
-              className="absolute z-10 flex items-center gap-1 flex-wrap font-bold opacity-95 leading-snug"
-              style={{
-                left,
-                top,
-                width,
-                height,
-                fontSize: `${routineFontSize}px`,
-                color: routineColor,
-                fontFamily: r.layout?.fontFamily || layouts.routineBox.fontFamily || undefined,
-                lineHeight: routineLh
+              z="z-10"
+              left={left}
+              top={top}
+              width={width}
+              height={height}
+              fontSizePx={routineFontSize}
+              color={routineColor}
+              fontFamily={r.layout?.fontFamily || layouts.routineBox.fontFamily || undefined}
+              lineHeight={
+                routineLh
                   ? typeof routineLh === "number"
                     ? routineLh > 10 ? `${routineLh / 100}` : `${routineLh}`
                     : routineLh
-                  : "1.4",
-              }}
+                  : undefined
+              }
             >
               {segments.map((seg, sIdx) => {
                 if (seg.type === "text") {
                   return (
                     <span
                       key={`b-text-${sIdx}`}
-                      className={`opacity-80 whitespace-pre ${routineColor ? "" : themeStyle.routineText}`}
+                      className={`whitespace-pre ${routineColor ? "" : themeStyle.routineText}`}
                       style={routineColor ? { color: routineColor } : undefined}
                     >
                       {seg.text}
@@ -332,10 +388,10 @@ export default function BoardClient({
                 if (payStatus.isPaid) {
                   workerColorCls =
                     theme === "white"
-                      ? "text-lime-700 bg-lime-100/90 px-1 rounded font-black drop-shadow-xs"
+                      ? "text-lime-700 bg-lime-100/90 px-1 rounded font-black drop-shadow-sm"
                       : "text-lime-300 font-extrabold drop-shadow-[0_0_8px_rgba(163,230,53,0.85)]";
                 } else if (isSubstituted) {
-                  workerColorCls = "text-amber-400 font-black drop-shadow-xs";
+                  workerColorCls = "text-amber-400 font-black drop-shadow-sm";
                 } else {
                   workerColorCls = routineColor ? "" : themeStyle.routineWorker;
                 }
@@ -343,7 +399,9 @@ export default function BoardClient({
                 return (
                   <span
                     key={`b-worker-${sIdx}`}
-                    className={`font-black drop-shadow-xs transition-colors ${workerColorCls}`}
+                    // 주의: 기본 drop-shadow-sm을 두면 지급 형광(drop-shadow-[...])과
+                    // 같은 filter 속성을 두고 경합해 형광이 지므로 두지 않는다 (미리보기 칩과 동일).
+                    className={`font-black underline decoration-2 whitespace-nowrap transition-colors ${workerColorCls}`}
                     style={routineColor && !isSubstituted && !payStatus.isPaid ? { color: routineColor } : undefined}
                     title={payStatus.isPaid ? `${currentWorker} — ${payStatus.periodLabel} 지급 완료` : undefined}
                   >
@@ -351,7 +409,7 @@ export default function BoardClient({
                   </span>
                 );
               })}
-            </div>
+            </BoardTextBox>
           );
         })}
 
@@ -359,27 +417,24 @@ export default function BoardClient({
       {freeCards
         .filter((card) => isBoxVisibleToday(card.visible, card.visibleDays))
         .map((card) => (
-        <div
+        <BoardTextBox
           key={card.id}
-          className="absolute z-20 font-bold p-2 leading-relaxed tracking-tight overflow-hidden box-border"
-          style={{
-            left: card.left || "20%",
-            top: card.top || "40%",
-            width: card.width,
-            height: card.height,
-            fontSize: `${card.fontSize || fontSize || 42}px`,
-            textAlign: card.align || "left",
-            color: card.color || "inherit",
-            fontFamily: card.fontFamily || undefined,
-            lineHeight: card.lineHeight
+          left={card.left || "20%"}
+          top={card.top || "40%"}
+          width={card.width}
+          height={card.height}
+          fontSizePx={card.fontSize || fontSize || 42}
+          align={card.align}
+          color={card.color}
+          fontFamily={card.fontFamily}
+          lineHeight={
+            card.lineHeight
               ? (typeof card.lineHeight === "number"
                 ? card.lineHeight > 10 ? `${card.lineHeight / 100}` : `${card.lineHeight}`
                 : card.lineHeight)
-              : "1.4",
-            letterSpacing: "-0.02em",
-            wordBreak: "break-word",
-          }}
-          dangerouslySetInnerHTML={{ __html: card.html }}
+              : undefined
+          }
+          html={card.html}
         />
       ))}
 

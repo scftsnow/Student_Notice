@@ -1,3 +1,5 @@
+import type { SeatCellState } from "@/types";
+
 export interface ClassroomStudent {
   no?: number;
   name: string;
@@ -21,6 +23,34 @@ export interface ClassroomRoutine {
   displayFormat?: string;
   visibleInNotice?: boolean;
   layout?: Partial<ElementLayout>;
+}
+
+export interface SavedOrderPreset {
+  id: string;
+  name: string;
+  order: string[];
+  createdAt: string;
+  /** true면 뽑기 실행 시 자동 보관된 최근 기록 (최대 3개, 이름 지정 시 프리셋으로 승격) */
+  auto?: boolean;
+}
+
+export interface SavedGroupPreset {
+  id: string;
+  name: string;
+  groups: string[][];
+  createdAt: string;
+  /** true면 뽑기 실행 시 자동 보관된 최근 기록 (최대 3개, 이름 지정 시 프리셋으로 승격) */
+  auto?: boolean;
+}
+
+export interface SavedSeatPreset {
+  id: string;
+  name: string;
+  /** 자리배치 셀 배열 (자유 배치 % 좌표 x/y 포함. occupant/고정 포함 가능, 로드 시 seatFree 정규화) */
+  cells: SeatCellState[];
+  createdAt: string;
+  /** true면 그리드 생성/변경 시 자동 보관된 최근 기록 (최대 3개, 이름 지정 시 프리셋으로 승격) */
+  auto?: boolean;
 }
 
 export interface TaxConfig {

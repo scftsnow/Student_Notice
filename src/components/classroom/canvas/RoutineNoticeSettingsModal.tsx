@@ -25,7 +25,7 @@ export default function RoutineNoticeSettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-4 max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -92,7 +92,7 @@ export default function RoutineNoticeSettingsModal({
                   key={r.id}
                   className={`p-3 rounded-xl border transition-all space-y-2 ${
                     isVisible
-                      ? "bg-indigo-50/40 border-indigo-200/80 shadow-2xs"
+                      ? "bg-indigo-50/40 border-indigo-200/80 shadow-sm"
                       : "bg-slate-50/60 border-slate-200 opacity-75"
                   }`}
                 >
@@ -177,7 +177,7 @@ export default function RoutineNoticeSettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs"
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm"
           >
             확인
           </button>

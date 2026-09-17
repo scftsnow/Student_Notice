@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Users, GripVertical, Shuffle } from "lucide-react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { Users, Shuffle, ExternalLink, Bookmark, History } from "lucide-react";
 import PickTargetSelector from "./PickTargetSelector";
-import DrawOverlay from "./DrawOverlay";
-import SaveBar from "./SaveBar";
+import PickSaveBar from "./PickSaveBar";
+import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
 import { dealGroups, parseGroupSizes } from "@/lib/pickRandom";
 import { formatPickName } from "@/lib/pickFormat";
-import { saveGroupSet, deleteGroupSet } from "@/app/pickActions";
-import { playError, unlockAudio } from "@/lib/pickSound";
+import { playError } from "@/lib/pickSound";
+import { openPickWindow } from "@/lib/pickWindowHelper";
 import type { PickStudent } from "@/types";
+import type { SavedGroupPreset } from "@/types/classroom";
 
 export interface GroupSetItem {
   id: string;
@@ -22,7 +23,11 @@ export interface GroupSetItem {
 
 interface GroupPickPanelProps {
   students: PickStudent[];
-  initialSets: GroupSetItem[];
+  savedGroups: SavedGroupPreset[];
+  onSaveGroupPreset: (name: string, groups: string[][]) => void;
+  onDeleteGroupPreset: (id: string) => void;
+  onPushRecentGroups: (groups: string[][]) => void;
+  onUpdateGroupPreset: (id: string, name: string, groups: string[][]) => void;
 }
 
 type Mode = "count" | "size" | "custom";
@@ -33,7 +38,14 @@ function evenSplit(total: number, parts: number): number[] {
   return Array.from({ length: parts }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
-export default function GroupPickPanel({ students, initialSets }: GroupPickPanelProps) {
+export default function GroupPickPanel({
+  students,
+  savedGroups,
+  onSaveGroupPreset,
+  onDeleteGroupPreset,
+  onPushRecentGroups,
+  onUpdateGroupPreset,
+}: GroupPickPanelProps) {
   const defaultIds = useMemo(() => students.map((s) => s.id), [students]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   const [mode, setMode] = useState<Mode>("count");
@@ -44,9 +56,16 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [groups, setGroups] = useState<PickStudent[][]>([]);
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [sets, setSets] = useState<GroupSetItem[]>(initialSets);
-  const [loadedId, setLoadedId] = useState("");
+  const [presetName, setPresetName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editingGroups, setEditingGroups] = useState<string[][]>([]);
+  const dragCellRef = useRef<{ gi: number; ci: number } | null>(null);
+  const [dragCell, setDragCell] = useState<{ gi: number; ci: number } | null>(null);
+  const [dropCell, setDropCell] = useState<{ gi: number; ci: number; after: boolean } | null>(null);
+
+  const manualPresets = useMemo(() => savedGroups.filter((p) => !p.auto), [savedGroups]);
+  const recentPresets = useMemo(() => savedGroups.filter((p) => p.auto).slice(0, 3), [savedGroups]);
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const selected = useMemo(
@@ -57,12 +76,8 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
     [selectedIds, byId]
   );
   const rollingNames = useMemo(() => selected.map(formatPickName), [selected]);
-  const overlayResults = useMemo(
-    () => groups.map((g, i) => `${i + 1}모둠: ${g.map((s) => s.name).join(", ")}`),
-    [groups]
-  );
 
-  const resolveSizes = (n: number): number[] => {
+  const resolveSizes = useCallback((n: number): number[] => {
     if (mode === "count") {
       if (countValue < 1) throw new Error("모둠 수를 1 이상으로 입력해 주세요.");
       if (countValue > n) throw new Error(`모둠 수(${countValue})가 선택 인원(${n}명)보다 많습니다.`);
@@ -74,12 +89,11 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
       return evenSplit(n, Math.max(1, Math.round(n / sizeValue)));
     }
     return parseGroupSizes(customText);
-  };
+  }, [mode, countValue, sizeValue, customText]);
 
-  const runDraw = () => {
+  const runDraw = useCallback(() => {
     setError("");
     setNotice("");
-    unlockAudio();
     if (selected.length < 2) {
       setError("모둠을 나누려면 학생을 2명 이상 선택해 주세요.");
       playError();
@@ -89,12 +103,42 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
       const sizes = resolveSizes(selected.length);
       const dealt = dealGroups(selected, sizes, (s) => s.gender, separateGender);
       setGroups(dealt);
-      setOverlayOpen(true);
+      onPushRecentGroups(dealt.map((g) => g.map((s) => s.name)));
+      const display = dealt.map((g, i) => `${i + 1}모둠: ${g.map((s) => s.name).join(", ")}`);
+      openPickWindow({
+        id: `pick-group-${Date.now()}`,
+        type: "group",
+        title: "모둠 뽑기",
+        rollingNames,
+        results: display,
+        groups: dealt.map((g, i) => ({
+          label: `${i + 1}모둠`,
+          members: g.map((s) => formatPickName(s)),
+        })),
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "모둠 나누기 중 오류가 발생했습니다.");
       playError();
     }
-  };
+  }, [selected, resolveSizes, separateGender, rollingNames, onPushRecentGroups]);
+
+  // 별도 창에서 '다시 뽑기' 요청 시 재추첨 실행
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("classroom_pick_sync");
+      channel.onmessage = (e: MessageEvent) => {
+        if (e.data?.type === "REQUEST_REDRAW") {
+          runDraw();
+        }
+      };
+    } catch {
+      // ignore
+    }
+    return () => {
+      if (channel) channel.close();
+    };
+  }, [runDraw]);
 
   const moveStudent = (studentId: string, fromGroup: number, toGroup: number) => {
     if (fromGroup === toGroup) return;
@@ -108,92 +152,245 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
     });
   };
 
-  const handleSave = async (name: string) => {
-    setError("");
-    setNotice("");
+  // 뽑힌 모둠 프리셋 저장
+  const handleSavePreset = () => {
+    const trimmed = presetName.trim();
+    if (!trimmed) {
+      setError("저장할 모둠 이름을 입력해 주세요 (예: 1학기 모둠).");
+      return;
+    }
     if (groups.length === 0) {
       setError("저장할 모둠 결과가 없습니다. 먼저 모둠 뽑기를 실행해 주세요.");
-      playError();
       return;
     }
-    const existing = sets.find((s) => s.id === loadedId && s.name === name);
-    // 학생 식별은 이름 기준 (명단에서 이름 중복 불가) → id 배열이 곧 이름 배열
-    const res = await saveGroupSet({
-      id: existing?.id,
-      name,
-      mode,
-      genderMode: separateGender ? "separate" : "ignore",
-      groupsJson: JSON.stringify(groups.map((g) => g.map((s) => s.name))),
-      namesJson: "{}",
-    });
-    if (!res.success) {
-      setError(res.error);
-      playError();
-      return;
-    }
-    setSets((prev) => {
-      const without = prev.filter((s) => s.id !== res.data.id);
-      return [
-        {
-          id: res.data.id,
-          name: res.data.name,
-          mode: res.data.mode,
-          genderMode: res.data.genderMode,
-          groupsJson: res.data.groupsJson,
-          namesJson: res.data.namesJson,
-        },
-        ...without,
-      ];
-    });
-    setLoadedId(res.data.id);
-    setNotice(`'${name}' 모둠을 저장했습니다.`);
+    setError("");
+    onSaveGroupPreset(
+      trimmed,
+      groups.map((g) => g.map((s) => s.name))
+    );
+    setNotice(`모둠 프리셋 '${trimmed}'이(가) 저장되었습니다.`);
+    setPresetName("");
   };
 
-  const handleLoad = (id: string) => {
-    const target = sets.find((s) => s.id === id);
-    if (!target) return;
-    try {
-      const nameGroups = JSON.parse(target.groupsJson) as string[][];
-      const restored = nameGroups.map((g) =>
-        g
-          .map((studentName) => byId.get(studentName))
-          .filter((s): s is PickStudent => s !== undefined)
-      );
-      const dropped = nameGroups.flat().length - restored.flat().length;
-      setGroups(restored);
-      setMode(target.mode === "custom" ? "custom" : "count");
-      setSeparateGender(target.genderMode === "separate");
-      setLoadedId(id);
-      setNotice(
-        dropped > 0
-          ? `'${target.name}' 모둠을 불러왔습니다 (전학/삭제 ${dropped}명은 제외).`
-          : `'${target.name}' 모둠을 불러왔습니다.`
-      );
-      setError("");
-    } catch {
-      setError("저장된 모둠 데이터를 읽지 못했습니다.");
-      playError();
-    }
+  // 프리셋 수정 (이름·드래그 모둠/순서 변경)
+  const startRename = (preset: SavedGroupPreset) => {
+    setEditingId(preset.id);
+    setEditingName(preset.name);
+    setEditingGroups(preset.groups.map((g) => [...g]));
+    setError("");
   };
-
-  const handleDelete = async (id: string) => {
-    const res = await deleteGroupSet(id);
-    if (!res.success) {
-      setError(res.error);
-      playError();
+  const clearDragCell = () => {
+    dragCellRef.current = null;
+    setDragCell(null);
+    setDropCell(null);
+  };
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditingName("");
+    setEditingGroups([]);
+    clearDragCell();
+  };
+  const commitRename = () => {
+    if (!editingId) return;
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      setError("변경할 모둠 이름을 입력해 주세요.");
       return;
     }
-    setSets((prev) => prev.filter((s) => s.id !== id));
-    if (loadedId === id) setLoadedId("");
-    setNotice("모둠 결과를 삭제했습니다.");
+    if (editingGroups.flat().length === 0) {
+      setError("모둠에 포함할 학생이 없습니다.");
+      return;
+    }
+    setError("");
+    onUpdateGroupPreset(editingId, trimmed, editingGroups);
+    setEditingId(null);
+    setEditingName("");
+    setEditingGroups([]);
+    clearDragCell();
   };
+  // 잡은 배지를 빼고 (gi, ci) 자리에 끼워 넣기
+  const moveEditMember = (
+    from: { gi: number; ci: number },
+    to: { gi: number; ci: number }
+  ) => {
+    setEditingGroups((prev) => {
+      if (
+        from.gi < 0 || from.gi >= prev.length ||
+        from.ci < 0 || from.ci >= (prev[from.gi]?.length ?? 0) ||
+        to.gi < 0 || to.gi >= prev.length
+      ) {
+        return prev;
+      }
+      const next = prev.map((g) => [...g]);
+      const [moved] = next[from.gi].splice(from.ci, 1);
+      if (moved === undefined) return prev;
+      const target = next[to.gi];
+      const clamped = Math.max(0, Math.min(to.ci, target.length));
+      target.splice(clamped, 0, moved);
+      return next;
+    });
+  };
+  const dropIndexFor = (
+    from: { gi: number; ci: number },
+    gi: number,
+    ci: number,
+    after: boolean
+  ): number => {
+    if (from.gi === gi) {
+      if (from.ci === ci) return ci;
+      return after ? (from.ci < ci ? ci : ci + 1) : from.ci < ci ? ci - 1 : ci;
+    }
+    return after ? ci + 1 : ci;
+  };
+
+  // 저장된 모둠을 live 영역에 불러오기
+  const handleLoadPreset = (preset: SavedGroupPreset) => {
+    const restored = preset.groups.map((g) =>
+      g
+        .map((name) => students.find((s) => s.name === name))
+        .filter((s): s is PickStudent => s !== undefined)
+    );
+    if (restored.flat().length === 0) {
+      setError("불러올 학생이 없습니다 (명단에서 삭제됐을 수 있습니다).");
+      return;
+    }
+    setGroups(restored);
+    setNotice(`'${preset.name}' 모둠을 불러왔습니다.`);
+    setError("");
+  };
+
+  const totalMembers = (preset: SavedGroupPreset) =>
+    preset.groups.reduce((n, g) => n + g.length, 0);
+
+  // 프리셋 행 (수동 저장·최근 자동 저장 공통 — 공용 껍데기 PresetRowShell 사용)
+  const renderPresetRow = (preset: SavedGroupPreset) => (
+    <PresetRowShell
+      key={preset.id}
+      presetId={preset.id}
+      presetName={preset.name}
+      auto={preset.auto}
+      statText={`${preset.groups.length}모둠 · ${totalMembers(preset)}명`}
+      editing={editingId === preset.id}
+      editingName={editingName}
+      onEditingNameChange={setEditingName}
+      onStartRename={() => startRename(preset)}
+      onCommitRename={commitRename}
+      onCancelRename={cancelRename}
+      onDelete={() => {
+        if (editingId === preset.id) cancelRename();
+        onDeleteGroupPreset(preset.id);
+      }}
+      deleteConfirmMessage={`'${preset.name}' 모둠 프리셋을 삭제하시겠습니까?`}
+      summary={
+        <p className="text-xs text-slate-600 leading-loose">
+          {preset.groups.map((g, gi) => (
+            <span key={gi}>
+              {gi > 0 && <span className="text-slate-300 font-bold mx-1">·</span>}
+              <span className="font-bold text-indigo-700">{gi + 1}모둠: </span>
+              {g.join(", ")}
+            </span>
+          ))}
+        </p>
+      }
+      editContent={
+        <div className="space-y-1.5">
+          <div
+            className="flex items-center gap-2 flex-nowrap overflow-x-auto py-0.5 min-h-[30px]"
+            onDragLeave={() => setDropCell(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              const from = dragCellRef.current;
+              clearDragCell();
+              if (!from) return;
+              moveEditMember(from, { gi: editingGroups.length - 1, ci: 999 });
+            }}
+          >
+            {editingGroups.map((g, gi) => (
+              <span
+                key={gi}
+                className={`flex items-center gap-1.5 shrink-0${
+                  gi > 0 ? " ml-2 pl-3 border-l-2 border-indigo-100" : ""
+                }`}
+              >
+                <span className="shrink-0 text-[11px] font-bold text-indigo-700 whitespace-nowrap">
+                  {gi + 1}모둠
+                </span>
+                {g.map((name, ci) => (
+                  <span key={`${name}-${gi}-${ci}`} className="flex items-center shrink-0">
+                    {dropCell?.gi === gi && dropCell.ci === ci && !dropCell.after && (
+                      <span className="w-1 self-stretch rounded-full bg-indigo-500 mr-1 animate-pulse" />
+                    )}
+                    <span
+                      draggable
+                      onDragStart={(e) => {
+                        dragCellRef.current = { gi, ci };
+                        setDragCell({ gi, ci });
+                        setDropCell(null);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const after = e.clientX > rect.left + rect.width / 2;
+                        setDropCell((prev) =>
+                          prev?.gi === gi && prev.ci === ci && prev.after === after
+                            ? prev
+                            : { gi, ci, after }
+                        );
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const from = dragCellRef.current;
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const after = e.clientX > rect.left + rect.width / 2;
+                        clearDragCell();
+                        if (!from) return;
+                        if (from.gi === gi && from.ci === ci) return;
+                        moveEditMember(from, { gi, ci: dropIndexFor(from, gi, ci, after) });
+                      }}
+                      onDragEnd={clearDragCell}
+                      className={`inline-flex items-center justify-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-white border text-slate-800 font-bold cursor-grab active:cursor-grabbing transition-all select-none text-center ${
+                        dragCell?.gi === gi && dragCell.ci === ci
+                          ? "opacity-40 border-indigo-400"
+                          : "border-indigo-300 hover:border-indigo-500 hover:shadow-sm"
+                      }`}
+                      title="드래그로 모둠·순서 이동"
+                    >
+                      {name}
+                    </span>
+                    {dropCell?.gi === gi && dropCell.ci === ci && dropCell.after && (
+                      <span className="w-1 self-stretch rounded-full bg-indigo-500 ml-1 animate-pulse" />
+                    )}
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400">
+            이름 배지를 드래그해서 모둠과 순서를 바꾸세요 (빈 모둠은 저장 시 제외).
+          </p>
+        </div>
+      }
+      footer={
+        <button
+          type="button"
+          onClick={() => handleLoadPreset(preset)}
+          className="w-full py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 text-xs font-bold transition-colors"
+        >
+          이 모둠 불러오기
+        </button>
+      }
+    />
+  );
 
   return (
     <div className="space-y-4">
       <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds} />
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit shrink-0">
           {(
             [
               { v: "count", label: "모둠 수 지정" },
@@ -205,8 +402,10 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
               key={o.v}
               type="button"
               onClick={() => setMode(o.v)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                mode === o.v ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                mode === o.v
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               {o.label}
@@ -214,63 +413,61 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-          {mode === "count" && (
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">모둠 수</label>
-              <input
-                type="number"
-                min={1}
-                value={countValue}
-                onChange={(e) => setCountValue(Math.max(1, Number(e.target.value) || 1))}
-                className="w-24 px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          )}
-          {mode === "size" && (
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">모둠당 인원</label>
-              <input
-                type="number"
-                min={1}
-                value={sizeValue}
-                onChange={(e) => setSizeValue(Math.max(1, Number(e.target.value) || 1))}
-                className="w-24 px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          )}
-          {mode === "custom" && (
-            <div className="flex-1">
-              <label className="text-xs font-semibold text-slate-600 block mb-1">
-                각 모둠 인원 (예: 4,4,5 — 합계가 선택 인원과 일치해야 함)
-              </label>
-              <input
-                type="text"
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder="4,4,5"
-                className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          )}
-          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer pb-2.5 whitespace-nowrap">
+        {mode === "count" && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">모둠 수</span>
             <input
-              type="checkbox"
-              checked={separateGender}
-              onChange={(e) => setSeparateGender(e.target.checked)}
-              className="accent-indigo-600"
+              type="number"
+              min={1}
+              value={countValue}
+              onChange={(e) => setCountValue(Math.max(1, Number(e.target.value) || 1))}
+              className="w-24 px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            남녀 균등 분산
-          </label>
-          <button
-            type="button"
-            onClick={runDraw}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 sm:ml-auto"
-          >
-            <Users className="w-4 h-4" />
-            모둠 뽑기
-          </button>
-        </div>
+          </div>
+        )}
+        {mode === "size" && (
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">모둠당 인원</span>
+            <input
+              type="number"
+              min={1}
+              value={sizeValue}
+              onChange={(e) => setSizeValue(Math.max(1, Number(e.target.value) || 1))}
+              className="w-24 px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        )}
+        {mode === "custom" && (
+          <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+            <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">각 모둠 인원</span>
+            <input
+              type="text"
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+              placeholder="4,4,5 (합계 = 선택 인원)"
+              title="각 모둠 인원 — 합계가 선택 인원과 일치해야 합니다"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        )}
+        <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer whitespace-nowrap shrink-0">
+          <input
+            type="checkbox"
+            checked={separateGender}
+            onChange={(e) => setSeparateGender(e.target.checked)}
+            className="accent-indigo-600"
+          />
+          남녀 균등 분산
+        </label>
+        <button
+          type="button"
+          onClick={runDraw}
+          className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 sm:ml-auto transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
+        >
+          <Users className="w-4 h-4" />
+          <span>모둠 뽑기 (별도 창)</span>
+          <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+        </button>
       </div>
 
       {error && (
@@ -285,9 +482,11 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
       )}
 
       {groups.length > 0 && (
-        <div className="space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-400">학생을 드래그해 모둠 간 이동 가능</p>
+            <h3 className="text-sm font-bold text-slate-800">
+              방금 나눈 모둠 ({groups.length}모둠)
+            </h3>
             <button
               type="button"
               onClick={runDraw}
@@ -297,28 +496,41 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
               다시 섞기
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {groups.map((group, gi) => (
-              <div
-                key={gi}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  try {
-                    const raw = e.dataTransfer.getData("text/pick-student");
-                    if (!raw) return;
-                    const parsed = JSON.parse(raw) as { studentId: string; fromGroup: number };
-                    moveStudent(parsed.studentId, parsed.fromGroup, gi);
-                  } catch {
-                    // 드롭 데이터 무시
-                  }
-                }}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 min-h-[120px]"
-              >
-                <h4 className="text-xs font-bold text-indigo-700 mb-2">
-                  {gi + 1}모둠 ({group.length}명)
-                </h4>
-                <div className="flex flex-wrap gap-1.5">
+
+          {/* 모둠 이름 입력 및 저장 바 (공용 PickSaveBar) */}
+          <PickSaveBar
+            value={presetName}
+            onChange={setPresetName}
+            onSave={handleSavePreset}
+            placeholder="저장할 모둠 이름 (예: 1학기 모둠)"
+            buttonLabel="모둠 프리셋 저장"
+          />
+
+          <p className="text-xs text-slate-400">학생을 드래그해 모둠 간 이동 가능</p>
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto py-0.5">
+              {groups.map((group, gi) => (
+                <span
+                  key={gi}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    try {
+                      const raw = e.dataTransfer.getData("text/pick-student");
+                      if (!raw) return;
+                      const parsed = JSON.parse(raw) as { studentId: string; fromGroup: number };
+                      moveStudent(parsed.studentId, parsed.fromGroup, gi);
+                    } catch {
+                      // 드롭 데이터 무시
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 shrink-0${
+                    gi > 0 ? " ml-2 pl-3 border-l-2 border-indigo-100" : ""
+                  }`}
+                >
+                  <span className="shrink-0 text-[11px] font-bold text-indigo-700 whitespace-nowrap">
+                    {gi + 1}모둠
+                  </span>
                   {group.map((s) => (
                     <span
                       key={s.id}
@@ -329,37 +541,46 @@ export default function GroupPickPanel({ students, initialSets }: GroupPickPanel
                           JSON.stringify({ studentId: s.id, fromGroup: gi })
                         );
                       }}
-                      className="text-xs px-2 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-medium flex items-center gap-1 cursor-grab active:cursor-grabbing"
+                      className="text-xs px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold cursor-grab active:cursor-grabbing hover:border-indigo-400 hover:shadow-sm transition-all whitespace-nowrap"
                       title="드래그해 다른 모둠으로 이동"
                     >
-                      <GripVertical className="w-3 h-3 text-slate-400" />
-                      {s.studentNumber > 0 ? formatPickName(s) : s.name}
+                      {formatPickName(s)}
                     </span>
                   ))}
-                </div>
-              </div>
-            ))}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      <SaveBar
-        items={sets}
-        placeholder="모둠 결과 이름 (예: 1학기 모둠)"
-        defaultName=""
-        onSave={handleSave}
-        onLoad={handleLoad}
-        onDelete={handleDelete}
-      />
+      {/* 저장된 모둠 프리셋 목록 */}
+      <PresetLibrarySection
+        icon={<Bookmark className="w-4 h-4 text-indigo-600" />}
+        title={`저장된 모둠 프리셋 목록 (${manualPresets.length}개)`}
+        empty={manualPresets.length === 0}
+        emptyText={
+          <>저장된 모둠 프리셋이 없습니다. 위에서 모둠을 나눈 후 이름을 붙여 저장해 보세요.</>
+        }
+      >
+        {manualPresets.map(renderPresetRow)}
+      </PresetLibrarySection>
 
-      <DrawOverlay
-        open={overlayOpen}
-        title="모둠 뽑기"
-        rollingNames={rollingNames}
-        results={overlayResults}
-        onRedraw={runDraw}
-        onClose={() => setOverlayOpen(false)}
-      />
+      {/* 최근 자동 저장 (최대 3개) */}
+      <PresetLibrarySection
+        icon={<History className="w-4 h-4 text-amber-600" />}
+        title={`최근 자동 저장 (${recentPresets.length}/3개)`}
+        empty={recentPresets.length === 0}
+        emptyText={
+          <>
+            아직 자동 저장된 모둠이 없습니다. 모둠 뽑기를 실행하면 최근 3개가 자동 보관됩니다.
+            <br />
+            연필 아이콘으로 이름을 지정하면 프리셋으로 저장됩니다.
+          </>
+        }
+      >
+        {recentPresets.map(renderPresetRow)}
+      </PresetLibrarySection>
     </div>
   );
 }

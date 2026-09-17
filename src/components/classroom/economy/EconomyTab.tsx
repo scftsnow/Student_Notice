@@ -8,7 +8,9 @@ import DepositModal from "./DepositModal";
 import UnifiedLedgerModal from "./UnifiedLedgerModal";
 import CreateBundleModal from "./CreateBundleModal";
 import QuickDepositBar from "./QuickDepositBar";
-import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, User, ArrowUpRight } from "lucide-react";
+import StudentAccountCards from "./StudentAccountCards";
+import BundleExecuteRow from "./BundleExecuteRow";
+import { Pencil, Trash2, Landmark, Settings, ArrowRightLeft, Coins, Monitor, ArrowUpRight } from "lucide-react";
 interface EconomyTabProps {
   students: ClassroomStudent[]; routines: ClassroomRoutine[];
   treasuryBalance: number; totalTaxCollected: number;
@@ -140,7 +142,7 @@ export default function EconomyTab({
           {/* ── 좌측: 기능 패널 ── */}
           <div className="w-full lg:w-72 shrink-0 space-y-2">
         {/* 1. 국고 — 1줄 */}
-        <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-2">
+        <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center gap-2">
           <span className="text-[11px] text-slate-400 font-bold shrink-0 flex items-center gap-1"><Landmark className="w-3.5 h-3.5" /> 국고</span>
           <span className="font-black text-base font-mono text-slate-800 flex-1 truncate">
             {treasuryBalance.toLocaleString()}
@@ -149,20 +151,20 @@ export default function EconomyTab({
           <button
             type="button"
             onClick={() => setLedgerModalStudent("treasury")}
-            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition-all shrink-0"
+            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-sm transition-all shrink-0"
           >
             이력
           </button>
           <button
             type="button"
             onClick={() => setIsDirectTaxOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 shadow-2xs transition-all shrink-0"
+            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 shadow-sm transition-all shrink-0"
           >
-            입·출금
+            국고 입·출금
           </button>
         </div>
         {/* 2. 화폐·세무 정책 — 3열 */}
-        <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-100 shadow-2xs space-y-2">
+        <div className="p-3 rounded-xl bg-indigo-50/60 border border-indigo-100 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-bold text-indigo-900 text-xs flex items-center gap-1">
               <Settings className="w-3.5 h-3.5" /><span>화폐 및 세무 정책</span>
@@ -223,14 +225,14 @@ export default function EconomyTab({
           <button
             type="button"
             onClick={() => setIsTransactionOpen(true)}
-            className="py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs transition-all"
+            className="py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition-all"
           >
             <ArrowRightLeft className="w-3.5 h-3.5" /><span>학생 간 거래</span>
           </button>
           <button
             type="button"
             onClick={() => setIsDepositOpen(true)}
-            className="py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-2xs transition-all"
+            className="py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-sm transition-all"
           >
             <Coins className="w-3.5 h-3.5" />
             <span>입금 / 차감{checkedNames.length > 0 ? ` (${checkedNames.length}명)` : ""}</span>
@@ -238,7 +240,7 @@ export default function EconomyTab({
         </div>
       </div>
       {/* ── 우측: 학생 계좌 카드 그리드 ── */}
-      <div className="flex-1 min-w-0 flex flex-col bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-extrabold text-slate-900 text-sm shrink-0">학생별 계좌</span>
@@ -270,7 +272,7 @@ export default function EconomyTab({
             <button
               type="button"
               onClick={handleOpenEconomyBoard}
-              className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center gap-1 transition-all shadow-2xs"
+              className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 flex items-center gap-1 transition-all shadow-sm"
               title="교실 TV/빔프로젝터용 학생 전용 잔액 전광판 창 띄우기"
             >
               <span>학생 화면 띄우기</span>
@@ -287,63 +289,18 @@ export default function EconomyTab({
           </div>
         </div>
         <div className="overflow-y-auto max-h-[360px] p-2">
-          {students.length === 0 ? (
-            <div className="py-8 flex items-center justify-center text-slate-400 font-bold text-sm">
-              등록된 학생 계좌가 없습니다.
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(155px,1fr))] gap-1.5">
-              {students.map((s) => {
-                const isChecked = checkedNames.includes(s.name);
-                return (
-                  <div
-                    key={s.name}
-                    onClick={() => toggleCheck(s.name)}
-                    className={`p-1.5 rounded-lg border cursor-pointer transition-all select-none ${
-                      isChecked
-                        ? "border-indigo-400 bg-indigo-50/80 ring-1 ring-indigo-400"
-                        : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <User className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                        <span className="font-extrabold text-slate-800 text-[14px] truncate">{s.name}</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleCheck(s.name)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="rounded text-indigo-600 cursor-pointer w-3.5 h-3.5 shrink-0"
-                      />
-                    </div>
-                    <div className="mt-1 pt-0.5 border-t border-slate-100 flex items-center justify-between gap-1">
-                      <div className="font-black text-[14px] font-mono text-indigo-700 leading-none truncate">
-                        {s.balance.toLocaleString()}
-                        <span className="text-[11px] font-normal text-slate-400 ml-0.5">{currencyName}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLedgerModalStudent(s.name);
-                        }}
-                        className="px-1.5 py-0.5 rounded text-[11px] font-bold border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 text-indigo-600 transition-all shrink-0 leading-tight"
-                      >
-                        내역
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <StudentAccountCards
+            students={students}
+            checkedNames={checkedNames}
+            currencyName={currencyName}
+            onToggleCheck={toggleCheck}
+            onShowLedger={(name) => setLedgerModalStudent(name)}
+          />
         </div>
       </div>
       </div>{/* 상단 행 닫기 */}
       {/* ── 하단: 복합 정산 전폭 패널 ── */}
-      <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-1.5">
+      <div className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-sm space-y-1.5">
         <div className="flex items-center justify-between">
           <span className="font-bold text-slate-700 text-xs">복합 정산</span>
           <button
@@ -408,66 +365,41 @@ export default function EconomyTab({
               .map((id) => customBundles.find((b) => b.id === id))
               .filter((b): b is CustomBundle => b !== undefined)
               .map((b) => (
-                <div
+                <BundleExecuteRow
                   key={b.id}
-                  draggable
-                  onDragStart={() => handleBundleDragStart(b.id)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleBundleDrop(b.id)}
-                  className="px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-1.5 cursor-grab active:cursor-grabbing active:opacity-60 transition-opacity"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold text-slate-800 text-xs truncate">{b.name}</span>
-                      {b.desc && <span className="text-[10px] text-slate-400 truncate">({b.desc})</span>}
-                    </div>
-                    <div className="flex flex-wrap gap-0.5 mt-0.5">
-                      {b.actions.map((act, i) => {
-                        const isTreasury = act.target === "treasury";
-                        const targetLabel = isTreasury ? "국고" : act.target === "all" ? "전체" : act.target === "selected" ? "선택" : act.target === "unselected" ? "미선택" : `${act.specificTargets?.length || 0}명`;
-                        const sign = act.type === "deposit" ? "+" : "-";
-                        return (
-                          <span
-                            key={i}
-                            className={`px-1 py-0.2 rounded text-[9px] font-bold inline-flex items-center gap-0.5 ${
-                              isTreasury ? "bg-amber-100 text-amber-800 border border-amber-300" : act.type === "deposit" ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-rose-50 text-rose-700 border border-rose-200"
-                            }`}
-                          >
-                            <span>{targetLabel}</span>
-                            <span>{sign}{act.amount.toLocaleString()}{currencyName}</span>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleEditBundle(b)}
-                      title="수정"
-                      className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-slate-200/70 transition-colors"
-                      aria-label="복합 정산 수정"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBundle(b.id, b.name)}
-                      title="삭제"
-                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                      aria-label="복합 정산 삭제"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onExecuteBundle(b.id, checkedNames)}
-                      className="px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
-                    >
-                      실행
-                    </button>
-                  </div>
-                </div>
+                  bundle={b}
+                  currencyName={currencyName}
+                  selectedNames={checkedNames}
+                  onExecute={onExecuteBundle}
+                  draggableProps={{
+                    draggable: true,
+                    onDragStart: () => handleBundleDragStart(b.id),
+                    onDragOver: (e) => e.preventDefault(),
+                    onDrop: () => handleBundleDrop(b.id),
+                  }}
+                  extraActions={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleEditBundle(b)}
+                        title="수정"
+                        className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-slate-200/70 transition-colors"
+                        aria-label="복합 정산 수정"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBundle(b.id, b.name)}
+                        title="삭제"
+                        className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        aria-label="복합 정산 삭제"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </>
+                  }
+                />
               ))}
           </div>
         )}

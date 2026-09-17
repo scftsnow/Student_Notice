@@ -1,4 +1,5 @@
 import type { PickStudent, SeatCellState, SeatFillFrom } from "@/types";
+import { gridCellToPercent } from "./seatFree";
 
 type Rand = () => number;
 
@@ -163,6 +164,7 @@ export interface SeatGridConfig {
 /**
  * 인원수에 맞춰 자리 틀 생성. 행수 = ceil(인원 / (분단수×열수)).
  * key는 `분단-행-열` 형식. row 0 = 가장 앞줄.
+ * 자유 배치 호환용 x/y(% 좌표, 셀 중심)도 함께 부여. row/col/division은 유지.
  */
 export function buildSeatCells(
   config: SeatGridConfig,
@@ -174,11 +176,13 @@ export function buildSeatCells(
   }
   const perRow = divisions * colsPerDivision;
   const rows = Math.max(1, Math.ceil(studentCount / perRow));
+  const totalCols = perRow;
   const cells: SeatCellState[] = [];
   for (let row = 0; row < rows; row++) {
     for (let division = 0; division < divisions; division++) {
       for (let c = 0; c < colsPerDivision; c++) {
         const col = division * colsPerDivision + c;
+        const p = gridCellToPercent({ row, col, totalRows: rows, totalCols });
         cells.push({
           key: `${division}-${row}-${col}`,
           row,
@@ -188,6 +192,8 @@ export function buildSeatCells(
           lockedGender: null,
           fixedStudentId: null,
           studentId: null,
+          x: p.x,
+          y: p.y,
         });
       }
     }
@@ -195,8 +201,22 @@ export function buildSeatCells(
   return cells;
 }
 
+function hasFreeCoords(c: SeatCellState): c is SeatCellState & { x: number; y: number } {
+  return (
+    typeof c.x === "number" &&
+    Number.isFinite(c.x) &&
+    typeof c.y === "number" &&
+    Number.isFinite(c.y)
+  );
+}
+
 function orderForFill<T extends SeatCellState>(cells: T[], fillFrom: SeatFillFrom): T[] {
   return [...cells].sort((a, b) => {
+    // 자유 좌표가 모두 있으면 y(앞/뒤) → x(좌→우) 순. 위치 자체는 건드리지 않음.
+    if (hasFreeCoords(a) && hasFreeCoords(b)) {
+      if (a.y !== b.y) return fillFrom === "back" ? b.y - a.y : a.y - b.y;
+      return a.x - b.x;
+    }
     if (a.row !== b.row) return fillFrom === "back" ? b.row - a.row : a.row - b.row;
     if (a.division !== b.division) return a.division - b.division;
     return a.col - b.col;
@@ -208,17 +228,18 @@ function genderOf(student: PickStudent): string | null {
 }
 
 /**
- * 자동 배치 (원본 불변, 복사본 반환).
+ * 자동 배치 (원본 불변, 복사본 반환). 위치(틀: row/col/division/x/y)는 유지하고
+ * occupant(studentId)만 셔플한다.
  * 1) 고정 배치 확정 2) 성별 지정 자리 우선 충족
  * 3) 성별 모드 적용 (pair=남녀 교대, separate=동성 결집, ignore=셔플)
  * 학생 수 > 사용 가능 자리 수면 throw (호출자가 먼저 차단).
  */
-export function autoAssignSeats(
-  cells: SeatCellState[],
+export function autoAssignSeats<T extends SeatCellState>(
+  cells: T[],
   students: PickStudent[],
   fillFrom: SeatFillFrom = "back",
   genderMode: "ignore" | "pair" | "separate" = "ignore"
-): SeatCellState[] {
+): T[] {
   const result = cells.map((c) => ({ ...c }));
   const byKey = new Map(result.map((c) => [c.key, c]));
 

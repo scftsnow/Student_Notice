@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
+import ConditionalChrome from "@/components/layout/ConditionalChrome";
+import GlobalFontApplier from "@/components/GlobalFontApplier";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
@@ -58,14 +59,14 @@ export default async function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col bg-slate-50/70 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-800">
-        <Navbar
+        <GlobalFontApplier />
+        <ConditionalChrome
           classNameTitle={setting.className}
           currencyName={setting.currencyName}
           treasuryBalance={treasury?.balance ?? 0}
-        />
-        <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        >
           {children}
-        </main>
+        </ConditionalChrome>
       </body>
     </html>
   );

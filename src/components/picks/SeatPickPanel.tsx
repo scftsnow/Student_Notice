@@ -1,78 +1,99 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Armchair, Dices, Eraser, Eye, EyeOff } from "lucide-react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import {
+  Armchair,
+  Bookmark,
+  Dices,
+  Eraser,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  History,
+} from "lucide-react";
 import PickTargetSelector from "./PickTargetSelector";
-import DrawOverlay from "./DrawOverlay";
-import SaveBar from "./SaveBar";
+import PickSaveBar from "./PickSaveBar";
+import SeatGuide from "./SeatGuide";
 import SeatGrid from "./SeatGrid";
 import StudentPool from "./StudentPool";
+import SeatMiniCanvas from "./SeatMiniCanvas";
+import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
 import { useSeatPick } from "@/hooks/useSeatPick";
 import { formatPickName } from "@/lib/pickFormat";
-import {
-  saveSeatLayout,
-  deleteSeatLayout,
-  saveSeatAssignment,
-  deleteSeatAssignment,
-} from "@/app/pickActions";
-import { playError, unlockAudio } from "@/lib/pickSound";
-import type {
-  PickStudent,
-  SeatAssignmentItem,
-  SeatConfig,
-  SeatLayoutItem,
-} from "@/types";
+import { serializeSeatCells } from "@/lib/seatFree";
+import { playError } from "@/lib/pickSound";
+import { openPickWindow } from "@/lib/pickWindowHelper";
+import type { PickSeatCell } from "@/lib/pickWindowHelper";
+import type { PickStudent, SeatCellState } from "@/types";
+import type { SavedSeatPreset } from "@/types/classroom";
 
 interface SeatPickPanelProps {
   students: PickStudent[];
-  initialLayouts: SeatLayoutItem[];
-  initialAssignments: SeatAssignmentItem[];
+  savedSeats: SavedSeatPreset[];
+  onSaveSeatPreset: (name: string, cells: SeatCellState[]) => void;
+  onDeleteSeatPreset: (id: string) => void;
+  onPushRecentSeats: (cells: SeatCellState[]) => void;
+  onUpdateSeatPreset: (id: string, name: string, cells: SeatCellState[]) => void;
 }
 
-function parseConfig(raw: string): SeatConfig | null {
-  try {
-    const parsed = JSON.parse(raw) as Partial<SeatConfig>;
-    if (
-      typeof parsed.divisions !== "number" ||
-      typeof parsed.colsPerDivision !== "number"
-    ) {
-      return null;
-    }
-    return {
-      divisions: parsed.divisions,
-      colsPerDivision: parsed.colsPerDivision,
-      fillFrom: parsed.fillFrom === "front" ? "front" : "back",
-      genderMode:
-        parsed.genderMode === "pair" || parsed.genderMode === "separate"
-          ? parsed.genderMode
-          : "ignore",
-    };
-  } catch {
-    return null;
+/** 프리셋 셀(division/col)에서 분단·열수 추론 (표시·분단/열수 입력 보정용) */
+function inferGridConfig(
+  cells: SeatCellState[]
+): { divisions: number; colsPerDivision: number } | null {
+  if (cells.length === 0) return null;
+  const divisions = Array.from(new Set(cells.map((c) => c.division)));
+  if (divisions.length === 0) return null;
+  let colsPerDivision = 0;
+  for (const div of divisions) {
+    const cols = cells.filter((c) => c.division === div).map((c) => c.col);
+    colsPerDivision = Math.max(colsPerDivision, Math.max(...cols) - Math.min(...cols) + 1);
   }
+  return { divisions: divisions.length, colsPerDivision: Math.max(1, colsPerDivision) };
 }
 
 export default function SeatPickPanel({
   students,
-  initialLayouts,
-  initialAssignments,
+  savedSeats,
+  onSaveSeatPreset,
+  onDeleteSeatPreset,
+  onPushRecentSeats,
+  onUpdateSeatPreset,
 }: SeatPickPanelProps) {
   const defaultIds = useMemo(() => students.map((s) => s.id), [students]);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
-  const [layouts, setLayouts] = useState<SeatLayoutItem[]>(initialLayouts);
-  const [assignments, setAssignments] = useState<SeatAssignmentItem[]>(initialAssignments);
-  const [loadedLayoutId, setLoadedLayoutId] = useState("");
-  const [loadedAssignmentId, setLoadedAssignmentId] = useState("");
+  /** 자유 캔버스 위치 오버라이드 (key → % 좌표). hook 셀 x/y 위에 덮어씀. 틀 재생성·불러오기 시 초기화. */
+  const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>({});
+  /** 터치 대응: 풀에서 탭으로 집어든 학생 id */
+  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [overlayOpen, setOverlayOpen] = useState(false);
-  const [overlayResults, setOverlayResults] = useState<string[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  /** 생성/랜덤 배치 직후 다음 렌더의 cells를 자동 보관 1회 실행하는 플래그 */
+  const autoSaveRef = useRef(false);
 
   const seat = useSeatPick();
   const { config } = seat;
-  const defaultAssignmentName = useMemo(() => {
-    const today = new Date();
-    return `${today.getMonth() + 1}월 ${today.getDate()}일 자리`;
-  }, []);
+
+  /** hook 셀 + 자유 이동분 병합. 런타임 셀은 항상 x/y가 채워져 있다. */
+  const displayCells = useMemo(
+    () =>
+      seat.cells.map((c) => {
+        const o = posOverrides[c.key];
+        return o ? { ...c, x: o.x, y: o.y } : c;
+      }),
+    [seat.cells, posOverrides]
+  );
+
+  // 자동 보관: 그리드 생성/랜덤 배치 직후 실제 렌더된 cells 스냅샷을 1회 저장 (auto 3개 유지는 상태 레이어 담당)
+  useEffect(() => {
+    if (!autoSaveRef.current) return;
+    autoSaveRef.current = false;
+    onPushRecentSeats(displayCells);
+  }, [seat.cells, displayCells, onPushRecentSeats]);
+
+  const manualPresets = useMemo(() => savedSeats.filter((p) => !p.auto), [savedSeats]);
+  const recentPresets = useMemo(() => savedSeats.filter((p) => p.auto).slice(0, 3), [savedSeats]);
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const selected = useMemo(
@@ -107,147 +128,222 @@ export default function SeatPickPanel({
       showError("자리에 앉힐 학생을 1명 이상 선택해 주세요.");
       return;
     }
-    seat.buildCells(selected.length);
+    setPosOverrides({});
+    setSelectedPoolId(null);
+    const ok = seat.buildCells(selected.length);
+    autoSaveRef.current = ok;
   };
 
-  const handleDraw = () => {
+  const clamp100 = (n: number): number => {
+    if (!Number.isFinite(n)) return 50;
+    return Math.min(100, Math.max(0, Math.round(n * 100) / 100));
+  };
+
+  const handlePositionChange = (key: string, x: number, y: number) => {
+    setPosOverrides((prev) => ({ ...prev, [key]: { x: clamp100(x), y: clamp100(y) } }));
+  };
+
+  /** 풀 학생을 빈 캔버스 지점에 배치: 가장 가까운 빈자리 셀에 고정 + 해당 셀을 지점으로 이동. */
+  const handleCanvasDropStudent = (studentId: string, x: number, y: number) => {
+    const px = clamp100(x);
+    const py = clamp100(y);
+    const at = (c: { x?: number; y?: number }) => ({
+      x: typeof c.x === "number" && Number.isFinite(c.x) ? c.x : 50,
+      y: typeof c.y === "number" && Number.isFinite(c.y) ? c.y : 50,
+    });
+    const enabled = displayCells.filter((c) => c.enabled);
+    if (enabled.length === 0) {
+      showError("배치할 수 있는 자리가 없습니다. 먼저 자리를 생성해 주세요.");
+      return;
+    }
+    const empty = enabled.filter((c) => !c.studentId);
+    const pool = empty.length > 0 ? empty : enabled;
+    let best = pool[0];
+    let bestDist = Infinity;
+    for (const c of pool) {
+      const p = at(c);
+      const dist = Math.hypot(p.x - px, p.y - py);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = c;
+      }
+    }
+    seat.dropStudentOnCell(best.key, studentId);
+    handlePositionChange(best.key, px, py);
+    setSelectedPoolId(null);
+  };
+
+  const handleDraw = useCallback(() => {
     setNotice("");
-    unlockAudio();
+    setSelectedPoolId(null);
     const next = seat.randomAssign(selected);
     if (next) {
-      const placed = next
+      autoSaveRef.current = true;
+      const merged = next.map((c) => {
+        const o = posOverrides[c.key];
+        return o ? { ...c, x: o.x, y: o.y } : c;
+      });
+      const placed = merged
         .filter((c) => c.studentId)
         .map((c) => {
           const live = byId.get(c.studentId as string);
           const who = live ? formatPickName(live) : "?";
           return `${who} → ${c.division + 1}분단 ${c.row + 1}행`;
         });
-      setOverlayResults(placed.length > 0 ? placed : selected.map(formatPickName));
-      setOverlayOpen(true);
+      const seatCells: PickSeatCell[] = merged.map((c) => {
+        const live = c.studentId ? byId.get(c.studentId) : undefined;
+        return {
+          key: c.key,
+          x: typeof c.x === "number" && Number.isFinite(c.x) ? c.x : 50,
+          y: typeof c.y === "number" && Number.isFinite(c.y) ? c.y : 50,
+          label: live ? formatPickName(live) : "",
+          enabled: c.enabled,
+          lockedGender: c.lockedGender,
+        };
+      });
+      openPickWindow({
+        id: `pick-seat-${Date.now()}`,
+        type: "seat",
+        title: "자리 뽑기",
+        rollingNames: selected.map(formatPickName),
+        results: placed.length > 0 ? placed : selected.map(formatPickName),
+        seatCells,
+      });
     } else {
       playError();
     }
-  };
+  }, [seat, selected, byId, posOverrides]);
 
-  const handleSaveLayout = async (name: string) => {
-    if (seat.cells.length === 0) {
-      showError("저장할 자리 틀이 없습니다. 먼저 자리를 생성해 주세요.");
-      return;
-    }
-    const existing = layouts.find((l) => l.id === loadedLayoutId && l.name === name);
-    const frameCells = seat.cells.map((c) => ({ ...c, studentId: null, fixedStudentId: null }));
-    const res = await saveSeatLayout({
-      id: existing?.id,
-      name,
-      divisions: config.divisions,
-      colsPerDivision: config.colsPerDivision,
-      fillFrom: config.fillFrom,
-      cellsJson: JSON.stringify(frameCells),
-    });
-    if (!res.success) {
-      showError(res.error);
-      return;
-    }
-    setLayouts((prev) => [{ ...res.data }, ...prev.filter((l) => l.id !== res.data.id)]);
-    setLoadedLayoutId(res.data.id);
-    setNotice(`자리 틀 '${name}'을(를) 저장했습니다.`);
-  };
-
-  const handleLoadLayout = (id: string) => {
-    const target = layouts.find((l) => l.id === id);
-    if (!target) return;
-    seat.setConfig({
-      divisions: target.divisions,
-      colsPerDivision: target.colsPerDivision,
-      fillFrom: target.fillFrom === "front" ? "front" : "back",
-      genderMode: config.genderMode,
-    });
-    let enabledCount = 0;
+  // 별도 창에서 '다시 뽑기' 요청 시 재추첨 실행
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
     try {
-      const raw = JSON.parse(target.cellsJson) as { enabled?: unknown }[];
-      if (Array.isArray(raw)) {
-        enabledCount = raw.filter((c) => c.enabled !== false).length;
-      }
+      channel = new BroadcastChannel("classroom_pick_sync");
+      channel.onmessage = (e: MessageEvent) => {
+        if (e.data?.type === "REQUEST_REDRAW") {
+          handleDraw();
+        }
+      };
     } catch {
-      enabledCount = 0;
+      // ignore
     }
-    if (seat.loadCellsJson(target.cellsJson)) {
-      setLoadedLayoutId(id);
-      setLoadedAssignmentId("");
-      if (enabledCount > 0 && enabledCount < selected.length) {
-        setNotice(
-          `자리 틀 '${target.name}'을(를) 불러왔으나 현재 선택 인원(${selected.length}명)보다 자리(${enabledCount}석)가 부족합니다. 분단·열수를 조정해 자리를 다시 생성해 주세요.`
-        );
-      } else {
-        setNotice(`자리 틀 '${target.name}'을(를) 불러왔습니다.`);
-      }
-    } else {
-      playError();
-    }
-  };
+    return () => {
+      if (channel) channel.close();
+    };
+  }, [handleDraw]);
 
-  const handleDeleteLayout = async (id: string) => {
-    const res = await deleteSeatLayout(id);
-    if (!res.success) {
-      showError(res.error);
+  // ---- 로컬 프리셋 (DB SaveBar 대체) ----
+  const handleSavePreset = () => {
+    const trimmed = presetName.trim();
+    if (!trimmed) {
+      showError("저장할 자리 이름을 입력해 주세요 (예: 3월 자리).");
       return;
     }
-    setLayouts((prev) => prev.filter((l) => l.id !== id));
-    if (loadedLayoutId === id) setLoadedLayoutId("");
-    setNotice("자리 틀을 삭제했습니다.");
-  };
-
-  const handleSaveAssignment = async (name: string) => {
-    if (seat.cells.length === 0 || seat.placedCount === 0) {
-      showError("저장할 배치 결과가 없습니다. 먼저 랜덤 배치를 실행해 주세요.");
+    if (displayCells.length === 0) {
+      showError("저장할 자리가 없습니다. 먼저 자리를 생성해 주세요.");
       return;
     }
-    const existing = assignments.find((a) => a.id === loadedAssignmentId && a.name === name);
-    const res = await saveSeatAssignment({
-      id: existing?.id,
-      name,
-      layoutId: loadedLayoutId || null,
-      configJson: JSON.stringify(config),
-      cellsJson: JSON.stringify(seat.cells),
-      namesJson: "{}",
-    });
-    if (!res.success) {
-      showError(res.error);
-      return;
-    }
-    setAssignments((prev) => [{ ...res.data }, ...prev.filter((a) => a.id !== res.data.id)]);
-    setLoadedAssignmentId(res.data.id);
-    setNotice(`자리 배치 '${name}'을(를) 저장했습니다.`);
+    setNotice("");
+    onSaveSeatPreset(trimmed, displayCells);
+    setNotice(`자리 프리셋 '${trimmed}'이(가) 저장되었습니다.`);
+    setPresetName("");
   };
 
-  const handleLoadAssignment = (id: string) => {
-    const target = assignments.find((a) => a.id === id);
-    if (!target) return;
-    const cfg = parseConfig(target.configJson);
-    if (cfg) seat.setConfig(cfg);
-    const result = seat.loadCellsForRoster(target.cellsJson, new Set(students.map((s) => s.name)));
+  const startRename = (preset: SavedSeatPreset) => {
+    setEditingId(preset.id);
+    setEditingName(preset.name);
+    setNotice("");
+  };
+  const cancelRename = () => {
+    setEditingId(null);
+    setEditingName("");
+  };
+  const commitRename = () => {
+    if (!editingId) return;
+    const trimmed = editingName.trim();
+    if (!trimmed) {
+      showError("변경할 자리 이름을 입력해 주세요.");
+      return;
+    }
+    const target = savedSeats.find((p) => p.id === editingId);
+    setNotice("");
+    onUpdateSeatPreset(editingId, trimmed, target?.cells ?? []);
+    setEditingId(null);
+    setEditingName("");
+  };
+
+  /** 프리셋 불러오기: 분단·열수 보정 + 명단에서 빠진 학생 배치 정리 */
+  const handleLoadPreset = (preset: SavedSeatPreset) => {
+    const cfg = inferGridConfig(preset.cells);
+    if (cfg) {
+      seat.setConfig({ ...cfg, fillFrom: config.fillFrom, genderMode: config.genderMode });
+    }
+    const result = seat.loadCellsForRoster(
+      serializeSeatCells(preset.cells),
+      new Set(students.map((s) => s.name))
+    );
     if (result) {
-      setLoadedAssignmentId(id);
-      setLoadedLayoutId(target.layoutId ?? "");
+      setPosOverrides({});
+      setSelectedPoolId(null);
       setNotice(
         result.dropped > 0
-          ? `자리 배치 '${target.name}'을(를) 불러왔습니다 (전학/삭제 ${result.dropped}자리는 비움).`
-          : `자리 배치 '${target.name}'을(를) 불러왔습니다.`
+          ? `'${preset.name}' 자리를 불러왔습니다 (전학/삭제 ${result.dropped}자리는 비움).`
+          : `'${preset.name}' 자리를 불러왔습니다.`
       );
     } else {
       playError();
     }
   };
 
-  const handleDeleteAssignment = async (id: string) => {
-    const res = await deleteSeatAssignment(id);
-    if (!res.success) {
-      showError(res.error);
-      return;
-    }
-    setAssignments((prev) => prev.filter((a) => a.id !== id));
-    if (loadedAssignmentId === id) setLoadedAssignmentId("");
-    setNotice("자리 배치를 삭제했습니다.");
+  /** 프리셋 미리보기용 읽기 전용 미니 캔버스 셀. 학생은 실명단 기준 이름으로 표시. */
+  const toMiniCell = (c: SeatCellState) => {
+    const live = c.studentId ? byId.get(c.studentId) : undefined;
+    return {
+      key: c.key,
+      x: typeof c.x === "number" && Number.isFinite(c.x) ? c.x : 50,
+      y: typeof c.y === "number" && Number.isFinite(c.y) ? c.y : 50,
+      label: live ? formatPickName(live) : "",
+      enabled: c.enabled,
+      lockedGender: c.lockedGender,
+    };
+  };
+
+  // 프리셋 행 (수동 저장·최근 자동 저장 공통, 전광판 seat 렌더 재사용 미리보기)
+  const renderPresetRow = (preset: SavedSeatPreset) => {
+    const enabledCount = preset.cells.filter((c) => c.enabled !== false).length;
+    const placedCount = preset.cells.filter((c) => c.studentId !== null).length;
+    return (
+      <PresetRowShell
+        key={preset.id}
+        presetId={preset.id}
+        presetName={preset.name}
+        auto={preset.auto}
+        statText={`${enabledCount}석 · ${placedCount}명 배치`}
+        editing={editingId === preset.id}
+        editingName={editingName}
+        onEditingNameChange={setEditingName}
+        onStartRename={() => startRename(preset)}
+        onCommitRename={commitRename}
+        onCancelRename={cancelRename}
+        onDelete={() => {
+          if (editingId === preset.id) cancelRename();
+          onDeleteSeatPreset(preset.id);
+        }}
+        deleteConfirmMessage={`'${preset.name}' 자리 프리셋을 삭제하시겠습니까?`}
+        summary={
+          <SeatMiniCanvas cells={preset.cells.map(toMiniCell)} cardWidthPercent={22} className="max-w-[220px]" />
+        }
+        footer={
+          <button
+            type="button"
+            onClick={() => handleLoadPreset(preset)}
+            className="w-full py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 text-xs font-bold transition-colors"
+          >
+            이 자리 불러오기
+          </button>
+        }
+      />
+    );
   };
 
   return (
@@ -342,10 +438,11 @@ export default function SeatPickPanel({
           <button
             type="button"
             onClick={handleDraw}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 shadow-md shadow-indigo-200"
+            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 shadow-md shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             <Dices className="w-3.5 h-3.5" />
-            랜덤 배치
+            <span>랜덤 배치 (별도 창)</span>
+            <ExternalLink className="w-3 h-3 opacity-80" />
           </button>
           <button
             type="button"
@@ -389,9 +486,13 @@ export default function SeatPickPanel({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
-        <StudentPool students={unplaced} />
+        <StudentPool
+          students={unplaced}
+          selectedId={selectedPoolId}
+          onSelect={(id) => setSelectedPoolId((prev) => (prev === id ? null : id))}
+        />
         <SeatGrid
-          cells={seat.cells}
+          cells={displayCells}
           divisions={config.divisions}
           showFixed={seat.showFixed}
           lookup={lookup}
@@ -402,38 +503,70 @@ export default function SeatPickPanel({
           onMoveCell={seat.moveCell}
           onClearCell={seat.clearCell}
           onUnfix={seat.unfixCell}
+          onPositionChange={handlePositionChange}
+          onCanvasDropStudent={handleCanvasDropStudent}
+          selectedPoolId={selectedPoolId}
+          onSelectPool={setSelectedPoolId}
         />
       </div>
-      <p className="text-[11px] text-slate-400">
-        클릭: 열기/닫기·비우기 · 우클릭: 성별 지정 · 드래그: 풀→자리 고정 배치, 자리↔자리 교환 ·
-        배치 {seat.placedCount}명
-      </p>
+      {/* 자리 조작 방법 (동작별 아이콘 카드) */}
+      <SeatGuide placedCount={seat.placedCount} />
 
-      <SaveBar
-        items={layouts}
-        placeholder="자리 틀 이름 (예: 3분단 기본형)"
-        defaultName=""
-        onSave={handleSaveLayout}
-        onLoad={handleLoadLayout}
-        onDelete={handleDeleteLayout}
-      />
-      <SaveBar
-        items={assignments}
-        placeholder="배치 결과 이름 (예: 3월 자리)"
-        defaultName={defaultAssignmentName}
-        onSave={handleSaveAssignment}
-        onLoad={handleLoadAssignment}
-        onDelete={handleDeleteAssignment}
-      />
+      {/* 방금 만든 자리 결과 및 프리셋 저장 영역 (순서/모둠과 동일한 구조) */}
+      {displayCells.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">
+              방금 만든 자리 ({displayCells.filter((c) => c.enabled !== false).length}석 ·{" "}
+              {seat.placedCount}명 배치)
+            </h3>
+            <p className="text-xs text-slate-400">
+              이 자리를 이름과 함께 저장해 두면 언제든 다시 불러올 수 있습니다.
+              자리 생성·랜덤 배치 결과는 아래 최근 자동 저장에도 보관됩니다.
+            </p>
+          </div>
+          <PickSaveBar
+            value={presetName}
+            onChange={setPresetName}
+            onSave={handleSavePreset}
+            placeholder="저장할 자리 이름 (예: 3월 자리, 기본형 틀)"
+            buttonLabel="자리 프리셋 저장"
+          />
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <SeatMiniCanvas cells={displayCells.map(toMiniCell)} className="max-w-[320px]" />
+          </div>
+        </div>
+      )}
 
-      <DrawOverlay
-        open={overlayOpen}
-        title="자리 뽑기"
-        rollingNames={rollingNames}
-        results={overlayResults}
-        onRedraw={handleDraw}
-        onClose={() => setOverlayOpen(false)}
-      />
+      <PresetLibrarySection
+        icon={<Bookmark className="w-4 h-4 text-indigo-600" />}
+        title={`저장된 자리 프리셋 목록 (${manualPresets.length}개)`}
+        empty={manualPresets.length === 0}
+        emptyText={
+          <>
+            저장된 자리 프리셋이 없습니다. 위에서 자리를 만들거나 랜덤 배치한 뒤 이름을 붙여
+            저장해 보세요.
+          </>
+        }
+      >
+        {manualPresets.map(renderPresetRow)}
+      </PresetLibrarySection>
+
+      <PresetLibrarySection
+        icon={<History className="w-4 h-4 text-amber-600" />}
+        title={`최근 자동 저장 (${recentPresets.length}/3개)`}
+        empty={recentPresets.length === 0}
+        emptyText={
+          <>
+            아직 자동 저장된 자리가 없습니다. 자리 생성·랜덤 배치를 실행하면 최근 3개가 자동
+            보관됩니다.
+            <br />
+            연필 아이콘으로 이름을 지정하면 프리셋으로 승격·저장됩니다.
+          </>
+        }
+      >
+        {recentPresets.map(renderPresetRow)}
+      </PresetLibrarySection>
     </div>
   );
 }

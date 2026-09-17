@@ -98,7 +98,7 @@ export default function UnifiedLedgerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs cursor-pointer"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm cursor-pointer"
       onClick={onClose}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-5 space-y-4 max-h-[90vh] flex flex-col my-auto cursor-default" onClick={(e) => e.stopPropagation()}>
@@ -196,7 +196,7 @@ export default function UnifiedLedgerModal({
                   setEndDate("");
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-all ${
-                  periodPreset === "all" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                  periodPreset === "all" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"
                 }`}
               >
                 전체
@@ -210,7 +210,7 @@ export default function UnifiedLedgerModal({
                   setEndDate(today);
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-all ${
-                  periodPreset === "today" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                  periodPreset === "today" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"
                 }`}
               >
                 오늘
@@ -225,7 +225,7 @@ export default function UnifiedLedgerModal({
                   setEndDate(end);
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-all ${
-                  periodPreset === "7d" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                  periodPreset === "7d" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"
                 }`}
               >
                 7일
@@ -240,7 +240,7 @@ export default function UnifiedLedgerModal({
                   setEndDate(end);
                 }}
                 className={`px-2 py-1 rounded text-[11px] transition-all ${
-                  periodPreset === "30d" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600"
+                  periodPreset === "30d" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600"
                 }`}
               >
                 30일

@@ -47,8 +47,9 @@ function formatShortDateTime(dateStr?: string): string {
   return dateStr;
 }
 
-function amountText(type: string, amount: number, currencyName: string): string {
-  const abs = Math.abs(amount).toLocaleString();
+function amountText(type: string, amount: number, currencyName: string, tax?: number): string {
+  const net = (type === "입금" && tax) ? amount - tax : amount;
+  const abs = Math.abs(net).toLocaleString();
   const sign = type === "차감" ? "-" : type === "거래" ? "↔" : "+";
   return `${sign}${abs} ${currencyName}`;
 }
@@ -72,7 +73,7 @@ export default function RecentLedgerPanel({
 
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white shadow-2xs transition-all text-xs ${
+      className={`rounded-xl border border-slate-200 bg-white shadow-sm transition-all text-xs ${
         isDropdown ? "relative" : "overflow-hidden"
       }`}
     >
@@ -120,7 +121,7 @@ export default function RecentLedgerPanel({
               <span className={`text-[10px] font-black shrink-0 ${
                 latest.type === "차감" ? "text-rose-600" : latest.type === "거래" ? "text-indigo-600" : "text-emerald-700"
               }`}>
-                {amountText(latest.type, latest.amount, currencyName)}
+                {amountText(latest.type, latest.amount, currencyName, latest.tax)}
               </span>
             </div>
           ) : (
@@ -234,7 +235,7 @@ export default function RecentLedgerPanel({
                   <span className={`shrink-0 text-[11px] font-black tabular-nums ${
                     rec.type === "차감" ? "text-rose-600" : rec.type === "거래" ? "text-indigo-600" : "text-emerald-700"
                   }`}>
-                    {amountText(rec.type, rec.amount, currencyName)}
+                    {amountText(rec.type, rec.amount, currencyName, rec.tax)}
                   </span>
                   <button
                     type="button"

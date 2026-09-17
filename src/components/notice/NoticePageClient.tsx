@@ -12,6 +12,7 @@ export default function NoticePageClient() {
   const [targetElement, setTargetElement] = useState<BoardTargetElement>("all");
   const [currentFontSize, setCurrentFontSize] = useState<number>(42);
   const [currentLineHeight, setCurrentLineHeight] = useState<number>(140);
+  const [currentFontFamily, setCurrentFontFamily] = useState<string | undefined>(undefined);
   const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(() => {
     try {
       return localStorage.getItem("classroom_show_economy_shortcut") === "true";
@@ -115,7 +116,7 @@ export default function NoticePageClient() {
       {/* 알림장 상단 헤더 */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
             <FileText className="w-4 h-4" />
           </span>
           <div>
@@ -129,7 +130,7 @@ export default function NoticePageClient() {
         <button
           type="button"
           onClick={handleOpenBoardWindow}
-          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
+          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
           title="전자칠판/프로젝터 송출 전용 화면을 별도 창으로 엽니다"
         >
           <span>↗</span>
@@ -147,6 +148,7 @@ export default function NoticePageClient() {
           targetElement={targetElement}
           onTargetElementChange={setTargetElement}
           currentFontSize={currentFontSize}
+          currentFontFamily={currentFontFamily}
           lineHeight={currentLineHeight}
           onApplyLineHeight={(lh) => {
             setCurrentLineHeight(lh);
@@ -202,6 +204,7 @@ export default function NoticePageClient() {
           onSelectElement={setTargetElement}
           onCurrentFontSize={setCurrentFontSize}
           onCurrentLineHeight={setCurrentLineHeight}
+          onCurrentFontFamily={setCurrentFontFamily}
           showEconomyShortcut={showEconomyShortcut}
           appliedStyle={appliedStyle}
           layouts={state.layouts}

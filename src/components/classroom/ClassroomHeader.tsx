@@ -32,7 +32,7 @@ export default function ClassroomHeader({
   return (
     <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
       <div className="flex items-center gap-3">
-        <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+        <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
           <GraduationCap className="w-4 h-4 text-white" />
         </span>
         <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export default function ClassroomHeader({
         <button
           type="button"
           onClick={onOpenQuickView}
-          className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
+          className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
           title="학생별 계좌 잔액 및 오늘 재정 간편 조회"
         >
           <BarChart3 className="w-3.5 h-3.5 text-slate-600" />
@@ -67,7 +67,7 @@ export default function ClassroomHeader({
         <button
           type="button"
           onClick={onAddFreeCard}
-          className="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all border border-indigo-200"
+          className="px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all border border-indigo-200"
           title="자유 글상자를 칠판에 추가합니다"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -77,7 +77,7 @@ export default function ClassroomHeader({
         <button
           type="button"
           onClick={onOpenBoardWindow}
-          className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
+          className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
           title="전자칠판/프로젝터 송출 전용 화면을 별도 창으로 엽니다"
         >
           <Monitor className="w-3.5 h-3.5" />

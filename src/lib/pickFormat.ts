@@ -1,9 +1,9 @@
 import type { PickStudent } from "@/types";
 import type { ClassroomStudent } from "@/types/classroom";
 
-/** `3번 김철수` 형식 표시명 */
+/** 이름 표시명 */
 export function formatPickName(s: PickStudent): string {
-  return `${s.studentNumber}번 ${s.name}`;
+  return s.name;
 }
 
 /**

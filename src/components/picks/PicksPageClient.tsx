@@ -5,16 +5,9 @@ import { Shuffle, ListOrdered, Users, Armchair } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import StudentPickPanel from "./StudentPickPanel";
 import OrderPickPanel from "./OrderPickPanel";
-import GroupPickPanel, { type GroupSetItem } from "./GroupPickPanel";
+import GroupPickPanel from "./GroupPickPanel";
 import SeatPickPanel from "./SeatPickPanel";
 import { toPickStudents } from "@/lib/pickFormat";
-import type { SeatAssignmentItem, SeatLayoutItem } from "@/types";
-
-interface PicksPageClientProps {
-  initialLayouts: SeatLayoutItem[];
-  initialAssignments: SeatAssignmentItem[];
-  initialSets: GroupSetItem[];
-}
 
 type Tab = "student" | "order" | "group" | "seat";
 
@@ -25,11 +18,7 @@ const TABS: { value: Tab; label: string; icon: typeof Shuffle }[] = [
   { value: "seat", label: "자리 뽑기", icon: Armchair },
 ];
 
-export default function PicksPageClient({
-  initialLayouts,
-  initialAssignments,
-  initialSets,
-}: PicksPageClientProps) {
+export default function PicksPageClient() {
   const [tab, setTab] = useState<Tab>("student");
   // 실명단(localStorage 교실 상태)과 동일한 출처 사용 — 명단 변경이 즉시 반영됨
   const classroom = useClassroomState();
@@ -37,15 +26,6 @@ export default function PicksPageClient({
   const students = useMemo(
     () => toPickStudents(classroom.students),
     [classroom.students]
-  );
-  const routines = useMemo(
-    () =>
-      classroom.routines.map((r) => ({
-        id: r.id,
-        title: r.name,
-        order: [...r.order],
-      })),
-    [classroom.routines]
   );
 
   if (!classroom.isLoaded) {
@@ -58,15 +38,18 @@ export default function PicksPageClient({
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-          <Shuffle className="w-6 h-6 text-indigo-600" />
-          뽑기
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          학생·순서·모둠·자리 추첨. 학생 명단과 바로 연동됩니다 ({students.length}명).
-        </p>
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+            <Shuffle className="w-6 h-6 text-indigo-600" />
+            뽑기
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            학생·순서·모둠·자리 추첨. 학생 명단과 바로 연동됩니다 ({students.length}명).
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl shadow-sm w-fit max-w-full overflow-x-auto">
@@ -101,18 +84,31 @@ export default function PicksPageClient({
       {tab === "order" && (
         <OrderPickPanel
           students={students}
-          routines={routines}
-          onApplyOrder={(routineId, orderedNames) =>
-            classroom.updateRoutineOrder(routineId, orderedNames)
-          }
+          savedOrders={classroom.savedOrders}
+          onSaveOrderPreset={classroom.saveOrderPreset}
+          onDeleteOrderPreset={classroom.deleteOrderPreset}
+          onPushRecentOrder={classroom.pushRecentOrder}
+          onUpdateOrderPreset={classroom.updateOrderPreset}
         />
       )}
-      {tab === "group" && <GroupPickPanel students={students} initialSets={initialSets} />}
+      {tab === "group" && (
+        <GroupPickPanel
+          students={students}
+          savedGroups={classroom.savedGroups}
+          onSaveGroupPreset={classroom.saveGroupPreset}
+          onDeleteGroupPreset={classroom.deleteGroupPreset}
+          onPushRecentGroups={classroom.pushRecentGroups}
+          onUpdateGroupPreset={classroom.updateGroupPreset}
+        />
+      )}
       {tab === "seat" && (
         <SeatPickPanel
           students={students}
-          initialLayouts={initialLayouts}
-          initialAssignments={initialAssignments}
+          savedSeats={classroom.savedSeats}
+          onSaveSeatPreset={classroom.saveSeatPreset}
+          onDeleteSeatPreset={classroom.deleteSeatPreset}
+          onPushRecentSeats={classroom.pushRecentSeats}
+          onUpdateSeatPreset={classroom.updateSeatPreset}
         />
       )}
     </div>

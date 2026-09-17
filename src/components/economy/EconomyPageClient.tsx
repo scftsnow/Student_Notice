@@ -33,7 +33,7 @@ export default function EconomyPageClient({
         {/* 학급 화폐 상단 헤더 */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+            <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
               <Coins className="w-4 h-4" />
             </span>
             <div>

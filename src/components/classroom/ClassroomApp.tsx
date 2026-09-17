@@ -21,6 +21,7 @@ export default function ClassroomApp() {
   const [targetElement, setTargetElement] = useState<BoardTargetElement>("all");
   const [currentFontSize, setCurrentFontSize] = useState<number>(42);
   const [currentLineHeight, setCurrentLineHeight] = useState<number>(140);
+  const [currentFontFamily, setCurrentFontFamily] = useState<string | undefined>(undefined);
   const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(() => {
     try {
       return localStorage.getItem("classroom_show_economy_shortcut") === "true";
@@ -138,7 +139,7 @@ export default function ClassroomApp() {
             onClick={() => setActiveTab("notice")}
             className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "notice"
-                ? "bg-white text-indigo-700 shadow-xs"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -150,7 +151,7 @@ export default function ClassroomApp() {
             onClick={() => setActiveTab("students")}
             className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "students"
-                ? "bg-white text-indigo-700 shadow-xs"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -162,7 +163,7 @@ export default function ClassroomApp() {
             onClick={() => setActiveTab("routines")}
             className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "routines"
-                ? "bg-white text-indigo-700 shadow-xs"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -174,7 +175,7 @@ export default function ClassroomApp() {
             onClick={() => setActiveTab("economy")}
             className={`flex-1 py-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 ${
               activeTab === "economy"
-                ? "bg-white text-indigo-700 shadow-xs"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
@@ -194,6 +195,7 @@ export default function ClassroomApp() {
               targetElement={targetElement}
               onTargetElementChange={setTargetElement}
               currentFontSize={currentFontSize}
+              currentFontFamily={currentFontFamily}
               lineHeight={currentLineHeight}
               onApplyLineHeight={(lh) => {
                 setCurrentLineHeight(lh);
@@ -250,6 +252,7 @@ export default function ClassroomApp() {
               onSelectElement={setTargetElement}
               onCurrentFontSize={setCurrentFontSize}
               onCurrentLineHeight={setCurrentLineHeight}
+              onCurrentFontFamily={setCurrentFontFamily}
               showEconomyShortcut={showEconomyShortcut}
               appliedStyle={appliedStyle}
               onOpenRoutineNoticeSettings={() => setIsRoutineNoticeSettingsOpen(true)}
@@ -278,6 +281,7 @@ export default function ClassroomApp() {
             students={state.students}
             currencyName={state.currencyName}
             ledgerHistory={state.ledgerHistory}
+            savedOrders={state.savedOrders}
             onAddRoutine={state.addRoutine}
             onDeleteRoutine={state.deleteRoutine}
             onAdvanceRoutine={state.advanceRoutine}
@@ -324,7 +328,7 @@ export default function ClassroomApp() {
       {/* 간편 재정 조회 모달 */}
       {isQuickViewOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={() => setIsQuickViewOpen(false)}
         >
           <div

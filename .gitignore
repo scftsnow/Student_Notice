@@ -53,3 +53,8 @@ yarn-error.log*
 test-results/
 playwright-report/
 *.tsbuildinfo
+
+# opencode headless 실행 시 자동 생성되는 플러그인 산출물 (커밋 금지)
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json

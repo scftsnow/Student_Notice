@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { EyeOff, RefreshCw, X, Coins, FastForward, RotateCcw, CheckSquare, User } from "lucide-react";
+import { EyeOff, RefreshCw, X, Coins, FastForward, RotateCcw, CheckSquare, User, Copy } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig, LedgerRecord } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, serializePinchHitters, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
@@ -54,7 +54,7 @@ export default function RoutineElementInCanvas({
     e.preventDefault(); e.stopPropagation();
     setActivePopupIndex(null); setWorkerPopupPos(null);
     const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 250));
-    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 290));
+    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 330));
     setContextMenu({ x, y });
   };
 
@@ -134,6 +134,34 @@ export default function RoutineElementInCanvas({
   };
 
   const segments = parseRoutineFormat(routine.displayFormat, routine.name, workerList, routine.icon);
+
+  const routinePlainText = useMemo(
+    () => segments.map((seg) => seg.text).join(""),
+    [segments]
+  );
+
+  const handleCopyContent = async () => {
+    const text = routinePlainText.trim();
+    if (!text) {
+      setContextMenu(null);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { /* noop */ }
+    }
+    setContextMenu(null);
+  };
 
   const isFocusedRef = useRef(false);
   const wasFocusedRef = useRef(false);
@@ -307,7 +335,7 @@ export default function RoutineElementInCanvas({
       ref={containerRef}
       onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
       onContextMenu={handleContextMenu}
-      className="relative w-full leading-snug group"
+      className="relative w-full group"
       style={{ fontSize: "inherit" }}
     >
       <div
@@ -330,8 +358,8 @@ export default function RoutineElementInCanvas({
         onKeyDown={handleKeyDown}
         onInput={handleInput}
         onPaste={handlePaste}
-        className={`outline-none rounded px-1 inline-block transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
-        style={customColor ? { color: customColor, whiteSpace: "pre-wrap" } : { whiteSpace: "pre-wrap" }}
+          className={`outline-none rounded inline-block transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
+          style={customColor ? { color: customColor, whiteSpace: "pre-wrap", letterSpacing: "-0.02em" } : { whiteSpace: "pre-wrap", letterSpacing: "-0.02em" }}
         title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 편집 / 당번 클릭: 급여·대타 메뉴"}
       />
 
@@ -396,6 +424,15 @@ export default function RoutineElementInCanvas({
               )}
 
               <div className="h-px bg-white/10 my-0.5" />
+
+              <button
+                type="button"
+                onClick={handleCopyContent}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
+              >
+                <Copy className="w-3.5 h-3.5 text-slate-300" />
+                <span className="font-semibold">내용 복사</span>
+              </button>
 
               {onUpdateRoutine && (
                 <button
@@ -494,7 +531,7 @@ export default function RoutineElementInCanvas({
                           key={s.name}
                           type="button"
                           onClick={() => handlePinchChange(s.name)}
-                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${currentWorker === s.name ? (isPaid ? "bg-lime-400 text-slate-900 font-black shadow-xs" : "bg-amber-400 text-slate-900 shadow-xs") : "bg-white/10 hover:bg-white/20 text-white/90"}`}
+                          className={`px-1.5 py-0.5 rounded text-[11px] font-bold transition-all ${currentWorker === s.name ? (isPaid ? "bg-lime-400 text-slate-900 font-black shadow-sm" : "bg-amber-400 text-slate-900 shadow-sm") : "bg-white/10 hover:bg-white/20 text-white/90"}`}
                         >
                           {s.name}
                         </button>
@@ -514,7 +551,7 @@ export default function RoutineElementInCanvas({
                     <button
                       type="button"
                       onClick={() => handleCancelPay(payStatus.recordId)}
-                      className="w-full py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                      className="w-full py-2 px-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
                       title="이 당번의 급여 지급을 취소하고 원래 잔액으로 복원합니다"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -525,7 +562,7 @@ export default function RoutineElementInCanvas({
                       type="button"
                       onClick={() => handlePayWorker(currentWorker)}
                       disabled={routine.pay <= 0 || !onPayRoutineToday}
-                      className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all disabled:opacity-40 disabled:pointer-events-none"
+                      className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-40 disabled:pointer-events-none"
                     >
                       <Coins className="w-3.5 h-3.5" />
                       <span>급여 지급 ({routine.pay.toLocaleString()}{currencyName})</span>
