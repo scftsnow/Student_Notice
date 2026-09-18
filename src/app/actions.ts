@@ -381,6 +381,29 @@ export async function updateCurrencyName(currencyName: string) {
   return updated;
 }
 
+/**
+ * 백업 복원용 학급 정보 복구 (학급명·화폐명만 백업 시점으로 되돌림).
+ * 나머지 설정 필드는 UI에서 변경할 수 없어 DB 값이 그대로 유지되므로
+ * 이 두 필드만으로 복원이 완결된다.
+ */
+export async function restoreClassIdentity(className: string, currencyName: string) {
+  const updated = await prisma.classSetting.upsert({
+    where: { id: "singleton" },
+    update: { className, currencyName },
+    create: {
+      id: "singleton",
+      className,
+      currencyName,
+      defaultTaxRate: 0.1,
+    },
+  });
+  revalidatePath("/");
+  revalidatePath("/settings");
+  revalidatePath("/economy");
+  revalidatePath("/routines");
+  return updated;
+}
+
 // --- Reset Actions ---
 
 /** 학급화폐 초기화: 모든 거래내역, 잔액, 미결제 승인 대기 항목을 0으로 초기화 */

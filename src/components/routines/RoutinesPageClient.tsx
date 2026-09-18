@@ -3,6 +3,7 @@
 import { CheckSquare, Bell } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import RoutineTab from "@/components/classroom/routines/RoutineTab";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function RoutinesPageClient() {
   const state = useClassroomState();
@@ -20,19 +21,11 @@ export default function RoutinesPageClient() {
     <>
       <div className="space-y-4">
         {/* 학생 업무 상단 헤더 */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-              <CheckSquare className="w-4 h-4" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">학급 학생 업무 및 순환 관리</h1>
-              <p className="text-xs text-slate-500">
-                1인1역 당번과 업무 순환 순서를 관리하고 당일 급여를 정산합니다.
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          icon={<CheckSquare className="w-4 h-4" />}
+          title="학급 학생 업무 및 순환 관리"
+          description="1인1역 당번과 업무 순환 순서를 관리하고 당일 급여를 정산합니다."
+        />
 
         <RoutineTab
           routines={state.routines}

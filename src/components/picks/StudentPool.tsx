@@ -1,6 +1,5 @@
 "use client";
 
-import { GripVertical } from "lucide-react";
 import { formatPickName } from "@/lib/pickFormat";
 import type { PickStudent } from "@/types";
 
@@ -20,7 +19,7 @@ export default function StudentPool({ students, selectedId = null, onSelect }: S
       {students.length === 0 ? (
         <p className="text-xs text-slate-400 py-3 text-center">전원 배치됨</p>
       ) : (
-        <div className="max-h-64 overflow-y-auto flex flex-wrap gap-1.5">
+        <div className="max-h-64 overflow-y-auto flex flex-wrap gap-1">
           {students.map((s) => {
             const active = selectedId === s.id;
             return (
@@ -32,14 +31,13 @@ export default function StudentPool({ students, selectedId = null, onSelect }: S
               }}
               onClick={() => onSelect?.(active ? null : s.id)}
               aria-pressed={active}
-              className={`text-xs px-2 py-1.5 rounded-xl border font-medium flex items-center gap-1 cursor-grab active:cursor-grabbing ${
+              className={`text-sm px-2.5 py-1.5 rounded-xl border font-bold flex items-center gap-1 cursor-grab active:cursor-grabbing select-none ${
                 active
                   ? "bg-indigo-600 border-indigo-600 text-white"
                   : "bg-indigo-50 border-indigo-100 text-slate-700 hover:bg-indigo-100"
               }`}
               title="자리 카드로 드래그하거나 탭 후 캔버스를 탭해 고정 배치"
             >
-              <GripVertical className={`w-3 h-3 ${active ? "text-indigo-200" : "text-indigo-300"}`} />
               {formatPickName(s)}
               {s.gender === "남" && <span className={`font-bold ${active ? "text-blue-200" : "text-blue-500"}`}>♂</span>}
               {s.gender === "여" && <span className={`font-bold ${active ? "text-rose-200" : "text-rose-500"}`}>♀</span>}

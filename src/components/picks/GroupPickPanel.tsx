@@ -387,9 +387,8 @@ export default function GroupPickPanel({
 
   return (
     <div className="space-y-4">
-      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds} />
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-3">
+      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds}>
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-fit shrink-0">
           {(
             [
@@ -469,6 +468,7 @@ export default function GroupPickPanel({
           <ExternalLink className="w-3.5 h-3.5 opacity-80" />
         </button>
       </div>
+      </PickTargetSelector>
 
       {error && (
         <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">

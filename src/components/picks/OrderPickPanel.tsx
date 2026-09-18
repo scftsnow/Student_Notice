@@ -275,22 +275,22 @@ export default function OrderPickPanel({
 
   return (
     <div className="space-y-4">
-      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds} />
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="text-xs text-slate-500">
-          선택된 학생 <span className="font-bold text-indigo-600 font-mono">{selected.length}</span>명의 무작위 순서를 추첨합니다.
+      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-slate-500">
+            선택된 학생 <span className="font-bold text-indigo-600 font-mono">{selected.length}</span>명의 무작위 순서를 추첨합니다.
+          </div>
+          <button
+            type="button"
+            onClick={runDraw}
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <ListOrdered className="w-4 h-4" />
+            <span>순서 뽑기 (별도 창)</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={runDraw}
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <ListOrdered className="w-4 h-4" />
-          <span>순서 뽑기 (별도 창)</span>
-          <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-        </button>
-      </div>
+      </PickTargetSelector>
 
       {error && (
         <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">

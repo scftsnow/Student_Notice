@@ -3,6 +3,7 @@
 import { Users, Bell } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import StudentTab from "@/components/classroom/students/StudentTab";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function StudentsPageClient() {
   const state = useClassroomState();
@@ -20,19 +21,11 @@ export default function StudentsPageClient() {
     <>
       <div className="space-y-4">
         {/* 학생 관리 상단 헤더 */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-              <Users className="w-4 h-4" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">학급 학생 명단 관리</h1>
-              <p className="text-xs text-slate-500">
-                학급 학생을 등록하고 계좌 및 번호를 관리합니다.
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          icon={<Users className="w-4 h-4" />}
+          title="학급 학생 명단 관리"
+          description="학급 학생을 등록하고 계좌 및 번호를 관리합니다."
+        />
 
         <StudentTab
           students={state.students}

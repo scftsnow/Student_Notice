@@ -5,6 +5,7 @@ import { FileText, Bell } from "lucide-react";
 import { useClassroomState } from "@/hooks/useClassroomState";
 import NoticeTab from "@/components/classroom/notice/NoticeTab";
 import BoardCanvas from "@/components/classroom/canvas/BoardCanvas";
+import PageHeader from "@/components/layout/PageHeader";
 import { BoardTargetElement } from "@/types/classroom";
 
 export default function NoticePageClient() {
@@ -114,29 +115,22 @@ export default function NoticePageClient() {
     <>
       <div className="space-y-4">
       {/* 알림장 상단 헤더 */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-            <FileText className="w-4 h-4" />
-          </span>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">알림장 & 전자칠판</h1>
-            <p className="text-xs text-slate-500">
-              전달사항을 입력하고 전자칠판 판서 화면을 실시간으로 미리보기 및 송출합니다.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleOpenBoardWindow}
-          className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-          title="전자칠판/프로젝터 송출 전용 화면을 별도 창으로 엽니다"
-        >
-          <span>↗</span>
-          <span>학생 화면 별도 창 열기</span>
-        </button>
-      </div>
+      <PageHeader
+        icon={<FileText className="w-4 h-4" />}
+        title="알림장 & 전자칠판"
+        description="전달사항을 입력하고 전자칠판 판서 화면을 실시간으로 미리보기 및 송출합니다."
+        actions={
+          <button
+            type="button"
+            onClick={handleOpenBoardWindow}
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+            title="전자칠판/프로젝터 송출 전용 화면을 별도 창으로 엽니다"
+          >
+            <span>↗</span>
+            <span>학생 화면 별도 창 열기</span>
+          </button>
+        }
+      />
 
       {/* 알림장 툴바 및 16:9 판서 캔버스 */}
       <div className="space-y-3">

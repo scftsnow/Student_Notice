@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
 import { Rnd } from "react-rnd";
+import { seatCanvasHeightPx, seatGridRowCount } from "@/lib/seatFree";
 import type { PickStudent, SeatCellState } from "@/types";
 
 interface SeatGridProps {
@@ -132,8 +133,8 @@ export default function SeatGrid({
     );
   }
 
-  const cardW = Math.max(84, Math.min(124, Math.floor(size.w / 8)));
-  const cardH = 58;
+  const cardW = Math.max(72, Math.min(104, Math.floor(size.w / 8)));
+  const cardH = 48;
 
   const pointToPercent = (clientX: number, clientY: number): { x: number; y: number } => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -284,7 +285,7 @@ export default function SeatGrid({
                   ? "클릭: 닫기 / 우클릭·더블클릭: 성별 지정 / 드래그: 이동"
                   : "클릭: 열기 / 드래그: 이동"
           }
-          className={`relative w-full h-full rounded-xl border-2 px-1 py-1.5 text-center cursor-grab active:cursor-grabbing select-none overflow-hidden ${
+          className={`relative w-full h-full rounded-xl border-2 px-1 py-1 text-center cursor-grab active:cursor-grabbing select-none overflow-hidden ${
             !cell.enabled
               ? "border-dashed border-slate-300 bg-slate-100"
               : cell.studentId
@@ -293,15 +294,15 @@ export default function SeatGrid({
           } ${selectedPoolId ? "ring-2 ring-indigo-300" : ""}`}
         >
           {!cell.enabled ? (
-            <span className="text-[11px] text-slate-400 leading-4">닫힘</span>
+            <span className="text-[10px] text-slate-400 leading-4">닫힘</span>
           ) : cell.studentId ? (
             <>
-              <div className="text-xs font-bold text-slate-800 truncate leading-5">
+              <div className="text-[11px] font-bold text-slate-800 truncate leading-4">
                 {displayName(cell.studentId)}
               </div>
               {cell.lockedGender && (
                 <span
-                  className={`text-[10px] font-bold leading-4 ${
+                  className={`text-[9px] font-bold leading-3 ${
                     cell.lockedGender === "남" ? "text-blue-500" : "text-rose-500"
                   }`}
                 >
@@ -319,7 +320,7 @@ export default function SeatGrid({
                       e.stopPropagation();
                       onUnfix(cell.key);
                     }}
-                    className="px-1 rounded-full bg-slate-600 text-white text-[9px] leading-4"
+                    className="px-1 rounded-full bg-slate-600 text-white text-[8px] leading-3"
                     title="고정 해제 (배치는 유지)"
                   >
                     해제
@@ -330,7 +331,7 @@ export default function SeatGrid({
                       e.stopPropagation();
                       onClearCell(cell.key);
                     }}
-                    className="px-1 rounded-full bg-rose-500 text-white text-[9px] leading-4"
+                    className="px-1 rounded-full bg-rose-500 text-white text-[8px] leading-3"
                     title="비우기"
                   >
                     ✕
@@ -340,10 +341,10 @@ export default function SeatGrid({
             </>
           ) : (
             <>
-              <span className="text-[11px] text-slate-300 leading-5">빈자리</span>
+              <span className="text-[10px] text-slate-300 leading-4">빈자리</span>
               {cell.lockedGender && (
                 <span
-                  className={`block text-[10px] font-bold leading-4 ${
+                  className={`block text-[9px] font-bold leading-3 ${
                     cell.lockedGender === "남" ? "text-blue-500" : "text-rose-500"
                   }`}
                 >
@@ -358,7 +359,7 @@ export default function SeatGrid({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-2">
       <div className="flex items-stretch gap-2">
         <div className="w-16 shrink-0 rounded-xl bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center">
           교탁
@@ -389,7 +390,8 @@ export default function SeatGrid({
             ? "탭한 위치에 선택한 학생을 배치합니다"
             : "카드를 드래그해 자유롭게 배치하세요"
         }
-        className={`relative w-full aspect-[4/3] rounded-xl border bg-slate-50 overflow-hidden ${
+        style={{ height: seatCanvasHeightPx(seatGridRowCount(cells)) }}
+        className={`relative w-full rounded-xl border bg-slate-50 overflow-hidden ${
           selectedPoolId ? "border-indigo-400 ring-2 ring-indigo-200 cursor-copy" : "border-slate-200"
         }`}
       >

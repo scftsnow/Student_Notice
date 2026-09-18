@@ -51,9 +51,10 @@ export function openPickWindow(payload: PickWindowPayload): Window | null {
   const left = Math.max(0, Math.round((window.screen.width - w) / 2));
   const top = Math.max(0, Math.round((window.screen.height - h) / 2));
 
+  // 뽑기 종류별 별도 창: 같은 종류는 기존 창을 재사용하고, 다른 종류는 각자 창을 유지한다.
   const popup = window.open(
     "/picks/window",
-    "ClassroomPickWindow",
+    `ClassroomPickWindow_${payload.type}`,
     `width=${w},height=${h},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`
   );
 

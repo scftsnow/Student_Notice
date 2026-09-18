@@ -11,6 +11,7 @@ import {
 } from "@/lib/defaultFont";
 import FontSelectorDropdown from "@/components/classroom/notice/FontSelectorDropdown";
 import ResetSection from "./ResetSection";
+import BackupSection from "./BackupSection";
 
 interface SettingsClientProps {
   initialSetting: ClassSetting;
@@ -183,6 +184,9 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
 
       {/* 데이터 초기화 섹션 */}
       <ResetSection />
+
+      {/* 전체 설정 백업 / 복원 */}
+      <BackupSection />
     </div>
   );
 }

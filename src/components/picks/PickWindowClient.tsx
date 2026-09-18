@@ -171,6 +171,9 @@ export default function PickWindowClient() {
         if (e.data?.type === "PICK_START" || e.data?.type === "PICK_UPDATE") {
           const next = e.data.payload as PickWindowPayload;
           if (next) {
+            // 다른 종류 뽑기의 추첨은 무시 (종류별 별도 창 유지)
+            const currentType = payloadRef.current?.type;
+            if (currentType && next.type !== currentType) return;
             clearTimers();
             setPayload(next);
             setPhase("ready");
@@ -434,6 +437,18 @@ export default function PickWindowClient() {
     return (payload.seatCells ?? []).filter((c) => c.enabled);
   }, [payload]);
   const isSeatBoard = payload?.type === "seat" && seatCells.length > 0;
+  /** 미니 높이 기준 행 수 (셀 key `분단-행-열`에서 복원, 실패 시 4:3 기존 비율) */
+  const seatRows = useMemo(() => {
+    let max = -1;
+    for (const c of seatCells) {
+      const m = /^(\d+)-(\d+)-(\d+)$/.exec(c.key);
+      if (m) {
+        const r = Number(m[2]);
+        if (Number.isFinite(r) && r > max) max = r;
+      }
+    }
+    return max >= 0 ? max + 1 : undefined;
+  }, [seatCells]);
 
   if (!payload) {
     return (
@@ -654,7 +669,7 @@ export default function PickWindowClient() {
               </div>
             ) : isSeatBoard ? (
               <div className="w-full max-w-4xl mx-auto p-2">
-                <SeatMiniCanvas cells={seatCells} dark cardExtraClass={POP_ANIM} />
+                <SeatMiniCanvas cells={seatCells} dark cardExtraClass={POP_ANIM} rows={seatRows} />
               </div>
             ) : (
             <div className={resultContainerClass(resultLayout)}>

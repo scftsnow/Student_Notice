@@ -1,5 +1,5 @@
 import type { PickStudent, SeatCellState, SeatFillFrom } from "@/types";
-import { gridCellToPercent } from "./seatFree";
+import { SEAT_DIVISION_GUTTER, gridCellToPercent, seatRowCenterY } from "./seatFree";
 
 type Rand = () => number;
 
@@ -162,7 +162,8 @@ export interface SeatGridConfig {
 }
 
 /**
- * 인원수에 맞춰 자리 틀 생성. 행수 = ceil(인원 / (분단수×열수)).
+ * 인원수에 맞춰 자리 틀 생성. 칠판 앞줄(0행)부터 행 우선으로 인원수만큼만 만든다.
+ * 빈자리는 만들지 않는다 (마지막 행은 필요한 열까지만).
  * key는 `분단-행-열` 형식. row 0 = 가장 앞줄.
  * 자유 배치 호환용 x/y(% 좌표, 셀 중심)도 함께 부여. row/col/division은 유지.
  */
@@ -174,15 +175,20 @@ export function buildSeatCells(
   if (divisions < 1 || colsPerDivision < 1) {
     throw new Error("분단 수와 분단당 열수는 1 이상이어야 합니다.");
   }
+  const count = Math.max(0, Math.floor(studentCount) || 0);
+  if (count === 0) return [];
   const perRow = divisions * colsPerDivision;
-  const rows = Math.max(1, Math.ceil(studentCount / perRow));
+  const rows = Math.max(1, Math.ceil(count / perRow));
   const totalCols = perRow;
+  // 분단 사이 통로: 분단 경계마다 여백을 두어 분단 블록끼리 붙어 보이게 한다.
+  // (분단 내 열 간격은 그대로 유지)
+  const units = totalCols + SEAT_DIVISION_GUTTER * Math.max(0, divisions - 1);
   const cells: SeatCellState[] = [];
-  for (let row = 0; row < rows; row++) {
-    for (let division = 0; division < divisions; division++) {
-      for (let c = 0; c < colsPerDivision; c++) {
+  let made = 0;
+  for (let row = 0; row < rows && made < count; row++) {
+    for (let division = 0; division < divisions && made < count; division++) {
+      for (let c = 0; c < colsPerDivision && made < count; c++) {
         const col = division * colsPerDivision + c;
-        const p = gridCellToPercent({ row, col, totalRows: rows, totalCols });
         cells.push({
           key: `${division}-${row}-${col}`,
           row,
@@ -192,9 +198,10 @@ export function buildSeatCells(
           lockedGender: null,
           fixedStudentId: null,
           studentId: null,
-          x: p.x,
-          y: p.y,
+          x: Math.round(((col + 0.5 + division * SEAT_DIVISION_GUTTER) / units) * 100 * 100) / 100,
+          y: seatRowCenterY(row, rows),
         });
+        made++;
       }
     }
   }

@@ -2,6 +2,7 @@
 
 import { useClassroomState } from "@/hooks/useClassroomState";
 import EconomyTab from "@/components/classroom/economy/EconomyTab";
+import PageHeader from "@/components/layout/PageHeader";
 import { Coins, Bell } from "lucide-react";
 
 interface EconomyPageClientProps {
@@ -31,19 +32,11 @@ export default function EconomyPageClient({
     <>
       <div className="space-y-4">
         {/* 학급 화폐 상단 헤더 */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
-              <Coins className="w-4 h-4" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900">학급 화폐 및 재정 관리</h1>
-              <p className="text-xs text-slate-500">
-                국고 잔액, 학생별 계좌 거래, 세율 설정 및 복합 정산을 관리합니다.
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          icon={<Coins className="w-4 h-4" />}
+          title="학급 화폐 및 재정 관리"
+          description="국고 잔액, 학생별 계좌 거래, 세율 설정 및 복합 정산을 관리합니다."
+        />
 
         <EconomyTab
           students={state.students}

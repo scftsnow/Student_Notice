@@ -161,7 +161,7 @@ export type SeatFreeCell = SeatCellState & { x: number; y: number };
 /** cellsJson 버전 태그. 1 = 레거시 배열, 2 = 버전 봉투(free). */
 export const SEAT_CELLS_JSON_VERSION = 2 as const;
 
-/** 교실 캔버스 고정 종횡비. CSS `aspect-[4/3]`과 대응. */
+/** 교실 캔버스 기준 종횡비 표기 (저장 문서 호환용. 실제 렌더 높이는 행 수 맞춤). */
 export const SEAT_CANVAS_ASPECT = "4:3" as const;
 
 export interface SeatCanvasMeta {

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { seatMiniHeightPx } from "@/lib/seatFree";
 
 /** 읽기 전용 미니 캔버스용 셀 스냅샷 (교실 캔버스 % 좌표) */
 export interface SeatMiniCell {
@@ -22,6 +23,11 @@ interface SeatMiniCanvasProps {
   className?: string;
   /** 카드에 추가할 애니메이션 클래스 (예: 전광판 pop 애니메이션) */
   cardExtraClass?: string;
+  /**
+   * 격자 행 수. 지정하면 내용 맞춤 높이로 렌더하고, 생략하면 기존 4:3 비율.
+   * (호출자가 전체 셀의 maxRow+1을 넘긴다)
+   */
+  rows?: number;
   /** 상단(교탁/칠판 헤더) 아래 부가 노트 */
   note?: ReactNode;
 }
@@ -37,8 +43,10 @@ export default function SeatMiniCanvas({
   className,
   cardExtraClass = "",
   note,
+  rows,
 }: SeatMiniCanvasProps) {
   const visible = cells.filter((c) => c.enabled);
+  const fitHeight = rows === undefined ? null : seatMiniHeightPx(rows);
   const cardWidth =
     cardWidthPercent ?? (visible.length <= 12 ? 17 : visible.length <= 20 ? 13.5 : 11);
   return (
@@ -63,7 +71,8 @@ export default function SeatMiniCanvas({
       </div>
       {note}
       <div
-        className={`relative w-full aspect-[4/3] rounded-2xl border overflow-hidden ${
+        style={fitHeight !== null ? { height: fitHeight } : undefined}
+        className={`relative w-full ${fitHeight !== null ? "" : "aspect-[4/3] "}rounded-2xl border overflow-hidden ${
           dark ? "border-white/15 bg-white/5" : "border-slate-200 bg-slate-50"
         }`}
       >

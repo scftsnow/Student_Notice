@@ -10,6 +10,7 @@ import {
   EyeOff,
   ExternalLink,
   History,
+  X,
 } from "lucide-react";
 import PickTargetSelector from "./PickTargetSelector";
 import PickSaveBar from "./PickSaveBar";
@@ -20,8 +21,7 @@ import SeatMiniCanvas from "./SeatMiniCanvas";
 import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
 import { useSeatPick } from "@/hooks/useSeatPick";
 import { formatPickName } from "@/lib/pickFormat";
-import { serializeSeatCells } from "@/lib/seatFree";
-import { playError } from "@/lib/pickSound";
+import { serializeSeatCells, seatGridRowCount } from "@/lib/seatFree";import { playError } from "@/lib/pickSound";
 import { openPickWindow } from "@/lib/pickWindowHelper";
 import type { PickSeatCell } from "@/lib/pickWindowHelper";
 import type { PickStudent, SeatCellState } from "@/types";
@@ -69,6 +69,7 @@ export default function SeatPickPanel({
   const [presetName, setPresetName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [editingCells, setEditingCells] = useState<SeatCellState[]>([]);
   /** 생성/랜덤 배치 직후 다음 렌더의 cells를 자동 보관 1회 실행하는 플래그 */
   const autoSaveRef = useRef(false);
 
@@ -252,11 +253,13 @@ export default function SeatPickPanel({
   const startRename = (preset: SavedSeatPreset) => {
     setEditingId(preset.id);
     setEditingName(preset.name);
+    setEditingCells(preset.cells.map((c) => ({ ...c })));
     setNotice("");
   };
   const cancelRename = () => {
     setEditingId(null);
     setEditingName("");
+    setEditingCells([]);
   };
   const commitRename = () => {
     if (!editingId) return;
@@ -267,16 +270,33 @@ export default function SeatPickPanel({
     }
     const target = savedSeats.find((p) => p.id === editingId);
     setNotice("");
-    onUpdateSeatPreset(editingId, trimmed, target?.cells ?? []);
+    onUpdateSeatPreset(editingId, trimmed, editingCells.length > 0 ? editingCells : (target?.cells ?? []));
     setEditingId(null);
     setEditingName("");
+    setEditingCells([]);
+  };
+  /** 편집 중 배치 비우기 (틀은 유지, 해당 학생만 빼기) */
+  const removeEditingMember = (studentId: string) => {
+    setEditingCells((prev) =>
+      prev.map((c) =>
+        c.studentId === studentId ? { ...c, studentId: null, fixedStudentId: null } : c
+      )
+    );
+  };
+  /** 편집 중 배치된 학생 이름 (명단을 떠난 학생은 저장된 이름 그대로) */
+  const editingMemberName = (studentId: string): string => {
+    const live = byId.get(studentId);
+    return live ? formatPickName(live) : studentId;
   };
 
   /** 프리셋 불러오기: 분단·열수 보정 + 명단에서 빠진 학생 배치 정리 */
   const handleLoadPreset = (preset: SavedSeatPreset) => {
     const cfg = inferGridConfig(preset.cells);
     if (cfg) {
-      seat.setConfig({ ...cfg, fillFrom: config.fillFrom, genderMode: config.genderMode });
+      // 분단당 열수가 홀수면 성별 모드를 사용할 수 없어 무관으로 되돌린다.
+      const genderMode =
+        cfg.colsPerDivision % 2 === 1 ? "ignore" : config.genderMode;
+      seat.setConfig({ ...cfg, fillFrom: config.fillFrom, genderMode });
     }
     const result = seat.loadCellsForRoster(
       serializeSeatCells(preset.cells),
@@ -331,7 +351,37 @@ export default function SeatPickPanel({
         }}
         deleteConfirmMessage={`'${preset.name}' 자리 프리셋을 삭제하시겠습니까?`}
         summary={
-          <SeatMiniCanvas cells={preset.cells.map(toMiniCell)} cardWidthPercent={22} className="max-w-[220px]" />
+          <SeatMiniCanvas cells={preset.cells.map(toMiniCell)} cardWidthPercent={22} rows={seatGridRowCount(preset.cells)} className="max-w-[420px]" />
+        }
+        editContent={
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {editingCells
+                .filter((c) => c.studentId !== null)
+                .map((c) => (
+                  <span
+                    key={c.key}
+                    className="inline-flex items-center gap-1 text-xs pl-2.5 pr-1.5 py-1 rounded-lg bg-white border border-indigo-300 text-slate-800 font-bold select-none"
+                  >
+                    {editingMemberName(c.studentId as string)}
+                    <button
+                      type="button"
+                      onClick={() => removeEditingMember(c.studentId as string)}
+                      className="p-0.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      title="이 자리 비우기 (틀 유지)"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              {editingCells.every((c) => c.studentId === null) && (
+                <span className="text-[11px] text-slate-400">배치된 학생이 없습니다 (빈 틀).</span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400">
+              ×를 눌러 배치를 비우세요 (틀은 유지됩니다).
+            </p>
+          </div>
         }
         footer={
           <button
@@ -348,9 +398,8 @@ export default function SeatPickPanel({
 
   return (
     <div className="space-y-4">
-      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds} />
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col lg:flex-row lg:items-end gap-3">
+      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds}>
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-end gap-3">
         <div className="flex items-end gap-2">
           <div>
             <label className="text-xs font-semibold text-slate-600 block mb-1">분단 수</label>
@@ -372,48 +421,42 @@ export default function SeatPickPanel({
               min={1}
               max={6}
               value={config.colsPerDivision}
-              onChange={(e) =>
-                seat.patchConfig({
-                  colsPerDivision: Math.max(1, Math.min(6, Number(e.target.value) || 1)),
-                })
-              }
+              onChange={(e) => {
+                const nextCols = Math.max(1, Math.min(6, Number(e.target.value) || 1));
+                // 홀수 열에서는 성별 모드를 쓸 수 없어 무관으로 되돌린다.
+                seat.patchConfig(
+                  nextCols % 2 === 1
+                    ? { colsPerDivision: nextCols, genderMode: "ignore" }
+                    : { colsPerDivision: nextCols }
+                );
+              }}
               className="w-16 px-2 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">채우기</label>
-            <select
-              value={config.fillFrom}
-              onChange={(e) =>
-                seat.patchConfig({ fillFrom: e.target.value === "front" ? "front" : "back" })
-              }
-              className="px-2 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="back">뒷줄부터</option>
-              <option value="front">앞줄부터</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">성별</label>
-            <select
-              value={config.genderMode}
-              onChange={(e) =>
-                seat.patchConfig({
-                  genderMode:
-                    e.target.value === "pair" || e.target.value === "separate"
-                      ? e.target.value
-                      : "ignore",
-                })
-              }
-              className="px-2 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="ignore">무관</option>
-              <option value="pair">짝꿍 우선</option>
-              <option value="separate">분리</option>
-            </select>
-          </div>
+          {config.colsPerDivision % 2 === 0 && (
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">성별</label>
+              <select
+                value={config.genderMode}
+                onChange={(e) =>
+                  seat.patchConfig({
+                    genderMode:
+                      e.target.value === "pair" || e.target.value === "separate"
+                        ? e.target.value
+                        : "ignore",
+                  })
+                }
+                className="px-2 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                title="분단당 열수가 짝수일 때만 사용"
+              >
+                <option value="ignore">무관</option>
+                <option value="pair">짝꿍 우선</option>
+                <option value="separate">분리</option>
+              </select>
+            </div>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => seat.setShowFixed(!seat.showFixed)}
@@ -458,6 +501,7 @@ export default function SeatPickPanel({
           </button>
         </div>
       </div>
+      </PickTargetSelector>
 
       {seat.showFixed && seat.fixedCount > 0 && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
@@ -485,32 +529,36 @@ export default function SeatPickPanel({
         </p>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
-        <StudentPool
-          students={unplaced}
-          selectedId={selectedPoolId}
-          onSelect={(id) => setSelectedPoolId((prev) => (prev === id ? null : id))}
-        />
-        <SeatGrid
-          cells={displayCells}
-          divisions={config.divisions}
-          showFixed={seat.showFixed}
-          lookup={lookup}
-          displayName={displayName}
-          onCellClick={seat.handleCellClick}
-          onCycleGender={seat.cycleGender}
-          onDropStudent={seat.dropStudentOnCell}
-          onMoveCell={seat.moveCell}
-          onClearCell={seat.clearCell}
-          onUnfix={seat.unfixCell}
-          onPositionChange={handlePositionChange}
-          onCanvasDropStudent={handleCanvasDropStudent}
-          selectedPoolId={selectedPoolId}
-          onSelectPool={setSelectedPoolId}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="space-y-4 min-w-0">
+          <StudentPool
+            students={unplaced}
+            selectedId={selectedPoolId}
+            onSelect={(id) => setSelectedPoolId((prev) => (prev === id ? null : id))}
+          />
+          {/* 자리 조작 방법 (동작별 아이콘 카드) */}
+          <SeatGuide placedCount={seat.placedCount} />
+        </div>
+        <div className="min-w-0">
+          <SeatGrid
+            cells={displayCells}
+            divisions={config.divisions}
+            showFixed={seat.showFixed}
+            lookup={lookup}
+            displayName={displayName}
+            onCellClick={seat.handleCellClick}
+            onCycleGender={seat.cycleGender}
+            onDropStudent={seat.dropStudentOnCell}
+            onMoveCell={seat.moveCell}
+            onClearCell={seat.clearCell}
+            onUnfix={seat.unfixCell}
+            onPositionChange={handlePositionChange}
+            onCanvasDropStudent={handleCanvasDropStudent}
+            selectedPoolId={selectedPoolId}
+            onSelectPool={setSelectedPoolId}
+          />
+        </div>
       </div>
-      {/* 자리 조작 방법 (동작별 아이콘 카드) */}
-      <SeatGuide placedCount={seat.placedCount} />
 
       {/* 방금 만든 자리 결과 및 프리셋 저장 영역 (순서/모둠과 동일한 구조) */}
       {displayCells.length > 0 && (
@@ -533,7 +581,7 @@ export default function SeatPickPanel({
             buttonLabel="자리 프리셋 저장"
           />
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <SeatMiniCanvas cells={displayCells.map(toMiniCell)} className="max-w-[320px]" />
+            <SeatMiniCanvas cells={displayCells.map(toMiniCell)} rows={seatGridRowCount(displayCells)} className="max-w-[420px]" />
           </div>
         </div>
       )}

@@ -114,39 +114,39 @@ export default function StudentPickPanel({ students }: StudentPickPanelProps) {
 
   return (
     <div className="space-y-4">
-      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds} />
-
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-end gap-3">
-        <div>
-          <label className="text-xs font-semibold text-slate-600 block mb-1">뽑는 명수</label>
-          <input
-            type="number"
-            min={1}
-            max={Math.max(1, drawPool.length)}
-            value={count}
-            onChange={(e) => setCount(Math.max(1, Number(e.target.value) || 1))}
-            className="w-24 px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+      <PickTargetSelector students={students} selectedIds={selectedIds} onChange={setSelectedIds}>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">뽑는 명수</label>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, drawPool.length)}
+              value={count}
+              onChange={(e) => setCount(Math.max(1, Number(e.target.value) || 1))}
+              className="w-24 px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer pb-2.5">
+            <input
+              type="checkbox"
+              checked={allowDup}
+              onChange={(e) => setAllowDup(e.target.checked)}
+              className="accent-indigo-600"
+            />
+            중복 허용
+          </label>
+          <button
+            type="button"
+            onClick={runDraw}
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 sm:ml-auto transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Shuffle className="w-4 h-4" />
+            <span>뽑기 (별도 창)</span>
+            <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+          </button>
         </div>
-        <label className="flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer pb-2.5">
-          <input
-            type="checkbox"
-            checked={allowDup}
-            onChange={(e) => setAllowDup(e.target.checked)}
-            className="accent-indigo-600"
-          />
-          중복 허용
-        </label>
-        <button
-          type="button"
-          onClick={runDraw}
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 sm:ml-auto transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Shuffle className="w-4 h-4" />
-          <span>뽑기 (별도 창)</span>
-          <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-        </button>
-      </div>
+      </PickTargetSelector>
 
       {error && (
         <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">

@@ -68,7 +68,7 @@ export default function SeatGuide({ placedCount }: { placedCount: number }) {
           배치 {placedCount}명
         </span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
         {GUIDE_ITEMS.map((item) => {
           const Icon = item.icon;
           return (
