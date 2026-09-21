@@ -1,4 +1,4 @@
-import type { SeatCellState } from "@/types";
+import type { SeatCellState, SeatGenderMode } from "@/types";
 
 export interface ClassroomStudent {
   no?: number;
@@ -51,6 +51,15 @@ export interface SavedSeatPreset {
   createdAt: string;
   /** true면 그리드 생성/변경 시 자동 보관된 최근 기록 (최대 3개, 이름 지정 시 프리셋으로 승격) */
   auto?: boolean;
+  /** 저장 시점의 분단 설정 (불러오기에 그대로 적용. 구버전 프리셋은 없음) */
+  config?: SeatPresetConfig;
+}
+
+/** 자리 프리셋에 함께 저장되는 분단 설정 (채우기는 항상 뒷줄 고정이라 제외). */
+export interface SeatPresetConfig {
+  divisions: number;
+  colsPerDivision: number;
+  genderMode: SeatGenderMode;
 }
 
 export interface TaxConfig {

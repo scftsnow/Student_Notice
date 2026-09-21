@@ -153,6 +153,14 @@ export interface SeatCellState {
   y?: number;
 }
 
+/** 자리 분리 그룹 (만나지 말아야 할 학생 묶음). mode: side=옆자리, around=옆+앞뒤 */
+export interface SeatAvoidGroup {
+  id: string;
+  mode: "side" | "around";
+  /** 학생 id (= 이름) 목록 */
+  members: string[];
+}
+
 // --- Seat 자유 배치 (v2, 교실 캔버스 % 좌표) ---
 
 /** 위치(x/y)가 확정된 자유 배치 셀. 캔버스 UI는 이 타입을 사용한다. */

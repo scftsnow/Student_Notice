@@ -14,6 +14,8 @@ const BACKUP_KEYS = [
   "classroom_saved_groups",
   "classroom_saved_seats",
   "classroom_bundle_order",
+  "classroom_seat_grid_config",
+  "classroom_seat_avoid_groups",
   "classroom_preview_scale",
   "classroom_show_economy_shortcut",
   DEFAULT_FONT_STORAGE_KEY,

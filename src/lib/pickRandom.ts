@@ -1,4 +1,4 @@
-import type { PickStudent, SeatCellState, SeatFillFrom } from "@/types";
+import type { PickStudent, SeatAvoidGroup, SeatCellState, SeatFillFrom } from "@/types";
 import { SEAT_DIVISION_GUTTER, gridCellToPercent, seatRowCenterY } from "./seatFree";
 
 type Rand = () => number;
@@ -237,34 +237,32 @@ function genderOf(student: PickStudent): string | null {
 /**
  * 자동 배치 (원본 불변, 복사본 반환). 위치(틀: row/col/division/x/y)는 유지하고
  * occupant(studentId)만 셔플한다.
- * 1) 고정 배치 확정 2) 성별 지정 자리 우선 충족
+ * 1) 배치된 학생은 모두 유지 (미리보기에 있으면 고정 취급)
+ * 2) 성별 지정 자리 우선 충족
  * 3) 성별 모드 적용 (pair=남녀 교대, separate=동성 결집, ignore=셔플)
- * 학생 수 > 사용 가능 자리 수면 throw (호출자가 먼저 차단).
+ * 미배치 학생 수 > 빈자리 수면 throw (호출자가 먼저 차단).
  */
 export function autoAssignSeats<T extends SeatCellState>(
   cells: T[],
   students: PickStudent[],
   fillFrom: SeatFillFrom = "back",
-  genderMode: "ignore" | "pair" | "separate" = "ignore"
+  genderMode: "ignore" | "pair" | "separate" = "ignore",
+  avoidGroups: readonly SeatAvoidGroup[] = []
 ): T[] {
   const result = cells.map((c) => ({ ...c }));
   const byKey = new Map(result.map((c) => [c.key, c]));
 
-  const fixedIds = new Set<string>();
+  // 배치된 학생은 모두 유지
+  const placedIds = new Set<string>();
   for (const cell of result) {
-    if (cell.fixedStudentId) {
-      cell.studentId = cell.fixedStudentId;
-      fixedIds.add(cell.fixedStudentId);
-    } else {
-      cell.studentId = null;
-    }
+    if (cell.studentId) placedIds.add(cell.studentId);
   }
 
   const remaining = shuffle(
-    students.filter((s) => !fixedIds.has(s.id))
+    students.filter((s) => !placedIds.has(s.id))
   );
   const usable = orderForFill(
-    result.filter((c) => c.enabled && !c.fixedStudentId),
+    result.filter((c) => c.enabled && !c.studentId),
     fillFrom
   );
   if (remaining.length > usable.length) {
@@ -331,5 +329,150 @@ export function autoAssignSeats<T extends SeatCellState>(
     if (target && ordered[idx]) target.studentId = ordered[idx].id;
   });
 
+  // 3순위: 만나지 말아야 할 학생 분리 (best-effort 자리 교환)
+  if (avoidGroups.length > 0) {
+    const genderOfAll = new Map(students.map((s) => [s.id, genderOf(s)]));
+    return resolveSeatViolations(result, avoidGroups, (id) => genderOfAll.get(id) ?? null);
+  }
+
   return result;
+}
+
+export interface SeatAvoidViolation {
+  groupId: string;
+  aKey: string;
+  bKey: string;
+  aName: string;
+  bName: string;
+}
+
+/** 두 셀이 이웃인지 (옆자리, around면 앞뒤 포함). 격자 기준. */
+function seatCellsAdjacent(
+  a: SeatCellState,
+  b: SeatCellState,
+  mode: "side" | "around"
+): boolean {
+  if (!a.enabled || !b.enabled) return false;
+  if (a.row === b.row && Math.abs(a.col - b.col) === 1) return true;
+  if (mode === "around" && a.col === b.col && Math.abs(a.row - b.row) === 1) return true;
+  return false;
+}
+
+/**
+ * 분리 위반 쌍 목록 (같은 그룹 학생이 이웃 자리에 배치된 경우).
+ * occupant 기준이므로 배치 후 검사·안내용으로도 사용한다.
+ */
+export function findSeatViolations<T extends SeatCellState>(
+  cells: readonly T[],
+  groups: readonly SeatAvoidGroup[]
+): SeatAvoidViolation[] {
+  const byStudent = new Map<string, T>();
+  for (const c of cells) {
+    if (c.studentId) byStudent.set(c.studentId, c);
+  }
+  const out: SeatAvoidViolation[] = [];
+  for (const g of groups) {
+    const members = g.members.filter((m) => byStudent.has(m));
+    for (let i = 0; i < members.length; i++) {
+      for (let j = i + 1; j < members.length; j++) {
+        const a = byStudent.get(members[i])!;
+        const b = byStudent.get(members[j])!;
+        if (seatCellsAdjacent(a, b, g.mode)) {
+          out.push({ groupId: g.id, aKey: a.key, bKey: b.key, aName: members[i], bName: members[j] });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * 위반이 줄도록 occupant 교환을 반복 (best-effort).
+ * 매 반복마다 위반 쌍 하나를 골라 모든 교환 후보 중 가장 좋아지는 수를 둔다
+ * (최급강하). 막히면 무작위 흔들기로 탈출해 다시 오른다 (재시작).
+ * 성별 지정 자리는 지정 성별이 맞는 학생끼리만 교환한다.
+ */
+export function resolveSeatViolations<T extends SeatCellState>(
+  cells: readonly T[],
+  groups: readonly SeatAvoidGroup[],
+  genderOf: (studentId: string) => string | null,
+  maxIters = 500
+): T[] {
+  if (groups.length === 0) return cells.map((c) => ({ ...c }));
+  const countOf = (cs: readonly T[]): number => findSeatViolations(cs, groups).length;
+
+  let best = cells.map((c) => ({ ...c }));
+  let bestCount = countOf(best);
+  if (bestCount === 0) return best;
+  // 흔들기로 악화돼도 복원할 전역 최상 (흔들기는 무조건 덮어쓰므로 별도 보관)
+  let gbest = best;
+  let gbestCount = bestCount;
+
+  const canPlace = (cell: T, studentId: string | null): boolean => {
+    if (!cell.enabled) return false;
+    if (studentId === null) return true;
+    if (cell.lockedGender === null) return true;
+    return genderOf(studentId) === cell.lockedGender;
+  };
+  const swapIn = (cs: T[], keyB: string, keyD: string): T[] => {
+    const next = cs.map((c) => ({ ...c }));
+    const nb = next.find((c) => c.key === keyB)!;
+    const nd = next.find((c) => c.key === keyD)!;
+    const tmp = nb.studentId;
+    nb.studentId = nd.studentId;
+    nd.studentId = tmp;
+    return next;
+  };
+
+  let stagnant = 0;
+  for (let iter = 0; iter < maxIters && bestCount > 0; iter++) {
+    const violations = findSeatViolations(best, groups);
+    if (violations.length === 0) break;
+    // 모든 occupant 쌍 교환 중 가장 좋아지는 수를 둔다 (최급강하)
+    let improved: T[] | null = null;
+    let improvedCount = bestCount;
+    const order = [...best].sort(() => Math.random() - 0.5);
+    outer: for (let bi = 0; bi < order.length; bi++) {
+      for (let di = bi + 1; di < order.length; di++) {
+        const b = order[bi];
+        const d = order[di];
+        if (!b.enabled || !d.enabled) continue;
+        if (!canPlace(b, d.studentId) || !canPlace(d, b.studentId)) continue;
+        const next = swapIn(best, b.key, d.key);
+        const nextCount = countOf(next);
+        if (nextCount < improvedCount) {
+          improved = next;
+          improvedCount = nextCount;
+          if (nextCount === 0) break outer;
+        }
+      }
+    }
+    if (improved) {
+      best = improved;
+      bestCount = improvedCount;
+      if (bestCount < gbestCount) {
+        gbest = best;
+        gbestCount = bestCount;
+      }
+      stagnant = 0;
+    } else {
+      stagnant++;
+      // 막히면 무작위 교환 몇 번으로 흔들고 계속 (재시작)
+      if (stagnant >= 20) {
+        stagnant = 0;
+        let shaken = best;
+        for (let k = 0; k < 5; k++) {
+          const movable = shaken.filter((c) => c.enabled);
+          const x = movable[Math.floor(Math.random() * movable.length)];
+          const y = movable[Math.floor(Math.random() * movable.length)];
+          if (!x || !y || x.key === y.key) continue;
+          if (!canPlace(x, y.studentId) || !canPlace(y, x.studentId)) continue;
+          shaken = swapIn(shaken, x.key, y.key);
+        }
+        best = shaken;
+        bestCount = countOf(best);
+      }
+    }
+  }
+  return gbest;
 }

@@ -1,40 +1,46 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import {
-  Armchair,
   Bookmark,
   Dices,
-  Eraser,
+  ExternalLink,
   Eye,
   EyeOff,
-  ExternalLink,
   History,
+  Printer,
+  Save,
   X,
 } from "lucide-react";
 import PickTargetSelector from "./PickTargetSelector";
-import PickSaveBar from "./PickSaveBar";
 import SeatGuide from "./SeatGuide";
-import SeatGrid from "./SeatGrid";
+import SeatAvoidPanel from "./SeatAvoidPanel";import SeatGrid from "./SeatGrid";
 import StudentPool from "./StudentPool";
 import SeatMiniCanvas from "./SeatMiniCanvas";
 import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
 import { useSeatPick } from "@/hooks/useSeatPick";
 import { formatPickName } from "@/lib/pickFormat";
-import { serializeSeatCells, seatGridRowCount } from "@/lib/seatFree";import { playError } from "@/lib/pickSound";
+import { serializeSeatCells } from "@/lib/seatFree";
+import { findSeatViolations } from "@/lib/pickRandom";import { playError } from "@/lib/pickSound";
 import { openPickWindow } from "@/lib/pickWindowHelper";
 import type { PickSeatCell } from "@/lib/pickWindowHelper";
 import type { PickStudent, SeatCellState } from "@/types";
-import type { SavedSeatPreset } from "@/types/classroom";
+import type { SavedSeatPreset, SeatPresetConfig } from "@/types/classroom";
 
 interface SeatPickPanelProps {
   students: PickStudent[];
   savedSeats: SavedSeatPreset[];
-  onSaveSeatPreset: (name: string, cells: SeatCellState[]) => void;
+  onSaveSeatPreset: (name: string, cells: SeatCellState[], config?: SeatPresetConfig) => string | undefined;
   onDeleteSeatPreset: (id: string) => void;
-  onPushRecentSeats: (cells: SeatCellState[]) => void;
+  onPushRecentSeats: (cells: SeatCellState[], config?: SeatPresetConfig) => void;
   onUpdateSeatPreset: (id: string, name: string, cells: SeatCellState[]) => void;
 }
+
+/** 분단 수별 분단당 열수 상한 (이 조합까지만 지원) */
+const MAX_COLS_BY_DIVISIONS: Record<number, number> = {
+  1: 8, 2: 4, 3: 3, 4: 2, 5: 1, 6: 1, 7: 1, 8: 1,
+};
+const DIVISION_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 /** 프리셋 셀(division/col)에서 분단·열수 추론 (표시·분단/열수 입력 보정용) */
 function inferGridConfig(
@@ -63,13 +69,18 @@ export default function SeatPickPanel({
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   /** 자유 캔버스 위치 오버라이드 (key → % 좌표). hook 셀 x/y 위에 덮어씀. 틀 재생성·불러오기 시 초기화. */
   const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>({});
-  /** 터치 대응: 풀에서 탭으로 집어든 학생 id */
-  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
+  /** 배치 숨기기: 자리배치를 빈 틀처럼 표시 + 분리 메뉴 숨김 (상태는 유지) */
+  const [hidePlaced, setHidePlaced] = useState(false);
+  /** 보기 방향. teacher면 칠판이 아래에 오도록 뒤집어 표시. */
+  const [orientation, setOrientation] = useState<"student" | "teacher">("student");
   const [notice, setNotice] = useState("");
-  const [presetName, setPresetName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingCells, setEditingCells] = useState<SeatCellState[]>([]);
+  /** 자리 저장 팝업 (이름 입력) */
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveModalName, setSaveModalName] = useState("");
+  const [saveModalError, setSaveModalError] = useState("");
   /** 생성/랜덤 배치 직후 다음 렌더의 cells를 자동 보관 1회 실행하는 플래그 */
   const autoSaveRef = useRef(false);
 
@@ -86,12 +97,25 @@ export default function SeatPickPanel({
     [seat.cells, posOverrides]
   );
 
+  /** 숨김 표시용: 배치만 가리고 틀·상태는 그대로 (저장·추첨은 실제 값 사용) */
+  const gridCells = useMemo(
+    () =>
+      hidePlaced
+        ? displayCells.map((c) => ({ ...c, studentId: null }))
+        : displayCells,
+    [hidePlaced, displayCells]
+  );
+
   // 자동 보관: 그리드 생성/랜덤 배치 직후 실제 렌더된 cells 스냅샷을 1회 저장 (auto 3개 유지는 상태 레이어 담당)
   useEffect(() => {
     if (!autoSaveRef.current) return;
     autoSaveRef.current = false;
-    onPushRecentSeats(displayCells);
-  }, [seat.cells, displayCells, onPushRecentSeats]);
+    onPushRecentSeats(displayCells, {
+      divisions: config.divisions,
+      colsPerDivision: config.colsPerDivision,
+      genderMode: config.genderMode,
+    });
+  }, [seat.cells, displayCells, config, onPushRecentSeats]);
 
   const manualPresets = useMemo(() => savedSeats.filter((p) => !p.auto), [savedSeats]);
   const recentPresets = useMemo(() => savedSeats.filter((p) => p.auto).slice(0, 3), [savedSeats]);
@@ -123,18 +147,6 @@ export default function SeatPickPanel({
     playError();
   };
 
-  const handleBuild = () => {
-    setNotice("");
-    if (selected.length === 0) {
-      showError("자리에 앉힐 학생을 1명 이상 선택해 주세요.");
-      return;
-    }
-    setPosOverrides({});
-    setSelectedPoolId(null);
-    const ok = seat.buildCells(selected.length);
-    autoSaveRef.current = ok;
-  };
-
   const clamp100 = (n: number): number => {
     if (!Number.isFinite(n)) return 50;
     return Math.min(100, Math.max(0, Math.round(n * 100) / 100));
@@ -144,42 +156,45 @@ export default function SeatPickPanel({
     setPosOverrides((prev) => ({ ...prev, [key]: { x: clamp100(x), y: clamp100(y) } }));
   };
 
-  /** 풀 학생을 빈 캔버스 지점에 배치: 가장 가까운 빈자리 셀에 고정 + 해당 셀을 지점으로 이동. */
-  const handleCanvasDropStudent = (studentId: string, x: number, y: number) => {
-    const px = clamp100(x);
-    const py = clamp100(y);
-    const at = (c: { x?: number; y?: number }) => ({
-      x: typeof c.x === "number" && Number.isFinite(c.x) ? c.x : 50,
-      y: typeof c.y === "number" && Number.isFinite(c.y) ? c.y : 50,
-    });
-    const enabled = displayCells.filter((c) => c.enabled);
-    if (enabled.length === 0) {
-      showError("배치할 수 있는 자리가 없습니다. 먼저 자리를 생성해 주세요.");
-      return;
-    }
-    const empty = enabled.filter((c) => !c.studentId);
-    const pool = empty.length > 0 ? empty : enabled;
-    let best = pool[0];
-    let bestDist = Infinity;
-    for (const c of pool) {
-      const p = at(c);
-      const dist = Math.hypot(p.x - px, p.y - py);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = c;
-      }
-    }
-    seat.dropStudentOnCell(best.key, studentId);
-    handlePositionChange(best.key, px, py);
-    setSelectedPoolId(null);
-  };
+  // 최신 buildCells를 가리키는 ref (자동 생성 effect의 무한 루프 방지)
+  const buildRef = useRef(seat.buildCells);
+  buildRef.current = seat.buildCells;
+
+  // 설정·대상대로 자리 틀 자동 생성 (자리 생성 버튼 대체).
+  // 손댄 틀(배치·이동·여닫음·성별)은 유지하고, 설정·대상 변경 시에만 새 틀로 교체.
+  useEffect(() => {
+    if (selected.length === 0) return;
+    setPosOverrides({});
+    buildRef.current(selected.length);
+  }, [selected, config.divisions, config.colsPerDivision]);
 
   const handleDraw = useCallback(() => {
     setNotice("");
-    setSelectedPoolId(null);
+    if (selected.length === 0) {
+      showError("자리에 앉힐 학생을 1명 이상 선택해 주세요.");
+      return;
+    }
     const next = seat.randomAssign(selected);
     if (next) {
       autoSaveRef.current = true;
+      // 분리 그룹 위반 확인 (best-effort 적용 후 남은 쌍 안내)
+      const violations = findSeatViolations(next, seat.avoidGroups);
+      if (violations.length > 0) {
+        const seen = new Set<string>();
+        const pairs: string[] = [];
+        for (const v of violations) {
+          const key = [v.aName, v.bName].sort().join("–");
+          if (!seen.has(key)) {
+            seen.add(key);
+            pairs.push(key);
+          }
+        }
+        showError(
+          `분리 불가 ${pairs.length}쌍 (${pairs.slice(0, 5).join(", ")}${
+            pairs.length > 5 ? " 외" : ""
+          }): 자리를 수동으로 조정해 주세요.`
+        );
+      }
       const merged = next.map((c) => {
         const o = posOverrides[c.key];
         return o ? { ...c, x: o.x, y: o.y } : c;
@@ -233,21 +248,38 @@ export default function SeatPickPanel({
     };
   }, [handleDraw]);
 
-  // ---- 로컬 프리셋 (DB SaveBar 대체) ----
-  const handleSavePreset = () => {
-    const trimmed = presetName.trim();
-    if (!trimmed) {
-      showError("저장할 자리 이름을 입력해 주세요 (예: 3월 자리).");
-      return;
-    }
+  // ---- 자리 저장 팝업 ----
+  const openSaveModal = () => {
+    setNotice("");
+    seat.setError("");
     if (displayCells.length === 0) {
       showError("저장할 자리가 없습니다. 먼저 자리를 생성해 주세요.");
       return;
     }
+    setSaveModalName("");
+    setSaveModalError("");
+    setSaveModalOpen(true);
+  };
+  const commitSaveModal = () => {
+    const trimmed = saveModalName.trim();
+    if (!trimmed) {
+      setSaveModalError("저장할 자리 이름을 입력해 주세요 (예: 3월 자리).");
+      return;
+    }
+    if (displayCells.length === 0) {
+      setSaveModalError("저장할 자리가 없습니다. 먼저 자리를 생성해 주세요.");
+      return;
+    }
     setNotice("");
-    onSaveSeatPreset(trimmed, displayCells);
-    setNotice(`자리 프리셋 '${trimmed}'이(가) 저장되었습니다.`);
-    setPresetName("");
+    const savedAs =
+      onSaveSeatPreset(trimmed, displayCells, {
+        divisions: config.divisions,
+        colsPerDivision: config.colsPerDivision,
+        genderMode: config.genderMode,
+      }) ?? trimmed;
+    setNotice(`자리 프리셋 '${savedAs}'이(가) 저장되었습니다.`);
+    setSaveModalOpen(false);
+    setSaveModalName("");
   };
 
   const startRename = (preset: SavedSeatPreset) => {
@@ -289,14 +321,25 @@ export default function SeatPickPanel({
     return live ? formatPickName(live) : studentId;
   };
 
-  /** 프리셋 불러오기: 분단·열수 보정 + 명단에서 빠진 학생 배치 정리 */
+  /** 프리셋 불러오기: 저장된 분단 설정 그대로 + 명단에서 빠진 학생 배치 정리 */
   const handleLoadPreset = (preset: SavedSeatPreset) => {
-    const cfg = inferGridConfig(preset.cells);
-    if (cfg) {
-      // 분단당 열수가 홀수면 성별 모드를 사용할 수 없어 무관으로 되돌린다.
-      const genderMode =
-        cfg.colsPerDivision % 2 === 1 ? "ignore" : config.genderMode;
-      seat.setConfig({ ...cfg, fillFrom: config.fillFrom, genderMode });
+    if (preset.config) {
+      const cols = Math.max(1, Math.min(8, preset.config.colsPerDivision));
+      const gm = preset.config.genderMode;
+      seat.setConfig({
+        divisions: Math.max(1, Math.min(8, preset.config.divisions)),
+        colsPerDivision: cols,
+        fillFrom: "back",
+        genderMode: cols % 2 === 1 ? "ignore" : gm === "pair" || gm === "separate" ? gm : "ignore",
+      });
+    } else {
+      const cfg = inferGridConfig(preset.cells);
+      if (cfg) {
+        // 구버전 프리셋: 분단·열수만 보정, 홀수 열이면 성별 모드 무관으로 되돌린다.
+        const genderMode =
+          cfg.colsPerDivision % 2 === 1 ? "ignore" : config.genderMode;
+        seat.setConfig({ ...cfg, fillFrom: config.fillFrom, genderMode });
+      }
     }
     const result = seat.loadCellsForRoster(
       serializeSeatCells(preset.cells),
@@ -304,8 +347,7 @@ export default function SeatPickPanel({
     );
     if (result) {
       setPosOverrides({});
-      setSelectedPoolId(null);
-      setNotice(
+        setNotice(
         result.dropped > 0
           ? `'${preset.name}' 자리를 불러왔습니다 (전학/삭제 ${result.dropped}자리는 비움).`
           : `'${preset.name}' 자리를 불러왔습니다.`
@@ -351,7 +393,7 @@ export default function SeatPickPanel({
         }}
         deleteConfirmMessage={`'${preset.name}' 자리 프리셋을 삭제하시겠습니까?`}
         summary={
-          <SeatMiniCanvas cells={preset.cells.map(toMiniCell)} cardWidthPercent={22} rows={seatGridRowCount(preset.cells)} className="max-w-[420px]" />
+          <SeatMiniCanvas cells={preset.cells.map(toMiniCell)} />
         }
         editContent={
           <div className="space-y-1.5">
@@ -402,27 +444,63 @@ export default function SeatPickPanel({
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-end gap-3">
         <div className="flex items-end gap-2">
           <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">보기</label>
+            <button
+              type="button"
+              onClick={() => setHidePlaced((v) => !v)}
+              title={hidePlaced ? "배치 표시 (숨김 해제)" : "배치 숨기기 (빈 틀처럼 표시, 분리 메뉴 숨김)"}
+              className={`px-2.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-colors ${
+                hidePlaced
+                  ? "bg-amber-50 border-amber-300 text-amber-700"
+                  : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
+              }`}
+            >
+              {hidePlaced ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              {hidePlaced ? "숨김 중" : "표시 중"}
+            </button>
+          </div>
+          <div>
             <label className="text-xs font-semibold text-slate-600 block mb-1">분단 수</label>
-            <input
-              type="number"
-              min={1}
-              max={6}
-              value={config.divisions}
-              onChange={(e) =>
-                seat.patchConfig({ divisions: Math.max(1, Math.min(6, Number(e.target.value) || 1)) })
-              }
-              className="w-16 px-2 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <select
+              value={DIVISION_OPTIONS.includes(config.divisions) ? String(config.divisions) : "custom"}
+              onChange={(e) => {
+                const nextDiv = Number(e.target.value);
+                if (!DIVISION_OPTIONS.includes(nextDiv)) return;
+                const maxCols = MAX_COLS_BY_DIVISIONS[nextDiv] ?? 8;
+                const nextCols = Math.min(config.colsPerDivision, maxCols);
+                // 홀수 열에서는 성별 모드를 쓸 수 없어 무관으로 되돌린다.
+                seat.patchConfig(
+                  nextCols % 2 === 1
+                    ? { divisions: nextDiv, colsPerDivision: nextCols, genderMode: "ignore" }
+                    : { divisions: nextDiv, colsPerDivision: nextCols }
+                );
+              }}
+              className="px-2 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {DIVISION_OPTIONS.map((d) => (
+                <option key={d} value={String(d)}>
+                  {d}분단
+                </option>
+              ))}
+              {!DIVISION_OPTIONS.includes(config.divisions) && (
+                <option value="custom" disabled>
+                  {config.divisions}분단 (이전 설정)
+                </option>
+              )}
+            </select>
           </div>
           <div>
             <label className="text-xs font-semibold text-slate-600 block mb-1">분단당 열수</label>
-            <input
-              type="number"
-              min={1}
-              max={6}
-              value={config.colsPerDivision}
+            <select
+              value={
+                config.colsPerDivision >= 1 &&
+                config.colsPerDivision <= (MAX_COLS_BY_DIVISIONS[config.divisions] ?? 8)
+                  ? String(config.colsPerDivision)
+                  : "custom"
+              }
               onChange={(e) => {
-                const nextCols = Math.max(1, Math.min(6, Number(e.target.value) || 1));
+                const nextCols = Number(e.target.value);
+                if (!Number.isInteger(nextCols) || nextCols < 1) return;
                 // 홀수 열에서는 성별 모드를 쓸 수 없어 무관으로 되돌린다.
                 seat.patchConfig(
                   nextCols % 2 === 1
@@ -430,8 +508,25 @@ export default function SeatPickPanel({
                     : { colsPerDivision: nextCols }
                 );
               }}
-              className="w-16 px-2 py-2 text-sm rounded-xl border border-slate-200 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+              className="px-2 py-2 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {Array.from(
+                { length: MAX_COLS_BY_DIVISIONS[config.divisions] ?? 8 },
+                (_, i) => i + 1
+              ).map((c) => (
+                <option key={c} value={String(c)}>
+                  {c}열
+                </option>
+              ))}
+              {(
+                config.colsPerDivision < 1 ||
+                config.colsPerDivision > (MAX_COLS_BY_DIVISIONS[config.divisions] ?? 8)
+              ) && (
+                <option value="custom" disabled>
+                  {config.colsPerDivision}열 (이전 설정)
+                </option>
+              )}
+            </select>
           </div>
           {config.colsPerDivision % 2 === 0 && (
             <div>
@@ -457,26 +552,35 @@ export default function SeatPickPanel({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0" title="자리 배치판 방향">
+            {(
+              [
+                { v: "teacher", label: "선생님 보기" },
+                { v: "student", label: "학생 보기" },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => setOrientation(o.v)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  orientation === o.v
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
-            onClick={() => seat.setShowFixed(!seat.showFixed)}
-            className={`px-3 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1 border ${
-              seat.showFixed
-                ? "bg-amber-50 border-amber-300 text-amber-700"
-                : "bg-white border-slate-200 text-slate-500"
-            }`}
-            title="켜면 고정 배치 자물쇠가 보입니다"
+            onClick={openSaveModal}
+            className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:text-indigo-600 text-slate-600 text-xs font-bold flex items-center gap-1 transition-colors"
+            title="현재 자리를 이름과 함께 저장합니다"
           >
-            {seat.showFixed ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            고정 표시
-          </button>
-          <button
-            type="button"
-            onClick={handleBuild}
-            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1"
-          >
-            <Armchair className="w-3.5 h-3.5" />
-            자리 생성
+            <Save className="w-3.5 h-3.5" />
+            자리 저장
           </button>
           <button
             type="button"
@@ -489,34 +593,16 @@ export default function SeatPickPanel({
           </button>
           <button
             type="button"
-            onClick={() => {
-              seat.clearAssign();
-              setNotice("");
-            }}
-            className="px-3 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-bold flex items-center gap-1"
-            title="배치 지우기 (틀 유지)"
+            onClick={() => window.print()}
+            className="px-3 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors"
+            title="현재 보기(선생님·학생)대로 자리 배치를 인쇄합니다"
           >
-            <Eraser className="w-3.5 h-3.5" />
-            지우기
+            <Printer className="w-3.5 h-3.5" />
+            인쇄
           </button>
         </div>
       </div>
       </PickTargetSelector>
-
-      {seat.showFixed && seat.fixedCount > 0 && (
-        <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-          <span className="text-xs text-amber-700 font-semibold">
-            고정 {seat.fixedCount}자리 (연출 화면에서는 숨겨짐)
-          </span>
-          <button
-            type="button"
-            onClick={seat.clearFixed}
-            className="text-xs font-bold text-amber-700 hover:text-amber-900"
-          >
-            고정 전체 해제
-          </button>
-        </div>
-      )}
 
       {seat.error && (
         <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
@@ -532,67 +618,53 @@ export default function SeatPickPanel({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <div className="space-y-4 min-w-0">
           <StudentPool
-            students={unplaced}
-            selectedId={selectedPoolId}
-            onSelect={(id) => setSelectedPoolId((prev) => (prev === id ? null : id))}
+            students={hidePlaced ? selected : unplaced}
+            masked={hidePlaced}
           />
+          {!hidePlaced && (
+            <SeatAvoidPanel
+              groups={seat.avoidGroups}
+              students={students}
+              onAddGroup={seat.addAvoidGroup}
+              onDeleteGroup={seat.deleteAvoidGroup}
+              onModeChange={seat.updateAvoidGroupMode}
+              onAddMember={seat.addAvoidMember}
+              onRemoveMember={seat.removeAvoidMember}
+            />
+          )}
           {/* 자리 조작 방법 (동작별 아이콘 카드) */}
-          <SeatGuide placedCount={seat.placedCount} />
+          <SeatGuide placedCount={seat.placedCount} hideCount={hidePlaced} />
         </div>
-        <div className="min-w-0">
-          <SeatGrid
-            cells={displayCells}
-            divisions={config.divisions}
-            showFixed={seat.showFixed}
-            lookup={lookup}
-            displayName={displayName}
-            onCellClick={seat.handleCellClick}
-            onCycleGender={seat.cycleGender}
-            onDropStudent={seat.dropStudentOnCell}
-            onMoveCell={seat.moveCell}
-            onClearCell={seat.clearCell}
-            onUnfix={seat.unfixCell}
-            onPositionChange={handlePositionChange}
-            onCanvasDropStudent={handleCanvasDropStudent}
-            selectedPoolId={selectedPoolId}
-            onSelectPool={setSelectedPoolId}
+        <div className="min-w-0 relative">
+        <SeatGrid
+          cells={gridCells}
+          divisions={config.divisions}
+          orientation={orientation}
+          lookup={lookup}
+          displayName={displayName}
+          onCellClick={seat.handleCellClick}
+          onCycleGender={seat.cycleGender}
+          onDropStudent={seat.dropStudentOnCell}
+          onMoveCell={seat.moveCell}
+          onPositionChange={handlePositionChange}
+        />
+        {hidePlaced && (
+          <div
+            className="absolute inset-0 z-20 rounded-2xl cursor-default"
+            title="배치 숨김 중 (보기 버튼으로 표시)"
           />
+        )}
         </div>
       </div>
-
-      {/* 방금 만든 자리 결과 및 프리셋 저장 영역 (순서/모둠과 동일한 구조) */}
-      {displayCells.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">
-              방금 만든 자리 ({displayCells.filter((c) => c.enabled !== false).length}석 ·{" "}
-              {seat.placedCount}명 배치)
-            </h3>
-            <p className="text-xs text-slate-400">
-              이 자리를 이름과 함께 저장해 두면 언제든 다시 불러올 수 있습니다.
-              자리 생성·랜덤 배치 결과는 아래 최근 자동 저장에도 보관됩니다.
-            </p>
-          </div>
-          <PickSaveBar
-            value={presetName}
-            onChange={setPresetName}
-            onSave={handleSavePreset}
-            placeholder="저장할 자리 이름 (예: 3월 자리, 기본형 틀)"
-            buttonLabel="자리 프리셋 저장"
-          />
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <SeatMiniCanvas cells={displayCells.map(toMiniCell)} rows={seatGridRowCount(displayCells)} className="max-w-[420px]" />
-          </div>
-        </div>
-      )}
 
       <PresetLibrarySection
         icon={<Bookmark className="w-4 h-4 text-indigo-600" />}
         title={`저장된 자리 프리셋 목록 (${manualPresets.length}개)`}
+        layout="grid"
         empty={manualPresets.length === 0}
         emptyText={
           <>
-            저장된 자리 프리셋이 없습니다. 위에서 자리를 만들거나 랜덤 배치한 뒤 이름을 붙여
+            저장된 자리 프리셋이 없습니다. 위에서 자리를 배치한 뒤 [자리 저장] 버튼으로
             저장해 보세요.
           </>
         }
@@ -603,10 +675,11 @@ export default function SeatPickPanel({
       <PresetLibrarySection
         icon={<History className="w-4 h-4 text-amber-600" />}
         title={`최근 자동 저장 (${recentPresets.length}/3개)`}
+        layout="grid"
         empty={recentPresets.length === 0}
         emptyText={
           <>
-            아직 자동 저장된 자리가 없습니다. 자리 생성·랜덤 배치를 실행하면 최근 3개가 자동
+            아직 자동 저장된 자리가 없습니다. 랜덤 배치를 실행하면 최근 3개가 자동
             보관됩니다.
             <br />
             연필 아이콘으로 이름을 지정하면 프리셋으로 승격·저장됩니다.
@@ -615,6 +688,74 @@ export default function SeatPickPanel({
       >
         {recentPresets.map(renderPresetRow)}
       </PresetLibrarySection>
+
+      {/* 자리 저장 팝업 (이름 입력) */}
+      {saveModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setSaveModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Save className="w-5 h-5 text-indigo-600" />
+                <h2 className="font-extrabold text-slate-800 text-base">자리 프리셋 저장</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaveModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 flex items-center justify-center"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              현재 자리 ({displayCells.filter((c) => c.enabled !== false).length}석 ·{" "}
+              {seat.placedCount}명 배치)를 이름과 함께 저장합니다.
+            </p>
+
+            <input
+              type="text"
+              value={saveModalName}
+              autoFocus
+              onChange={(e) => setSaveModalName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitSaveModal();
+                if (e.key === "Escape") setSaveModalOpen(false);
+              }}
+              placeholder="저장할 자리 이름 (예: 3월 자리, 기본형 틀)"
+              className="w-full px-3 py-2 text-sm bg-white rounded-xl border border-slate-200 font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+
+            {saveModalError && (
+              <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                {saveModalError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSaveModalOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={commitSaveModal}
+                className="px-5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

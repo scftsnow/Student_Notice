@@ -6,7 +6,7 @@ function round2(n: number): number {
 }
 
 /** 분단 사이 통로 (열 단위). 분단 블록끼리 붙어 보이도록 분단 경계마다 확보. */
-export const SEAT_DIVISION_GUTTER = 0.5;
+export const SEAT_DIVISION_GUTTER = 0.25;
 
 /** 메인 자리 캔버스 내용 맞춤 높이 규칙 (px). 카드 높이 48px + 행간 기준. */
 export const SEAT_CANVAS_PAD_TOP = 14;
@@ -14,9 +14,13 @@ export const SEAT_CANVAS_ROW_PITCH = 62;
 export const SEAT_CANVAS_PAD_BOTTOM = 32;
 
 /** 자리 미니 캔버스 내용 맞춤 높이 규칙 (px). 미니 카드 높이에 맞춤. */
-export const SEAT_MINI_PAD_TOP = 8;
+export const SEAT_MINI_PAD_TOP = 12;
 export const SEAT_MINI_ROW_PITCH = 34;
-export const SEAT_MINI_PAD_BOTTOM = 18;
+export const SEAT_MINI_PAD_BOTTOM = 24;
+/** 전광판 큰 글씨용 미니 높이 규칙 (큰 카드 높이에 맞춤). */
+export const SEAT_MINI_LARGE_PAD_TOP = 16;
+export const SEAT_MINI_LARGE_ROW_PITCH = 104;
+export const SEAT_MINI_LARGE_PAD_BOTTOM = 30;
 
 /** 셀들의 격자 행 수 (빈 틀 0, 그 외 maxRow+1). 높이 계산·y 배치의 기준. */
 export function seatGridRowCount(cells: readonly { row: number }[]): number {
@@ -39,10 +43,14 @@ export function seatCanvasHeightPx(rows: number): number {
 }
 
 /** 미니 캔버스 높이 (px). 같은 행 규칙으로 미리보기와 본캔버스의 배치를 일치시킨다. */
-export function seatMiniHeightPx(rows: number): number {
+export function seatMiniHeightPx(rows: number, large = false): number {
+  const r = Math.max(1, Math.floor(rows) || 1);
+  if (large) {
+    return SEAT_MINI_LARGE_PAD_TOP + r * SEAT_MINI_LARGE_ROW_PITCH + SEAT_MINI_LARGE_PAD_BOTTOM;
+  }
   return (
     SEAT_MINI_PAD_TOP +
-    Math.max(1, Math.floor(rows) || 1) * SEAT_MINI_ROW_PITCH +
+    r * SEAT_MINI_ROW_PITCH +
     SEAT_MINI_PAD_BOTTOM
   );
 }

@@ -124,6 +124,8 @@ export default function PickWindowClient() {
   const [current, setCurrent] = useState("");
   const [rollingList, setRollingList] = useState<string[]>([]);
   const [rollingGroups, setRollingGroups] = useState<string[][]>([]);
+  /** 자리 섞기 중 자리별 표시 이름 (key → 이름) */
+  const [rollingSeatLabels, setRollingSeatLabels] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(0);
   const [muted, setMutedState] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -180,6 +182,7 @@ export default function PickWindowClient() {
             setCurrent("");
             setRollingList([]);
             setRollingGroups([]);
+            setRollingSeatLabels({});
             setRevealed(0);
             setConfetti([]);
             setCopied(false);
@@ -251,8 +254,10 @@ export default function PickWindowClient() {
         : ["..."];
     const results = payloadRef.current.results;
     // 순서·모둠 뽑기는 결과 칸 그대로 이름만 뒤섞이는 모션 사용
+    // 자리 뽑기는 미니 좌석판 위에서 이름이 뒤섞이는 전용 모션 사용
     const isOrderShuffle = payloadRef.current.type === "order";
     const isGroupShuffle = payloadRef.current.type === "group";
+    const isSeatShuffle = payloadRef.current.type === "seat";
     prevCellPosRef.current = new Map();
 
     const steps = 16;
@@ -281,6 +286,16 @@ export default function PickWindowClient() {
             chunked[chunked.length - 1].push(...shuffledAll.slice(off));
           }
           setRollingGroups(chunked);
+        } else if (isSeatShuffle) {
+          // 자리 칸에 이름들을 뒤섞어 얹기 (빈자리는 그대로)
+          const cells = payloadRef.current?.seatCells ?? [];
+          const labeled = cells.filter((c) => c.enabled && c.label);
+          const shuffled = shuffle(labeled.map((c) => c.label));
+          const map: Record<string, string> = {};
+          labeled.forEach((c, i) => {
+            map[c.key] = shuffled[i] ?? c.label;
+          });
+          setRollingSeatLabels(map);
         } else {
           setCurrent(names[Math.floor(Math.random() * names.length)]);
         }
@@ -437,18 +452,22 @@ export default function PickWindowClient() {
     return (payload.seatCells ?? []).filter((c) => c.enabled);
   }, [payload]);
   const isSeatBoard = payload?.type === "seat" && seatCells.length > 0;
-  /** 미니 높이 기준 행 수 (셀 key `분단-행-열`에서 복원, 실패 시 4:3 기존 비율) */
-  const seatRows = useMemo(() => {
-    let max = -1;
-    for (const c of seatCells) {
-      const m = /^(\d+)-(\d+)-(\d+)$/.exec(c.key);
-      if (m) {
-        const r = Number(m[2]);
-        if (Number.isFinite(r) && r > max) max = r;
-      }
-    }
-    return max >= 0 ? max + 1 : undefined;
-  }, [seatCells]);
+  /** 섞는 중 자리별 표시 이름 덧씌우기 */
+  const rollingSeatCells = useMemo(() => {
+    if (Object.keys(rollingSeatLabels).length === 0) return seatCells;
+    return seatCells.map((c) =>
+      rollingSeatLabels[c.key] !== undefined ? { ...c, label: rollingSeatLabels[c.key] } : c
+    );
+  }, [seatCells, rollingSeatLabels]);
+  /** 결과 공개: 앞줄부터 순서대로 공개, 나머지는 "?" */
+  const revealSeatCells = useMemo(() => {
+    let n = 0;
+    return seatCells.map((c) => {
+      if (!c.label) return c;
+      n += 1;
+      return n <= revealed ? c : { ...c, label: "?" };
+    });
+  }, [seatCells, revealed]);
 
   if (!payload) {
     return (
@@ -607,9 +626,19 @@ export default function PickWindowClient() {
                   </div>
                 ))}
               </div>
+            <div className="flex items-center justify-center gap-2 text-base font-bold text-indigo-300 animate-pulse">
+              <Sparkles className="w-5 h-5" />
+              <span>모둠을 섞는 중...</span>
+            </div>
+          </div>
+          ) : isSeatBoard ? (
+            <div className="py-4 space-y-4 w-full animate-[scale-up_0.2s_ease-out]">
+              <div className="w-full max-w-6xl mx-auto">
+                <SeatMiniCanvas cells={rollingSeatCells} dark large hideGender />
+              </div>
               <div className="flex items-center justify-center gap-2 text-base font-bold text-indigo-300 animate-pulse">
                 <Sparkles className="w-5 h-5" />
-                <span>모둠을 섞는 중...</span>
+                <span>자리를 섞는 중...</span>
               </div>
             </div>
           ) : (
@@ -668,8 +697,8 @@ export default function PickWindowClient() {
                 ))}
               </div>
             ) : isSeatBoard ? (
-              <div className="w-full max-w-4xl mx-auto p-2">
-                <SeatMiniCanvas cells={seatCells} dark cardExtraClass={POP_ANIM} rows={seatRows} />
+              <div className="w-full max-w-6xl mx-auto p-2">
+                <SeatMiniCanvas cells={revealSeatCells} dark cardExtraClass={POP_ANIM} keyByLabel large hideGender />
               </div>
             ) : (
             <div className={resultContainerClass(resultLayout)}>

@@ -1,30 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Lock } from "lucide-react";
 import { Rnd } from "react-rnd";
-import { seatCanvasHeightPx, seatGridRowCount } from "@/lib/seatFree";
+import { seatCanvasHeightPx, seatGridRowCount, SEAT_DIVISION_GUTTER } from "@/lib/seatFree";
 import type { PickStudent, SeatCellState } from "@/types";
 
 interface SeatGridProps {
   cells: SeatCellState[];
   divisions: number;
-  showFixed: boolean;
   lookup: (studentId: string | null) => PickStudent | null;
   displayName: (studentId: string | null) => string;
   onCellClick: (key: string) => void;
   onCycleGender: (key: string) => void;
   onDropStudent: (cellKey: string, studentId: string) => void;
   onMoveCell: (fromKey: string, toKey: string) => void;
-  onClearCell: (key: string) => void;
-  onUnfix: (key: string) => void;
   /** 카드 자유 이동 확정 (캔버스 % 좌표). 위치만 바뀌고 occupant는 유지. */
   onPositionChange: (key: string, x: number, y: number) => void;
-  /** 풀 학생을 빈 캔버스 지점에 드롭/탭 → 가장 가까운 빈자리 셀에 고정 배치 + 해당 셀을 지점으로 이동. */
-  onCanvasDropStudent: (studentId: string, x: number, y: number) => void;
-  /** 터치 대응: 풀에서 탭으로 집어든 학생 id. 있으면 카드/캔버스 탭으로 배치. */
-  selectedPoolId: string | null;
-  onSelectPool: (id: string | null) => void;
+  /** 보기 방향. teacher면 칠판이 아래(뒷줄이 위)에 오도록 상하 반전. 기본 student(칠판 위). */
+  orientation?: "student" | "teacher";
 }
 
 const clamp100 = (n: number): number => {
@@ -77,19 +70,14 @@ const cyOf = (c: SeatCellState): number =>
 export default function SeatGrid({
   cells,
   divisions,
-  showFixed,
   lookup,
   displayName,
   onCellClick,
   onCycleGender,
   onDropStudent,
   onMoveCell,
-  onClearCell,
-  onUnfix,
   onPositionChange,
-  onCanvasDropStudent,
-  selectedPoolId,
-  onSelectPool,
+  orientation = "student",
 }: SeatGridProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
@@ -128,25 +116,25 @@ export default function SeatGrid({
   if (cells.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-400">
-        인원수에 맞춰 `자리 생성`을 눌러 자리를 만드세요.
+        표시할 자리가 없습니다. 이름 선택 패널에서 학생을 선택해 주세요.
       </div>
     );
   }
 
-  const cardW = Math.max(72, Math.min(104, Math.floor(size.w / 8)));
+  const maxCol = cells.reduce((m, c) => (c.col > m ? c.col : m), 0);
+  // 열 간격에 맞춰 카드 너비 결정 (겹침·넘침 방지). 분단 통로 포함 단위 수 기준.
+  const colUnits = maxCol + 1 + SEAT_DIVISION_GUTTER * Math.max(0, divisions - 1);
+  const stepPx = colUnits > 0 ? size.w / colUnits : size.w;
+  const cardW = Math.max(48, Math.min(96, Math.floor(stepPx - 8)));
   const cardH = 48;
-
-  const pointToPercent = (clientX: number, clientY: number): { x: number; y: number } => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0 || rect.height === 0) return { x: 50, y: 50 };
-    return {
-      x: clamp100(((clientX - rect.left) / rect.width) * 100),
-      y: clamp100(((clientY - rect.top) / rect.height) * 100),
-    };
-  };
 
   const centerToTopLeft = (cx: number, cy: number): { x: number; y: number } =>
     seatDropCenterToTopLeft(cx, cy, size.w, size.h, cardW, cardH);
+
+  /** 표시용 y (teacher 보기면 상하 반전). 드롭 좌표(표시 기준)도 같은 공간. */
+  const toDisplayY = (y: number): number => (orientation === "teacher" ? 100 - y : y);
+  const dxOf = (c: SeatCellState): number => cxOf(c);
+  const dyOf = (c: SeatCellState): number => toDisplayY(cyOf(c));
 
   /** 드롭 지점(중심 % 좌표)이 다른 카드 안에 떨어졌는지 판정. occupant 교환 대상 탐색. */
   const findSwapTarget = (
@@ -162,8 +150,8 @@ export default function SeatGrid({
     let bestDist = Infinity;
     for (const c of cells) {
       if (c.key === selfKey || !c.enabled) continue;
-      const ccx = (cxOf(c) / 100) * size.w;
-      const ccy = (cyOf(c) / 100) * size.h;
+      const ccx = (dxOf(c) / 100) * size.w;
+      const ccy = (dyOf(c) / 100) * size.h;
       if (Math.abs(px - ccx) <= cardW / 2 && Math.abs(py - ccy) <= cardH / 2) {
         const dist = Math.hypot(px - ccx, py - ccy);
         if (dist < bestDist) {
@@ -176,11 +164,6 @@ export default function SeatGrid({
   };
 
   const handleCardClick = (cell: SeatCellState) => {
-    if (selectedPoolId) {
-      onDropStudent(cell.key, selectedPoolId);
-      onSelectPool(null);
-      return;
-    }
     onCellClick(cell.key);
   };
 
@@ -188,11 +171,6 @@ export default function SeatGrid({
   const queueCardClick = (cell: SeatCellState) => {
     // Rnd 드래그 직후 딸려오는 click 무시
     if (Date.now() - dragEndAtRef.current < 250) return;
-    // 풀 선택 배치(탭)는 즉시 실행. 더블클릭 구분이 필요 없음.
-    if (selectedPoolId) {
-      handleCardClick(cell);
-      return;
-    }
     if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
     clickTimerRef.current = window.setTimeout(() => {
       clickTimerRef.current = null;
@@ -210,14 +188,13 @@ export default function SeatGrid({
 
   const renderCard = (cell: SeatCellState) => {
     const student = lookup(cell.studentId);
-    const isFixed = cell.fixedStudentId !== null;
     const genderColor =
       student?.gender === "남"
         ? "border-blue-300 bg-blue-50"
         : student?.gender === "여"
           ? "border-rose-300 bg-rose-50"
           : "border-slate-200 bg-white";
-    const pos = centerToTopLeft(cxOf(cell), cyOf(cell));
+    const pos = centerToTopLeft(dxOf(cell), dyOf(cell));
 
     return (
       <Rnd
@@ -241,7 +218,8 @@ export default function SeatGrid({
             : Infinity;
           if (moved < 6) return; // 클릭으로 처리
           dragEndAtRef.current = Date.now();
-          // react-rnd가 반환하는 top-left 픽셀 → 카드 중심 % (centerToTopLeft의 정확한 역변환)
+          // react-rnd가 반환하는 top-left 픽셀 → 카드 중심 % (centerToTopLeft의 정확한 역변환).
+          // 표시 공간 기준이므로 데이터 공간으로 되돌려 저장 (teacher 보기는 상하 반전).
           const { x: cx, y: cy } = seatTopLeftToDropCenter(
             d.x,
             d.y,
@@ -256,7 +234,7 @@ export default function SeatGrid({
             onMoveCell(cell.key, target.key);
             return;
           }
-          onPositionChange(cell.key, cx, cy);
+          onPositionChange(cell.key, cx, toDisplayY(cy));
         }}
         className="touch-none"
         style={{ zIndex: draggingKey === cell.key ? 30 : 10 }}
@@ -277,13 +255,11 @@ export default function SeatGrid({
             onCycleGender(cell.key);
           }}
           title={
-            selectedPoolId
-              ? "탭: 선택한 학생을 이 자리에 배치"
-              : cell.studentId
-                ? "클릭: 비우기 / 드래그: 이동·교환 / 우클릭·더블클릭: 성별 지정"
-                : cell.enabled
-                  ? "클릭: 닫기 / 우클릭·더블클릭: 성별 지정 / 드래그: 이동"
-                  : "클릭: 열기 / 드래그: 이동"
+            cell.studentId
+              ? "클릭: 비우기 / 드래그: 이동·교환 / 우클릭·더블클릭: 성별 지정"
+              : cell.enabled
+                ? "클릭: 닫기 / 우클릭·더블클릭: 성별 지정 / 드래그: 이동"
+                : "클릭: 열기 / 드래그: 이동"
           }
           className={`relative w-full h-full rounded-xl border-2 px-1 py-1 text-center cursor-grab active:cursor-grabbing select-none overflow-hidden ${
             !cell.enabled
@@ -291,7 +267,7 @@ export default function SeatGrid({
               : cell.studentId
                 ? genderColor
                 : "border-slate-200 bg-white hover:border-indigo-300"
-          } ${selectedPoolId ? "ring-2 ring-indigo-300" : ""}`}
+          }`}
         >
           {!cell.enabled ? (
             <span className="text-[10px] text-slate-400 leading-4">닫힘</span>
@@ -302,40 +278,11 @@ export default function SeatGrid({
               </div>
               {cell.lockedGender && (
                 <span
-                  className={`text-[9px] font-bold leading-3 ${
+                  className={`text-[11px] font-bold leading-3 ${
                     cell.lockedGender === "남" ? "text-blue-500" : "text-rose-500"
                   }`}
                 >
                   {cell.lockedGender === "남" ? "♂" : "♀"}
-                </span>
-              )}
-              {showFixed && isFixed && (
-                <span className="absolute top-0.5 right-0.5 flex items-center gap-0.5">
-                  <span className="p-0.5 rounded-full bg-amber-400 text-white" title="고정 배치됨">
-                    <Lock className="w-2.5 h-2.5" />
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onUnfix(cell.key);
-                    }}
-                    className="px-1 rounded-full bg-slate-600 text-white text-[8px] leading-3"
-                    title="고정 해제 (배치는 유지)"
-                  >
-                    해제
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClearCell(cell.key);
-                    }}
-                    className="px-1 rounded-full bg-rose-500 text-white text-[8px] leading-3"
-                    title="비우기"
-                  >
-                    ✕
-                  </button>
                 </span>
               )}
             </>
@@ -344,7 +291,7 @@ export default function SeatGrid({
               <span className="text-[10px] text-slate-300 leading-4">빈자리</span>
               {cell.lockedGender && (
                 <span
-                  className={`block text-[9px] font-bold leading-3 ${
+                  className={`block text-[11px] font-bold leading-3 ${
                     cell.lockedGender === "남" ? "text-blue-500" : "text-rose-500"
                   }`}
                 >
@@ -358,47 +305,29 @@ export default function SeatGrid({
     );
   };
 
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-2">
-      <div className="flex items-stretch gap-2">
-        <div className="w-16 shrink-0 rounded-xl bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold flex items-center justify-center">
-          교탁
-        </div>
-        <div className="flex-1 py-2 rounded-xl bg-emerald-700 text-white text-center text-sm font-bold tracking-[0.5em]">
-          칠판
-        </div>
+  const isTeacher = orientation === "teacher";
+  const chalkboardBar = (
+    <div className="flex items-stretch gap-2">
+      <div className="flex-1 py-2 rounded-xl bg-emerald-700 text-white text-center text-sm font-bold tracking-[0.5em]">
+        칠판
       </div>
+    </div>
+  );
+
+  return (
+    <div data-seat-print className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-2">
+      {!isTeacher && chalkboardBar}
       <div
         ref={canvasRef}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const studentId = e.dataTransfer.getData("text/student-id");
-          if (!studentId) return;
-          const p = pointToPercent(e.clientX, e.clientY);
-          onCanvasDropStudent(studentId, p.x, p.y);
-        }}
-        onClick={(e) => {
-          if (!selectedPoolId) return;
-          const target = e.target as HTMLElement | null;
-          if (target && typeof target.closest === "function" && target.closest("[data-seat-card]")) return;
-          const p = pointToPercent(e.clientX, e.clientY);
-          onCanvasDropStudent(selectedPoolId, p.x, p.y);
-        }}
-        title={
-          selectedPoolId
-            ? "탭한 위치에 선택한 학생을 배치합니다"
-            : "카드를 드래그해 자유롭게 배치하세요"
-        }
+        title="카드를 드래그해 자유롭게 배치하세요"
         style={{ height: seatCanvasHeightPx(seatGridRowCount(cells)) }}
-        className={`relative w-full rounded-xl border bg-slate-50 overflow-hidden ${
-          selectedPoolId ? "border-indigo-400 ring-2 ring-indigo-200 cursor-copy" : "border-slate-200"
-        }`}
+        className="relative w-full rounded-xl border border-slate-200 bg-slate-50 overflow-hidden"
       >
         {cells.map((cell) => renderCard(cell))}
       </div>
+      {isTeacher && chalkboardBar}
       <div className="flex items-center justify-between text-[11px] text-slate-400">
-        <span>앞 ↑ (윗쪽이 앞자리)</span>
+        <span>{isTeacher ? "앞 ↓ (아랫쪽이 앞자리)" : "앞 ↑ (윗쪽이 앞자리)"}</span>
         <span>{divisions}분단 · {cells.length}석</span>
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
   SavedOrderPreset,
   SavedGroupPreset,
   SavedSeatPreset,
+  SeatPresetConfig,
 } from "@/types/classroom";
 import type { SeatCellState } from "@/types";
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
@@ -955,29 +956,69 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     }
   };
 
+  /** 동기 조회용: 저장된 자리 프리셋 목록 (이름 중복 판정). state 갱신 타이밍과 무관. */
+  const readSavedSeatsSync = (): SavedSeatPreset[] => {
+    try {
+      const raw = localStorage.getItem("classroom_saved_seats");
+      if (raw) {
+        const arr: unknown = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr as SavedSeatPreset[];
+      }
+    } catch {
+      // fall through
+    }
+    try {
+      const v3raw = localStorage.getItem("classroom_os_state_v3");
+      if (v3raw) {
+        const parsed = JSON.parse(v3raw) as { savedSeats?: unknown };
+        if (Array.isArray(parsed.savedSeats)) return parsed.savedSeats as SavedSeatPreset[];
+      }
+    } catch {
+      // fall through
+    }
+    return [];
+  };
+
   const saveSeatPreset = useCallback(
-    (name: string, cells: SeatCellState[]) => {
+    (name: string, cells: SeatCellState[], config?: SeatPresetConfig): string | undefined => {
       const trimmed = name.trim();
       if (!trimmed) {
         showToast("자리 이름을 입력해 주세요.");
-        return;
+        return undefined;
       }
       if (cells.length === 0) {
         showToast("저장할 자리 결과가 없습니다.");
-        return;
+        return undefined;
+      }
+      // 같은 이름이 있으면 뒤에 (2), (3)... 자동 부여 (여러 건이면 숫자만 증가)
+      let finalName = trimmed;
+      const prev = readSavedSeatsSync();
+      if (prev.some((p) => p.name === trimmed)) {
+        const stem = trimmed.replace(/\s*\(\d+\)$/, "");
+        const esc = stem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp(`^${esc}(?: \\((\\d+)\\))?$`);
+        let next = 2;
+        for (const p of prev) {
+          const m = re.exec(p.name);
+          if (!m) continue;
+          next = Math.max(next, m[1] ? Number(m[1]) + 1 : 2);
+        }
+        finalName = `${stem} (${next})`;
       }
       const newPreset: SavedSeatPreset = {
         id: `seat-preset-${Date.now()}`,
-        name: trimmed,
+        name: finalName,
         cells: cells.map((c) => ({ ...c })),
         createdAt: new Date().toISOString(),
+        ...(config ? { config: { ...config } } : {}),
       };
-      setSavedSeats((prev) => {
-        const next = [newPreset, ...prev.filter((p) => p.name !== trimmed)];
+      setSavedSeats((prevSeats) => {
+        const next = [newPreset, ...prevSeats];
         persistSavedSeats(next);
         return next;
       });
-      showToast(`'${trimmed}' 자리가 저장되었습니다.`);
+      showToast(`'${finalName}' 자리가 저장되었습니다.`);
+      return finalName;
     },
     [showToast]
   );
@@ -995,7 +1036,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   );
 
   // 그리드 생성/변경 시 최근 기록 자동 보관 (최대 3개, 조용히 저장)
-  const pushRecentSeats = useCallback((cells: SeatCellState[]) => {
+  const pushRecentSeats = useCallback((cells: SeatCellState[], config?: SeatPresetConfig) => {
     if (cells.length === 0) return;
     const d = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -1006,6 +1047,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       cells: cells.map((c) => ({ ...c })),
       createdAt: new Date().toISOString(),
       auto: true,
+      ...(config ? { config: { ...config } } : {}),
     };
     setSavedSeats((prev) => {
       let autoCount = 0;

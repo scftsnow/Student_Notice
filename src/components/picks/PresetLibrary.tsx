@@ -136,6 +136,8 @@ interface PresetLibrarySectionProps {
   empty: boolean;
   emptyText: ReactNode;
   children: ReactNode;
+  /** 목록 배치 (기본 1열, grid면 한 행에 여러 카드) */
+  layout?: "list" | "grid";
 }
 
 /**
@@ -148,6 +150,7 @@ export function PresetLibrarySection({
   empty,
   emptyText,
   children,
+  layout = "list",
 }: PresetLibrarySectionProps) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
@@ -158,6 +161,10 @@ export function PresetLibrarySection({
       {empty ? (
         <div className="text-xs text-slate-400 py-6 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
           {emptyText}
+        </div>
+      ) : layout === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 max-h-[32rem] overflow-y-auto">
+          {children}
         </div>
       ) : (
         <div className="space-y-2 max-h-72 overflow-y-auto">{children}</div>

@@ -158,3 +158,22 @@ body {
   cursor: grabbing !important;
   user-select: none !important;
 }
+
+/* 자리 배치 인쇄: 자리판(data-seat-print)만 용지에 출력, 색상 유지 */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  [data-seat-print],
+  [data-seat-print] * {
+    visibility: visible;
+  }
+  [data-seat-print] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
