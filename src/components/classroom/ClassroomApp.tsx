@@ -262,6 +262,10 @@ export default function ClassroomApp() {
               taxConfig={state.taxConfig}
               ledgerHistory={state.ledgerHistory}
               onUndoLedgerEntry={state.undoLedgerEntry}
+              boardHomeworks={state.boardHomeworks}
+              allHomeworks={state.homeworks}
+              onUpdateHomework={state.updateHomework}
+              onRemoveBoardHomework={state.removeBoardHomework}
             />
           </div>
         )}

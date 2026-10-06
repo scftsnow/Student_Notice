@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Coins, Maximize2, Minimize2 } from "lucide-react";
 import type { DailyRoutineAssignment } from "@/types";
-import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts, LedgerRecord } from "@/types/classroom";
+import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElementLayouts, LedgerRecord, Homework, homeworkUnsubmitted, resolveHomeworkStatus } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
 import { FALLBACK_FONT_FAMILY } from "@/lib/defaultFont";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
+import { boardNameColor, buildHomeworkHtml } from "@/components/classroom/canvas/boardElementShared";
 
 interface BoardClientProps {
   initialDateStr: string;
@@ -17,6 +18,12 @@ interface BoardClientProps {
   classNameTitle: string;
   initialContent: string;
   initialRoutines?: DailyRoutineAssignment[];
+}
+
+/** 오늘 날짜 (마감 지난 과제 자동 제외용) */
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 interface BoardTextBoxProps {
@@ -31,6 +38,8 @@ interface BoardTextBoxProps {
   align?: "left" | "center" | "right";
   z?: string;
   html?: string;
+  /** 편집 화면과 같은 식별자 (요소를 코드/테스트에서 동일하게 찾을 수 있게) */
+  cardId?: string;
   children?: ReactNode;
 }
 
@@ -51,6 +60,7 @@ function BoardTextBox({
   align,
   z = "z-20",
   html,
+  cardId,
   children,
 }: BoardTextBoxProps) {
   const cls = `absolute ${z} font-bold p-2 leading-relaxed tracking-tight overflow-hidden box-border`;
@@ -68,10 +78,10 @@ function BoardTextBox({
     wordBreak: "break-word" as const,
   };
   if (html !== undefined) {
-    return <div className={cls} style={style} dangerouslySetInnerHTML={{ __html: html }} />;
+    return <div className={cls} style={style} data-card-id={cardId} dangerouslySetInnerHTML={{ __html: html }} />;
   }
   return (
-    <div className={cls} style={style}>
+    <div className={cls} style={style} data-card-id={cardId}>
       {children}
     </div>
   );
@@ -87,6 +97,9 @@ export default function BoardClient({
   const [theme, setTheme] = useState<BoardTheme>("chalkboard");
   const [routines, setRoutines] = useState<ClassroomRoutine[]>([]);
   const [students, setStudents] = useState<ClassroomStudent[]>([]);
+  /** 학생 과제 + 칠판 표시 대상 (미제출자 요소) */
+  const [homeworks, setHomeworks] = useState<Homework[]>([]);
+  const [boardHomeworkIds, setBoardHomeworkIds] = useState<string[]>([]);
   const [ledgerHistory, setLedgerHistory] = useState<LedgerRecord[]>([]);
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([]);
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -140,6 +153,8 @@ export default function BoardClient({
         if (Array.isArray(parsed.students)) setStudents(parsed.students);
         if (Array.isArray(parsed.ledgerHistory)) setLedgerHistory(parsed.ledgerHistory);
         if (Array.isArray(parsed.freeCards)) setFreeCards(parsed.freeCards);
+        if (Array.isArray(parsed.homeworks)) setHomeworks(parsed.homeworks);
+        if (Array.isArray(parsed.boardHomeworkIds)) setBoardHomeworkIds(parsed.boardHomeworkIds);
       }
       const savedLayouts = localStorage.getItem("classroom_board_layouts");
       if (savedLayouts) {
@@ -169,6 +184,8 @@ export default function BoardClient({
       if (Array.isArray(data.students)) setStudents(data.students);
       if (Array.isArray(data.ledgerHistory)) setLedgerHistory(data.ledgerHistory);
       if (Array.isArray(data.freeCards)) setFreeCards(data.freeCards);
+      if (Array.isArray(data.homeworks)) setHomeworks(data.homeworks);
+      if (Array.isArray(data.boardHomeworkIds)) setBoardHomeworkIds(data.boardHomeworkIds);
       if (data.layouts) setLayouts(data.layouts);
       if (data.showEconomyShortcut !== undefined) setShowEconomyShortcut(Boolean(data.showEconomyShortcut));
     };
@@ -437,7 +454,48 @@ export default function BoardClient({
         />
       ))}
 
-      {/* 글상자 5: 학생 화폐 바로가기 아이콘 (동전 아이콘) */}
+      {/* 글상자 5: 과제 미제출자 (진행 중 과제만, 마감 시 자동 사라짐) */}
+      {homeworks
+        .filter((h) => boardHomeworkIds.includes(h.id) && resolveHomeworkStatus(h, todayStr()) === "ACTIVE")
+        .filter((h) => isBoxVisibleToday(true, h.visibleDays))
+        .map((h) => {
+          const unsubmitted = homeworkUnsubmitted(h, students);
+          // 편집 화면과 같은 빌더/같은 색 규칙을 쓴다 (그대로 안 옮기면 편집한 내용이 반영되지 않는다)
+          const customColor = h.layout?.color;
+          return (
+            <BoardTextBox
+              key={h.id}
+              cardId={h.id}
+              left={h.left || "2.5%"}
+              top={h.top || "88.0%"}
+              width={h.width || "95.0%"}
+              height={h.height}
+              fontSizePx={h.layout?.fontSize || fontSize || 42}
+              color={customColor}
+              fontFamily={h.layout?.fontFamily}
+              align={h.layout?.align || "left"}
+              lineHeight={
+                h.layout?.lineHeight
+                  ? typeof h.layout.lineHeight === "number"
+                    ? h.layout.lineHeight > 10
+                      ? `${h.layout.lineHeight / 100}`
+                      : `${h.layout.lineHeight}`
+                    : h.layout.lineHeight
+                  : undefined
+              }
+              html={buildHomeworkHtml({
+                // 편집 화면에 없는 요소는 학생 화면에도 넣지 않는다.
+                // 제목은 편집 화면의 상단바(선생님 전용 장식) 역할이라 여기선 그리지 않는다.
+                displayTemplate: h.displayTemplate,
+                unsubmitted,
+                nameColorClass: customColor ? "" : boardNameColor(theme),
+                nameColor: customColor,
+              })}
+            />
+          );
+        })}
+
+      {/* 글상자 6: 학생 화폐 바로가기 아이콘 (동전 아이콘) */}
       {showEconomyShortcut && (
         <div
           className="absolute z-20 cursor-pointer select-none flex items-center justify-center p-1.5 transition-transform hover:scale-110 active:scale-95 overflow-hidden box-border"

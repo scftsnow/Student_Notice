@@ -25,6 +25,72 @@ export interface ClassroomRoutine {
   layout?: Partial<ElementLayout>;
 }
 
+// --- 학생 과제 (숙제 제출 관리) ---
+
+/** 과제 상태: 진행 중 / 완료 (마감일 지난 과제는 자동 완료) */
+export type HomeworkStatus = "ACTIVE" | "DONE";
+
+/**
+ * 학생 과제.
+ * - 제출 대상은 등록된 학생 전원(제외 대상은 exempt에 이름 저장)
+ * - 제출 여부는 submitted에 이름 목록으로 보관 (미제출자 = 대상 - 제출)
+ */
+export interface Homework {
+  id: string;
+  /** 과제 제목 */
+  title: string;
+  /** 마감일 (YYYY-MM-DD). 빈 문자열이면 기한 없음 */
+  dueDate: string;
+  /** 제출한 학생 이름 목록 */
+  submitted: string[];
+  /** 사유로 제출 대상에서 제외한 학생 이름 목록 */
+  exempt: string[];
+  /** 생성일 (YYYY-MM-DD) */
+  createdAt: string;
+  /** 명시적 완료 처리 (마감일 대신 수동으로 끝낼 때) */
+  status?: HomeworkStatus;
+  // --- 칠판 요소 위치 (알림장 편집 화면에서 조절, % 문자열) ---
+  left?: string;
+  top?: string;
+  width?: string;
+  height?: string;
+  /** 칠판에 요일별로만 표시 (미지정이면 항상 표시). 업무 요소와 동일한 스케줄. */
+  visibleDays?: number[];
+  /**
+   * 칠판 요소 본문 템플릿 (업무 요소의 displayFormat과 같은 개념).
+   * `?` = 다음 미제출 학생 이름, `#` = 미제출 인원 수로 치환된다.
+   * 미지정이면 기본 템플릿이 쓰인다.
+   */
+  displayTemplate?: string;
+  /** 칠판 요소 서식 (알림장 편집 화면의 대상 선택으로 글꼴·크기·색상 등을 지정) */
+  layout?: {
+    color?: string;
+    fontSize?: number;
+    align?: "left" | "center" | "right";
+    lineHeight?: number;
+    fontFamily?: string;
+  };
+}
+
+/** 과제의 현재 상태: 마감일 또는 수동 완료 기준 */
+export function resolveHomeworkStatus(hw: Homework, today: string): HomeworkStatus {
+  if (hw.status === "DONE") return "DONE";
+  if (hw.dueDate && hw.dueDate <= today) return "DONE";
+  return "ACTIVE";
+}
+
+/** 과제의 제출 대상 학생 (전원 - 제외자) */
+export function homeworkTargets(hw: Homework, students: ClassroomStudent[]): string[] {
+  const exempt = new Set(hw.exempt);
+  return students.filter((s) => !exempt.has(s.name)).map((s) => s.name);
+}
+
+/** 과제의 미제출자 목록 (제출 대상 - 제출자) */
+export function homeworkUnsubmitted(hw: Homework, students: ClassroomStudent[]): string[] {
+  const done = new Set(hw.submitted);
+  return homeworkTargets(hw, students).filter((n) => !done.has(n));
+}
+
 export interface SavedOrderPreset {
   id: string;
   name: string;

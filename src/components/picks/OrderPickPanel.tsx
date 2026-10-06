@@ -8,7 +8,7 @@ import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
 import { formatPickName } from "@/lib/pickFormat";
 import { shuffle } from "@/lib/pickRandom";
 import { playError } from "@/lib/pickSound";
-import { openPickWindow } from "@/lib/pickWindowHelper";
+import { openPickWindow, broadcastPick, stampPayload, PICK_SYNC_CHANNEL } from "@/lib/pickWindowHelper";
 import type { PickStudent } from "@/types";
 import type { SavedOrderPreset } from "@/types/classroom";
 
@@ -64,27 +64,47 @@ export default function OrderPickPanel({
       playError();
       return;
     }
-    const shuffled = shuffle(selected);
-    setOrdered(shuffled);
-    onPushRecentOrder(shuffled.map((s) => s.name));
-
+    // 버튼을 누른 시점에는 후보만 보낸다. 결과는 전광판에서 [추첨 시작]을
+    // 누른 그 순간에 rollOrder가 계산해 다시 전달한다.
     openPickWindow({
       id: `pick-order-${Date.now()}`,
       type: "order",
       title: "순서 뽑기",
       rollingNames,
-      results: shuffled.map((s) => formatPickName(s)),
+      results: [],
+      rolled: false,
     });
-  }, [selected, rollingNames, onPushRecentOrder]);
+  }, [selected.length, rollingNames]);
 
-  // 별도 창에서 '다시 뽑기' 요청 시 재추첨 실행
+  // 전광판의 추첨 요청에 응답해 이 순간에 실제로 순서를 뽑는다
+  const rollOrder = useCallback(
+    (id: string) => {
+      if (selected.length < 2) return;
+      const shuffled = shuffle(selected);
+      setOrdered(shuffled);
+      onPushRecentOrder(shuffled.map((s) => s.name));
+      broadcastPick(
+        stampPayload({
+          id,
+          type: "order",
+          title: "순서 뽑기",
+          rollingNames,
+          results: shuffled.map((s) => formatPickName(s)),
+          rolled: true,
+        })
+      );
+    },
+    [selected, rollingNames, onPushRecentOrder]
+  );
+
+  // 전광판이 '지금 뽑아라'고 요청하면 그때 랜덤이 돈다
   useEffect(() => {
     let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel("classroom_pick_sync");
+      channel = new BroadcastChannel(PICK_SYNC_CHANNEL);
       channel.onmessage = (e: MessageEvent) => {
-        if (e.data?.type === "REQUEST_REDRAW") {
-          runDraw();
+        if (e.data?.type === "PICK_ROLL" && e.data?.pickType === "order") {
+          rollOrder(String(e.data.id));
         }
       };
     } catch {
@@ -93,7 +113,7 @@ export default function OrderPickPanel({
     return () => {
       if (channel) channel.close();
     };
-  }, [runDraw]);
+  }, [rollOrder]);
 
   // 프리셋 수정 (이름·드래그 순서 변경)
   const startRename = (preset: SavedOrderPreset) => {

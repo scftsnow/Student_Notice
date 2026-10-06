@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Rnd } from "react-rnd";
-import { Clock, Check, GripHorizontal } from "lucide-react";
+import type { RndResizeCallback, RndResizeStartCallback } from "react-rnd";
+import { Clock, Check, GripHorizontal, Hash } from "lucide-react";
 import { ElementLayout, BoardTargetElement } from "@/types/classroom";
 import AnalogClock from "./AnalogClock";
 import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   parsePercent,
+  toPct,
   makeDragSaveHandler,
   makeResizeSaveHandler,
   selectedBorderClass,
@@ -74,6 +76,54 @@ export default function CanvasClock({
 
   const analogClockPx = Math.round(scaleFont(layout.fontSize || fontPx) * 2.2);
 
+  // --- 아날로그 시계: 모서리 드래그 시 가로세로 비율 고정 ---
+  const MIN_ANALOG_PX = 60;
+  const ratioRef = useRef(1);
+  const baseRef = useRef<{ w: number; h: number; left: number; top: number } | null>(null);
+
+  const currentLeftPx = (parsePercent(layout.left, 68.0) / 100) * containerSize.width;
+  const currentTopPx = (parsePercent(layout.top, 3.0) / 100) * containerSize.height;
+
+  /** 드래그 시작 시점의 비율·크기 기억 (스케일된 화면 좌표가 아닌 실제 CSS 픽셀 사용) */
+  const handleAnalogResizeStart: RndResizeStartCallback = (_e, _dir, ref) => {
+    const w = ref.offsetWidth || 1;
+    const h = ref.offsetHeight || 1;
+    ratioRef.current = w / h;
+    baseRef.current = { w, h, left: currentLeftPx, top: currentTopPx };
+  };
+
+  /** 크기 변경량을 비율에 맞춰 한 축으로 통일 (클릭한 모서리의 반대편 고정) */
+  const handleAnalogResize: RndResizeCallback = (_e, dir, ref, delta) => {
+    const base = baseRef.current;
+    if (!base) return;
+    const byWidth = Math.abs(delta.width - base.w) >= Math.abs(delta.height - base.h);
+    let nextW = byWidth ? delta.width : delta.height * ratioRef.current;
+    let nextH = byWidth ? nextW / ratioRef.current : delta.height;
+    if (nextW < MIN_ANALOG_PX) nextW = MIN_ANALOG_PX;
+    if (nextH < MIN_ANALOG_PX) nextH = MIN_ANALOG_PX;
+    ref.style.width = `${Math.round(nextW)}px`;
+    ref.style.height = `${Math.round(nextH)}px`;
+    ref.style.left = `${Math.round(base.left + (dir.includes("w") ? base.w - nextW : 0))}px`;
+    ref.style.top = `${Math.round(base.top + (dir.includes("n") ? base.h - nextH : 0))}px`;
+  };
+
+  /** 비율 고정 결과를 레이아웃에 저장 (반대편 모서리는 그대로) */
+  const handleAnalogResizeStop: RndResizeCallback = (_e, dir, ref) => {
+    const base = baseRef.current;
+    baseRef.current = null;
+    const nextW = parseFloat(ref.style.width) || base?.w || 0;
+    const nextH = parseFloat(ref.style.height) || base?.h || 0;
+    const left = base && dir.includes("w") ? base.left + base.w - nextW : (base?.left ?? currentLeftPx);
+    const top = base && dir.includes("n") ? base.top + base.h - nextH : (base?.top ?? currentTopPx);
+    onUpdateLayout((p) => ({
+      ...p,
+      width: toPct(nextW, containerSize.width),
+      height: toPct(nextH, containerSize.height),
+      left: toPct(left, containerSize.width),
+      top: toPct(top, containerSize.height),
+    }));
+  };
+
   return (
     <>
       <Rnd
@@ -101,10 +151,16 @@ export default function CanvasClock({
           isAnalog ? analogClockPx : 40,
           (left, top) => onUpdateLayout((p) => ({ ...p, left, top })),
         )}
-        onResizeStop={makeResizeSaveHandler(
-          containerSize,
-          (width, height, left, top) => onUpdateLayout((p) => ({ ...p, width, height, left, top })),
-        )}
+        onResizeStart={isAnalog ? handleAnalogResizeStart : undefined}
+        onResize={isAnalog ? handleAnalogResize : undefined}
+        onResizeStop={
+          isAnalog
+            ? handleAnalogResizeStop
+            : makeResizeSaveHandler(
+                containerSize,
+                (width, height, left, top) => onUpdateLayout((p) => ({ ...p, width, height, left, top })),
+              )
+        }
         enableResizing={RESIZE_ENABLE}
         resizeHandleComponent={RESIZE_HANDLES}
         onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSelectElement?.("clockBox"); }}
@@ -127,6 +183,20 @@ export default function CanvasClock({
         >
           <GripHorizontal className="w-3.5 h-3.5 text-white/70" />
           <span className="text-[10px] font-bold tracking-tight text-white/70">시계</span>
+          {/* 모양 전환 토글 (현재 모양 아이콘 클릭 시 반대 모양으로 전환) */}
+          <div className="ml-auto flex items-center" onMouseDown={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              title={isAnalog ? "숫자 시계로 전환" : "아날로그 시계로 전환"}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateLayout((p) => ({ ...p, clockType: isAnalog ? "digital" : "analog" }));
+              }}
+              className="p-0.5 rounded text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+            >
+              {isAnalog ? <Hash className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+            </button>
+          </div>
         </div>
         <div className="flex items-center justify-center flex-1">
           {isAnalog ? (
@@ -134,7 +204,7 @@ export default function CanvasClock({
               className="aspect-square flex items-center justify-center pointer-events-none p-1"
               style={{
                 width: layout.width ? "100%" : `${analogClockPx}px`,
-                height: layout.height ? "100%" : `${analogClockPx}px`,
+                height: "auto",
               }}
             >
               <AnalogClock color={layout.color || "currentColor"} size="100%" />

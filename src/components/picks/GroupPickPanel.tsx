@@ -1,14 +1,17 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import { Users, Shuffle, ExternalLink, Bookmark, History } from "lucide-react";
+import { Users, Shuffle, ExternalLink, Bookmark, History, Eye, EyeOff } from "lucide-react";
 import PickTargetSelector from "./PickTargetSelector";
 import PickSaveBar from "./PickSaveBar";
+import SeatAvoidPanel from "./SeatAvoidPanel";
 import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
-import { dealGroups, parseGroupSizes } from "@/lib/pickRandom";
+import { dealGroups, findGroupViolations, parseGroupSizes, summarizeAvoidPairs } from "@/lib/pickRandom";
 import { formatPickName } from "@/lib/pickFormat";
 import { playError } from "@/lib/pickSound";
-import { openPickWindow } from "@/lib/pickWindowHelper";
+import { openPickWindow, broadcastPick, stampPayload, PICK_SYNC_CHANNEL } from "@/lib/pickWindowHelper";
+import { useAvoidGroups, AVOID_GROUPS_STORAGE_KEY } from "@/hooks/useAvoidGroups";
+import { usePersistentFlag } from "@/hooks/usePersistentFlag";
 import type { PickStudent } from "@/types";
 import type { SavedGroupPreset } from "@/types/classroom";
 
@@ -53,6 +56,8 @@ export default function GroupPickPanel({
   const [sizeValue, setSizeValue] = useState(4);
   const [customText, setCustomText] = useState("");
   const [separateGender, setSeparateGender] = useState(false);
+  /** 분리 메뉴 숨기기: 만나지 말아야 할 학생 패널 숨김 (자리뽑기 배치 숨김과 같은 패턴, 상태는 유지) */
+  const [hideAvoid, setHideAvoid] = usePersistentFlag("classroom_pick_hide_avoid_panel", false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [groups, setGroups] = useState<PickStudent[][]>([]);
@@ -68,6 +73,12 @@ export default function GroupPickPanel({
   const recentPresets = useMemo(() => savedGroups.filter((p) => p.auto).slice(0, 3), [savedGroups]);
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+  const nameOf = useCallback(
+    (id: string): string => byId.get(id)?.name ?? id,
+    [byId]
+  );
+  // 자리 뽑기와 같은 분리 그룹 공유 — 한 번 정하면 모둠 뽑기에도 적용된다.
+  const avoid = useAvoidGroups(AVOID_GROUPS_STORAGE_KEY);
   const selected = useMemo(
     () =>
       selectedIds
@@ -100,36 +111,82 @@ export default function GroupPickPanel({
       return;
     }
     try {
-      const sizes = resolveSizes(selected.length);
-      const dealt = dealGroups(selected, sizes, (s) => s.gender, separateGender);
-      setGroups(dealt);
-      onPushRecentGroups(dealt.map((g) => g.map((s) => s.name)));
-      const display = dealt.map((g, i) => `${i + 1}모둠: ${g.map((s) => s.name).join(", ")}`);
+      // 후보 모양(모둠 크기)만 계산해 전광판에 보낸다.
+      // 실제 모둠 나누기는 전광판에서 [추첨 시작]을 누른 그 순간에 rollGroups가 한다.
+      resolveSizes(selected.length);
       openPickWindow({
         id: `pick-group-${Date.now()}`,
         type: "group",
         title: "모둠 뽑기",
         rollingNames,
-        results: display,
-        groups: dealt.map((g, i) => ({
-          label: `${i + 1}모둠`,
-          members: g.map((s) => formatPickName(s)),
-        })),
+        results: [],
+        rolled: false,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "모둠 나누기 중 오류가 발생했습니다.");
       playError();
     }
-  }, [selected, resolveSizes, separateGender, rollingNames, onPushRecentGroups]);
+  }, [selected.length, resolveSizes, rollingNames]);
 
-  // 별도 창에서 '다시 뽑기' 요청 시 재추첨 실행
+  // 전광판의 추첨 요청에 응답해 이 순간에 실제로 모둠을 나눈다
+  const rollGroups = useCallback(
+    (id: string) => {
+      if (selected.length < 2) return;
+      try {
+        const sizes = resolveSizes(selected.length);
+        const dealt = dealGroups(
+          selected,
+          sizes,
+          (s) => s.gender,
+          separateGender,
+          Math.random,
+          avoid.avoidGroups
+        );
+        setGroups(dealt);
+        onPushRecentGroups(dealt.map((g) => g.map((s) => s.name)));
+        // 분리 그룹 위반 확인 (best-effort 적용 후 남은 쌍 안내)
+        const violations = findGroupViolations(
+          dealt.map((g) => g.map((s) => s.id)),
+          avoid.avoidGroups
+        );
+        if (violations.length > 0) {
+          const pairs = violations.map(
+            (v): readonly [string, string] => [nameOf(v.aId), nameOf(v.bId)]
+          );
+          setError(`${summarizeAvoidPairs(pairs)}: 같은 모둠이 되었습니다. 모둠을 수동으로 조정해 주세요.`);
+          playError();
+        }
+        const display = dealt.map((g, i) => `${i + 1}모둠: ${g.map((s) => s.name).join(", ")}`);
+        broadcastPick(
+          stampPayload({
+            id,
+            type: "group",
+            title: "모둠 뽑기",
+            rollingNames,
+            results: display,
+            groups: dealt.map((g, i) => ({
+              label: `${i + 1}모둠`,
+              members: g.map((s) => formatPickName(s)),
+            })),
+            rolled: true,
+          })
+        );
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "모둠 나누기 중 오류가 발생했습니다.");
+        playError();
+      }
+    },
+    [selected, resolveSizes, separateGender, rollingNames, onPushRecentGroups, avoid.avoidGroups, nameOf]
+  );
+
+  // 전광판이 '지금 뽑아라'고 요청하면 그때 랜덤이 돈다
   useEffect(() => {
     let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel("classroom_pick_sync");
+      channel = new BroadcastChannel(PICK_SYNC_CHANNEL);
       channel.onmessage = (e: MessageEvent) => {
-        if (e.data?.type === "REQUEST_REDRAW") {
-          runDraw();
+        if (e.data?.type === "PICK_ROLL" && e.data?.pickType === "group") {
+          rollGroups(String(e.data.id));
         }
       };
     } catch {
@@ -138,7 +195,7 @@ export default function GroupPickPanel({
     return () => {
       if (channel) channel.close();
     };
-  }, [runDraw]);
+  }, [rollGroups]);
 
   const moveStudent = (studentId: string, fromGroup: number, toGroup: number) => {
     if (fromGroup === toGroup) return;
@@ -460,6 +517,18 @@ export default function GroupPickPanel({
         </label>
         <button
           type="button"
+          onClick={() => setHideAvoid((v) => !v)}
+          title={hideAvoid ? "분리 메뉴 표시" : "분리 메뉴 숨기기 (상태는 유지)"}
+          className={`px-2.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 ${
+            hideAvoid
+              ? "bg-amber-50 border-amber-300 text-amber-700"
+              : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
+          }`}
+        >
+          {hideAvoid ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          type="button"
           onClick={runDraw}
           className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold flex items-center gap-1.5 shadow-md shadow-indigo-200 sm:ml-auto transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
         >
@@ -469,6 +538,19 @@ export default function GroupPickPanel({
         </button>
       </div>
       </PickTargetSelector>
+
+      {!hideAvoid && (
+        <SeatAvoidPanel
+          groups={avoid.avoidGroups}
+          students={students}
+          onAddGroup={avoid.addAvoidGroup}
+          onDeleteGroup={avoid.deleteAvoidGroup}
+          onModeChange={avoid.updateAvoidGroupMode}
+          onAddMember={avoid.addAvoidMember}
+          onRemoveMember={avoid.removeAvoidMember}
+          showModeToggle={false}
+        />
+      )}
 
       {error && (
         <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">

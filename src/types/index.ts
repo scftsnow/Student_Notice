@@ -161,6 +161,12 @@ export interface SeatAvoidGroup {
   members: string[];
 }
 
+/**
+ * 자리·모둠 공용 분리 그룹 (SeatAvoidGroup과 동일).
+ * 모둠 뽑기에서는 mode를 무시하고 같은 모둠 배정 자체를 위반으로 본다.
+ */
+export type AvoidGroup = SeatAvoidGroup;
+
 // --- Seat 자유 배치 (v2, 교실 캔버스 % 좌표) ---
 
 /** 위치(x/y)가 확정된 자유 배치 셀. 캔버스 UI는 이 타입을 사용한다. */

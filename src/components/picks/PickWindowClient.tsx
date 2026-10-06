@@ -19,14 +19,22 @@ import {
   unlockAudio,
 } from "@/lib/pickSound";
 import { shuffle } from "@/lib/pickRandom";
+import { applyFlip } from "@/lib/flip";
 import SeatMiniCanvas from "./SeatMiniCanvas";
-import type { PickWindowPayload } from "@/lib/pickWindowHelper";
+import {
+  PICK_SYNC_CHANNEL,
+  requestPickRoll,
+  type PickWindowPayload,
+} from "@/lib/pickWindowHelper";
 
 type Phase = "ready" | "rolling" | "revealing" | "done";
 
 type ResultLayout = "hero" | "duo" | "trio" | "quad" | "grid" | "dense4" | "dense5";
 
 const POP_ANIM = "animate-[pop-in_0.35s_cubic-bezier(0.175,0.885,0.32,1.275)]";
+
+/** 자리 카드의 기준 변환 (카드 중심 정렬). FLIP 이동 시 이 값으로 되돌린다. */
+const SEAT_CARD_BASE_TRANSFORM = "translate(-50%, -50%)";
 
 /** 인원수→레이아웃 (순서·모둠 공통) */
 function layoutForCount(n: number): ResultLayout {
@@ -125,7 +133,7 @@ export default function PickWindowClient() {
   const [rollingList, setRollingList] = useState<string[]>([]);
   const [rollingGroups, setRollingGroups] = useState<string[][]>([]);
   /** 자리 섞기 중 자리별 표시 이름 (key → 이름) */
-  const [rollingSeatLabels, setRollingSeatLabels] = useState<Record<string, string>>({});
+  const [rollingSeatPos, setRollingSeatPos] = useState<Record<string, { x: number; y: number }>>({});
   const [revealed, setRevealed] = useState(0);
   const [muted, setMutedState] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -138,9 +146,19 @@ export default function PickWindowClient() {
   mutedRef.current = muted;
   const payloadRef = useRef<PickWindowPayload | null>(null);
   payloadRef.current = payload;
+  // '추첨 시작'을 눌러 관리 화면의 응답을 기다리는 중인지
+  const [rollError, setRollError] = useState("");
+  const awaitingRef = useRef(false);
+  /** 셔플 모션이 끝나기를 기다리는 결과 (모션 중 도착한 응답을 받아둔다) */
+  const pendingRevealRef = useRef<string[] | null>(null);
+  // 공개 시퀀스는 아래에서 정의되므로 ref로 먼저 참조한다
+  const startRevealRef = useRef<(results: string[]) => void>(() => {});
   // 섞기 FLIP 모션용: 칸 DOM의 이전 위치
   const shuffleGridRef = useRef<HTMLDivElement>(null);
   const prevCellPosRef = useRef(new Map<string, { left: number; top: number }>());
+  // 자리 섞기 FLIP 모션용
+  const seatCanvasRef = useRef<HTMLDivElement>(null);
+  const prevSeatPosRef = useRef(new Map<string, { left: number; top: number }>());
 
   const clearTimers = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
@@ -155,20 +173,63 @@ export default function PickWindowClient() {
   useEffect(() => {
     setMutedState(isMuted());
 
-    try {
-      const saved = localStorage.getItem("classroom_current_pick_payload");
-      if (saved) {
-        const parsed = JSON.parse(saved) as PickWindowPayload;
-        setPayload(parsed);
-        setPhase("ready");
+    /** 새 페이로드를 화면에 반영한다. 결과가 이미 뽑힌 상태면 공개 시퀀스까지 실행. */
+    const adopt = (next: PickWindowPayload) => {
+      const rollingNow = phaseRef.current === "rolling";
+      if (!rollingNow) clearTimers();
+      setPayload(next);
+      if (!rollingNow) {
+        setCurrent("");
+        setRollingList([]);
+        setRollingGroups([]);
+        setRollingSeatPos({});
+        setRevealed(0);
+        setConfetti([]);
+        setCopied(false);
       }
-    } catch {
-      // ignore
-    }
+      // '추첨 시작'을 눌러 대기 중이었고 실제 결과가 도착했다 → 공개로 진행
+      // (구버전 페이로드는 rolled 필드가 없으므로 결과로 간주한다)
+      if (next.rolled !== false && awaitingRef.current) {
+        awaitingRef.current = false;
+        setRollError("");
+        if (rollingNow) {
+          // 셔플 모션이 끝난 뒤에 공개한다 (응답이 즉시 와도 모션이 살아 있어야 한다)
+          pendingRevealRef.current = next.results;
+        } else {
+          pendingRevealRef.current = null;
+          startRevealRef.current(next.results);
+        }
+        return;
+      }
+      // 셔플 중인데 아직 결과가 없다면 모션이 끝나도록 그대로 둔다
+      if (rollingNow) return;
+      awaitingRef.current = false;
+      pendingRevealRef.current = null;
+      setRollError("");
+      setPhase("ready");
+    };
+
+    // localStorage의 페이로드를 다시 읽는다.
+    // 이미 들고 있는 것보다 seq가 클 때만 적용하므로, 놓친 브로드캐스트를 되살린다.
+    const resyncFromStorage = () => {
+      try {
+        const saved = localStorage.getItem("classroom_current_pick_payload");
+        if (!saved) return;
+        const parsed = JSON.parse(saved) as PickWindowPayload;
+        if (!parsed || !Array.isArray(parsed.results)) return;
+        const cur = payloadRef.current;
+        if (cur && typeof cur.seq === "number" && parsed.seq <= cur.seq) return;
+        adopt(parsed);
+      } catch {
+        // ignore
+      }
+    };
+
+    resyncFromStorage();
 
     let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel("classroom_pick_sync");
+      channel = new BroadcastChannel(PICK_SYNC_CHANNEL);
       channel.onmessage = (e: MessageEvent) => {
         if (e.data?.type === "PICK_START" || e.data?.type === "PICK_UPDATE") {
           const next = e.data.payload as PickWindowPayload;
@@ -176,16 +237,11 @@ export default function PickWindowClient() {
             // 다른 종류 뽑기의 추첨은 무시 (종류별 별도 창 유지)
             const currentType = payloadRef.current?.type;
             if (currentType && next.type !== currentType) return;
-            clearTimers();
-            setPayload(next);
-            setPhase("ready");
-            setCurrent("");
-            setRollingList([]);
-            setRollingGroups([]);
-            setRollingSeatLabels({});
-            setRevealed(0);
-            setConfetti([]);
-            setCopied(false);
+            // 추첨 대기 중이던 것과 다른 추첨이면 새로 시작
+            if (awaitingRef.current && next.id !== payloadRef.current?.id) {
+              awaitingRef.current = false;
+            }
+            adopt(next);
           }
         }
       };
@@ -193,8 +249,20 @@ export default function PickWindowClient() {
       // ignore
     }
 
+    // 창이 다시 활성화될 때마다 저장소를 확인한다.
+    // (탭 정지·절전으로 브로드캐스트가 유실되어도 여기서 최신 결과로 회복된다)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") resyncFromStorage();
+    };
+    window.addEventListener("focus", resyncFromStorage);
+    window.addEventListener("pageshow", resyncFromStorage);
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
       clearTimers();
+      window.removeEventListener("focus", resyncFromStorage);
+      window.removeEventListener("pageshow", resyncFromStorage);
+      document.removeEventListener("visibilitychange", onVisible);
       if (channel) channel.close();
     };
   }, []);
@@ -202,64 +270,84 @@ export default function PickWindowClient() {
   // FLIP: 순서 섞기 시 카드가 제자리에서 바뀌는 게 아니라 실제 칸을 이동하도록 재생
   useLayoutEffect(() => {
     if (phaseRef.current !== "rolling") return;
-    const grid = shuffleGridRef.current;
-    if (!grid) return;
-    const prev = prevCellPosRef.current;
-    const next = new Map<string, { left: number; top: number }>();
-    grid.querySelectorAll<HTMLElement>("[data-shuffle-key]").forEach((el) => {
-      const key = el.dataset.shuffleKey;
-      if (!key) return;
-      const rect = el.getBoundingClientRect();
-      next.set(key, { left: rect.left, top: rect.top });
-      const old = prev.get(key);
-      if (old) {
-        const dx = old.left - rect.left;
-        const dy = old.top - rect.top;
-        if (dx !== 0 || dy !== 0) {
-          el.style.transition = "none";
-          el.style.transform = `translate(${dx}px, ${dy}px)`;
-          requestAnimationFrame(() => {
-            el.style.transition = "transform 0.3s ease";
-            el.style.transform = "";
-          });
-        }
-      }
-    });
-    prevCellPosRef.current = next;
+    // 자리는 아래 전용 효과로 처리한다 (isSeatBoard 는 아래에서 선언된다)
+    if (payloadRef.current?.type === "seat") return;
+    prevCellPosRef.current = applyFlip(shuffleGridRef.current, prevCellPosRef.current, "none");
   }, [rollingList, rollingGroups]);
 
-  // 2. 시작 버튼 클릭 시 추첨 애니메이션 실행
+  // 2. 실제 결과가 도착했을 때 공개 시퀀스를 실행한다.
+  //    (래시는 장식일 뿐이며 여기서 확정된다)
+  const startReveal = useCallback((results: string[]) => {
+    clearTimers();
+    setPhase("revealing");
+    setRevealed(0);
+
+    if (results.length === 0) {
+      setPhase("done");
+      return;
+    }
+
+    // 인원수별 공개 속도: 소수는 한 명씩 여유 있게, 순서 전체(13명+)는 1위부터 빠르게 순차 공개
+    // 모둠은 한 모둠씩 400ms 간격 공개
+    const revealInterval =
+      payloadRef.current?.type === "group"
+        ? 400
+        : results.length <= 4
+          ? 450
+          : results.length <= 12
+            ? 300
+            : 120;
+
+    results.forEach((_, idx) => {
+      later(() => {
+        setRevealed(idx + 1);
+        playPop();
+      }, idx * revealInterval);
+    });
+
+    later(() => {
+      setPhase("done");
+      playFanfare();
+      setConfetti(
+        Array.from({ length: 80 }, (_, i) => ({
+          left: (i * 97) % 100,
+          delay: ((i * 13) % 40) / 100,
+          duration: 2.2 + ((i * 7) % 15) / 10,
+          color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+          size: 8 + ((i * 11) % 8),
+        }))
+      );
+    }, results.length * revealInterval + 200);
+  }, []);
+  startRevealRef.current = startReveal;
+
+  // 3. 시작 버튼: 이 순간에 랜덤이 돌아야 한다.
+  //    전광판은 직접 계산하지 않고 관리 화면에 '지금 뽑아라'고 요청만 한다.
   const startDraw = useCallback(() => {
-    if (!payloadRef.current) return;
+    const p = payloadRef.current;
+    if (!p) return;
     unlockAudio();
     playClick();
-    // 관리 화면에 실제 추첨 시작을 통지 (학생 뽑기 중복 제외 확정용)
-    try {
-      const channel = new BroadcastChannel("classroom_pick_sync");
-      channel.postMessage({ type: "PICK_COMMIT", id: payloadRef.current.id });
-      channel.close();
-    } catch {
-      // ignore
-    }
-    clearTimers();
 
+    clearTimers();
+    awaitingRef.current = true;
+    pendingRevealRef.current = null;
+    setRollError("");
     setPhase("rolling");
     setRevealed(0);
     setCopied(false);
     setConfetti([]);
 
-    const names =
-      payloadRef.current.rollingNames.length > 0
-        ? payloadRef.current.rollingNames
-        : ["..."];
-    const results = payloadRef.current.results;
-    // 순서·모둠 뽑기는 결과 칸 그대로 이름만 뒤섞이는 모션 사용
-    // 자리 뽑기는 미니 좌석판 위에서 이름이 뒤섞이는 전용 모션 사용
-    const isOrderShuffle = payloadRef.current.type === "order";
-    const isGroupShuffle = payloadRef.current.type === "group";
-    const isSeatShuffle = payloadRef.current.type === "seat";
+    // 관리 화면에 실제 추첨을 요청한다 (학생 뽑기 후보 제외도 여기서 확정)
+    requestPickRoll(p.id, p.type);
+
+    const names = p.rollingNames.length > 0 ? p.rollingNames : ["..."];
+    const isOrderShuffle = p.type === "order";
+    const isGroupShuffle = p.type === "group";
+    const isSeatShuffle = p.type === "seat";
     prevCellPosRef.current = new Map();
 
+    // 화면용 섞기 모션 (결과와 무관한 장식)
     const steps = 16;
     let elapsed = 0;
     for (let i = 0; i < steps; i++) {
@@ -271,7 +359,6 @@ export default function PickWindowClient() {
         if (isOrderShuffle) {
           setRollingList(shuffle(names));
         } else if (isGroupShuffle) {
-          // 최종 모둠 칸 크기에 맞춰 나눠 담고 매 틱 뒤섞기
           const sizes = (payloadRef.current?.groups ?? []).map((g) => g.members.length);
           const total = sizes.reduce((a, b) => a + b, 0);
           const shape = total === names.length && sizes.length > 0 ? sizes : [names.length];
@@ -287,15 +374,16 @@ export default function PickWindowClient() {
           }
           setRollingGroups(chunked);
         } else if (isSeatShuffle) {
-          // 자리 칸에 이름들을 뒤섞어 얹기 (빈자리는 그대로)
+          // 좌석(identity·이름은 그대로)에 자리 좌표를 셔플해서 배정한다.
+          // 라벨만 맞바꾸면 이름만 바뀌는错觉이 들어 좌석이 실제로 이동해야 한다.
           const cells = payloadRef.current?.seatCells ?? [];
           const labeled = cells.filter((c) => c.enabled && c.label);
-          const shuffled = shuffle(labeled.map((c) => c.label));
-          const map: Record<string, string> = {};
+          const slots = shuffle(labeled.map((c) => ({ x: c.x, y: c.y })));
+          const map: Record<string, { x: number; y: number }> = {};
           labeled.forEach((c, i) => {
-            map[c.key] = shuffled[i] ?? c.label;
+            map[c.key] = slots[i] ?? { x: c.x, y: c.y };
           });
-          setRollingSeatLabels(map);
+          setRollingSeatPos(map);
         } else {
           setCurrent(names[Math.floor(Math.random() * names.length)]);
         }
@@ -303,59 +391,27 @@ export default function PickWindowClient() {
       }, at);
     }
 
+    // 셔플 모션이 끝난 시점. 그때까지 도착한 결과가 있으면 즉시 공개한다.
     later(() => {
-      if (results.length === 0) {
-        setPhase("done");
-        return;
-      }
-      // 인원수별 공개 속도: 소수는 한 명씩 여유 있게, 순서 전체(13명+)는 1위부터 빠르게 순차 공개
-      // 모둠은 한 모둠씩 400ms 간격 공개
-      const revealInterval =
-        payloadRef.current?.type === "group"
-          ? 400
-          : results.length <= 4
-            ? 450
-            : results.length <= 12
-              ? 300
-              : 120;
-      setPhase("revealing");
-      results.forEach((_, idx) => {
-        later(() => {
-          setRevealed(idx + 1);
-          playPop();
-        }, idx * revealInterval);
-      });
+      const pending = pendingRevealRef.current;
+      if (!pending) return;
+      pendingRevealRef.current = null;
+      startRevealRef.current(pending);
+    }, elapsed);
 
-      later(() => {
-        setPhase("done");
-        playFanfare();
-        setConfetti(
-          Array.from({ length: 80 }, (_, i) => ({
-            left: (i * 97) % 100,
-            delay: ((i * 13) % 40) / 100,
-            duration: 2.2 + ((i * 7) % 15) / 10,
-            color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-            size: 8 + ((i * 11) % 8),
-          }))
-        );
-      }, results.length * revealInterval + 200);
-    }, elapsed + 150);
+    // 관리 화면이 닫혀 있으면 응답이 없다. 조용히 멈추지 않고 알린다.
+    later(() => {
+      if (!awaitingRef.current) return;
+      awaitingRef.current = false;
+      setRollError("관리 화면에서 응답이 없습니다. /picks 화면을 열어 두세요.");
+      setPhase("ready");
+    }, elapsed + 2500);
   }, []);
 
-  // 3. 다시 뽑기 핸들러 (부모 창에 알림 및 로컬 재실행)
+  // 4. 다시 뽑기: 새 창을 열지 않고 같은 경로(셔플 모션 포함)로 다시 요청한다
   const handleRedraw = useCallback(() => {
-    try {
-      const channel = new BroadcastChannel("classroom_pick_sync");
-      channel.postMessage({ type: "REQUEST_REDRAW" });
-      channel.close();
-    } catch {
-      // ignore
-    }
-    // 부모 창 응답 전이라도 로컬 준비 상태로 즉시 복귀하여 바로 다시 시작 가능하도록 처리
-    setPhase("ready");
-    setRevealed(0);
-    setConfetti([]);
-  }, []);
+    startDraw();
+  }, [startDraw]);
 
   // 4. 단축키 (Space: 시작/다시뽑기, ESC: 닫기, F: 전체화면, M: 소리 켜기/끄기)
   useEffect(() => {
@@ -452,13 +508,14 @@ export default function PickWindowClient() {
     return (payload.seatCells ?? []).filter((c) => c.enabled);
   }, [payload]);
   const isSeatBoard = payload?.type === "seat" && seatCells.length > 0;
-  /** 섞는 중 자리별 표시 이름 덧씌우기 */
+  /** 섞는 중: 좌석 이름은 그대로 두고 좌표만 섞는다 (좌석이 실제로 이동한다) */
   const rollingSeatCells = useMemo(() => {
-    if (Object.keys(rollingSeatLabels).length === 0) return seatCells;
-    return seatCells.map((c) =>
-      rollingSeatLabels[c.key] !== undefined ? { ...c, label: rollingSeatLabels[c.key] } : c
-    );
-  }, [seatCells, rollingSeatLabels]);
+    if (Object.keys(rollingSeatPos).length === 0) return seatCells;
+    return seatCells.map((c) => {
+      const p = rollingSeatPos[c.key];
+      return p ? { ...c, x: p.x, y: p.y } : c;
+    });
+  }, [seatCells, rollingSeatPos]);
   /** 결과 공개: 앞줄부터 순서대로 공개, 나머지는 "?" */
   const revealSeatCells = useMemo(() => {
     let n = 0;
@@ -468,6 +525,17 @@ export default function PickWindowClient() {
       return n <= revealed ? c : { ...c, label: "?" };
     });
   }, [seatCells, revealed]);
+
+  // FLIP: 자리 섞기 시 좌석이 실제 좌표로 이동하도록 재생 (이름만 바뀌면 안 된다)
+  useLayoutEffect(() => {
+    if (phaseRef.current !== "rolling") return;
+    if (!isSeatBoard) return;
+    prevSeatPosRef.current = applyFlip(
+      seatCanvasRef.current,
+      prevSeatPosRef.current,
+      SEAT_CARD_BASE_TRANSFORM
+    );
+  }, [rollingSeatCells, isSeatBoard]);
 
   if (!payload) {
     return (
@@ -536,6 +604,11 @@ export default function PickWindowClient() {
               <p className="text-base sm:text-lg text-slate-400">
                 선생님께서 아래 <span className="text-indigo-400 font-bold">[추첨 시작]</span> 버튼을 누르면 시작됩니다.
               </p>
+              {rollError && (
+                <p className="text-sm font-bold text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-xl px-4 py-2 inline-block">
+                  {rollError}
+                </p>
+              )}
             </div>
 
             {/* 거대한 시작 버튼 */}
@@ -633,8 +706,8 @@ export default function PickWindowClient() {
           </div>
           ) : isSeatBoard ? (
             <div className="py-4 space-y-4 w-full animate-[scale-up_0.2s_ease-out]">
-              <div className="w-full max-w-6xl mx-auto">
-                <SeatMiniCanvas cells={rollingSeatCells} dark large hideGender />
+              <div ref={seatCanvasRef} className="w-full max-w-6xl mx-auto">
+                <SeatMiniCanvas cells={rollingSeatCells} dark large shuffleKeys />
               </div>
               <div className="flex items-center justify-center gap-2 text-base font-bold text-indigo-300 animate-pulse">
                 <Sparkles className="w-5 h-5" />
@@ -698,7 +771,7 @@ export default function PickWindowClient() {
               </div>
             ) : isSeatBoard ? (
               <div className="w-full max-w-6xl mx-auto p-2">
-                <SeatMiniCanvas cells={revealSeatCells} dark cardExtraClass={POP_ANIM} keyByLabel large hideGender />
+                <SeatMiniCanvas cells={revealSeatCells} dark cardExtraClass={POP_ANIM} keyByLabel large />
               </div>
             ) : (
             <div className={resultContainerClass(resultLayout)}>

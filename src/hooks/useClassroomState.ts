@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   ClassroomStudent,
   ClassroomRoutine,
@@ -15,6 +15,7 @@ import {
   SavedGroupPreset,
   SavedSeatPreset,
   SeatPresetConfig,
+  Homework,
 } from "@/types/classroom";
 import type { SeatCellState } from "@/types";
 import { calculateTax, DEFAULT_TAX_CONFIG } from "@/lib/taxEngine";
@@ -22,7 +23,7 @@ import { DEFAULT_BUNDLES } from "@/lib/defaultBundles";
 import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
 import { parsePinchHitters, parsePinchHitterDetails, serializePinchHitters, resolveStudentName, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
-import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
+import { countStudentRoutinePaid } from "@/lib/routinePayStatus";
 
 export interface ClassroomStateOptions {
   initialCurrencyName?: string;
@@ -52,6 +53,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const [fontSize, setFontSize] = useState<NoticeFontSize>("42");
   const [freeCards, setFreeCards] = useState<FreeCardData[]>([DEFAULT_NOTICE_CARD]);
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
+  /** 학생 과제 (숙제 제출 관리) */
+  const [homeworks, setHomeworks] = useState<Homework[]>([]);
+  /** 칠판(알림장)에 미제출자 요소로 표시 중인 과제 id 목록 */
+  const [boardHomeworkIds, setBoardHomeworkIds] = useState<string[]>([]);
 
   // Toast message state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -141,6 +146,10 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       setFreeCards([{ ...DEFAULT_NOTICE_CARD, html: parsed.noticeText }]);
     }
     if (parsed.layouts) setLayouts(parsed.layouts as BoardElementLayouts);
+    if (Array.isArray(parsed.homeworks)) setHomeworks(parsed.homeworks as Homework[]);
+    if (Array.isArray(parsed.boardHomeworkIds)) {
+      setBoardHomeworkIds((parsed.boardHomeworkIds as string[]).filter((id) => typeof id === "string"));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -224,6 +233,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       freeCards,
       noticeTarget,
       layouts,
+      homeworks,
+      boardHomeworkIds,
     };
     const json = JSON.stringify(payload);
 
@@ -258,6 +269,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         layouts,
         ledgerHistory,
         undoneLedgerHistory,
+        homeworks,
+        boardHomeworkIds,
       });
       channel.close();
     } catch { /* noop */ }
@@ -291,6 +304,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     freeCards,
     noticeTarget,
     layouts,
+    // 과제 상태도 반드시 함께 관찰해야 저장된다.
+    // 빠뜨리면 과제를 등록/수정해도 effect가 다시 돌지 않아
+    // localStorage에 기록되지 않고, 다시 들어오면 초기화돼 보인다.
+    homeworks,
+    boardHomeworkIds,
   ]);
 
   const updateLayouts = useCallback(
@@ -505,6 +523,125 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     },
     []
   );
+
+  // 0. Homework Actions (숙제 제출 관리)
+  const addHomework = useCallback((hw: Omit<Homework, "id" | "createdAt" | "submitted" | "exempt">) => {
+    const now = new Date();
+    const createdAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    setHomeworks((prev) => [
+      { ...hw, id: `hw-${Date.now()}`, createdAt, submitted: [], exempt: [] },
+      ...prev,
+    ]);
+  }, []);
+
+  const updateHomework = useCallback((id: string, patch: Partial<Homework>) => {
+    setHomeworks((prev) =>
+      prev.map((h) => {
+        if (h.id !== id) return h;
+        // 마감일을 고치면 수동 완료 표시를 해제해 새 마감일로 완료/진행 중을 재판정한다.
+        // (완료 탭에 있는 과제의 마감일을 미래로 옮기면 다시 진행 중으로 돌아간다)
+        const dueChanged =
+          patch.dueDate !== undefined && patch.dueDate !== h.dueDate && patch.status === undefined;
+        if (!dueChanged) return { ...h, ...patch };
+        const { status: _ignored, ...rest } = patch;
+        return { ...h, ...rest, status: undefined };
+      })
+    );
+  }, []);
+
+  /** 과제에서 한 학생의 제출 상태 토글 */
+  const toggleHomeworkSubmitted = useCallback((id: string, studentName: string) => {
+    setHomeworks((prev) =>
+      prev.map((h) =>
+        h.id === id
+          ? {
+              ...h,
+              submitted: h.submitted.includes(studentName)
+                ? h.submitted.filter((n) => n !== studentName)
+                : [...h.submitted, studentName],
+            }
+          : h
+      )
+    );
+  }, []);
+
+  /** 과제 제출 대상에서 한 학생 제외/복원 */
+  const toggleHomeworkExempt = useCallback((id: string, studentName: string) => {
+    setHomeworks((prev) =>
+      prev.map((h) =>
+        h.id === id
+          ? {
+              ...h,
+              exempt: h.exempt.includes(studentName)
+                ? h.exempt.filter((n) => n !== studentName)
+                : [...h.exempt, studentName],
+              // 제외한 학생은 제출 목록에서도 제거 (대상 복원 시 자동 재판정)
+              submitted: h.exempt.includes(studentName)
+                ? h.submitted
+                : h.submitted.filter((n) => n !== studentName),
+            }
+          : h
+      )
+    );
+  }, []);
+
+  /** 알림장 글상자 표시 바에서 칠판 표시로 올리기 (기본 위치 자동 배치) */
+  const addBoardHomework = useCallback((id: string) => {
+    setHomeworks((prev) => {
+      const next = prev.filter((h) => h.id === id).length;
+      if (next === 0) return prev;
+      const idx = prev.findIndex((h) => h.id === id);
+      const target = prev[idx];
+      // 위치가 이미 있으면 유지하고, 없을 때만 기본값을 준다
+      if (target.left && target.top) return prev;
+      return prev.map((h) =>
+        h.id === id
+          ? {
+              ...h,
+              width: h.width || "30%",
+              height: h.height || "19%",
+              left: h.left || `${3 + (next % 3) * 32}%`,
+              top: h.top || `${78 + (next % 2) * 4}%`,
+            }
+          : h
+      );
+    });
+    setBoardHomeworkIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  /** 칠판에 표시할 과제 목록 (마감/완료 과제는 렌더 단계에서 걸러짐) */
+  const boardHomeworks = useMemo(
+    () => homeworks.filter((h) => boardHomeworkIds.includes(h.id)),
+    [homeworks, boardHomeworkIds]
+  );
+
+  /** 과제 제출 대상(전체 - 제외)을 한 번에 제출 / 해제 */
+  const setAllHomeworkSubmitted = useCallback((id: string, value: boolean) => {
+    setHomeworks((prev) =>
+      prev.map((h) => {
+        if (h.id !== id) return h;
+        const exempt = new Set(h.exempt);
+        const targets = students.filter((s) => !exempt.has(s.name)).map((s) => s.name);
+        if (value) {
+          // 대상 전원을 제출 처리 (제외 대상은 제출 목록에 들어가지 않는다)
+          return { ...h, submitted: targets };
+        }
+        // 해제: 대상 학생만 초기화하고 제외 대상 기록은 건드리지 않는다
+        const targetSet = new Set(targets);
+        return { ...h, submitted: h.submitted.filter((n) => !targetSet.has(n)) };
+      })
+    );
+  }, [students]);
+
+  const deleteHomework = useCallback((id: string) => {
+    setHomeworks((prev) => prev.filter((h) => h.id !== id));
+    setBoardHomeworkIds((prev) => prev.filter((x) => x !== id));
+  }, []);
+
+  /** 칠판에서 미제출자 요소를 내림 (과제 자체는 유지) */
+  const removeBoardHomework = useCallback((id: string) => {
+    setBoardHomeworkIds((prev) => prev.filter((x) => x !== id));
+  }, []);
 
   // 1. Student Actions
   const addStudents = useCallback(
@@ -1107,50 +1244,63 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
       const netPay = Math.max(0, r.pay - taxPerWorker);
 
-      // 이미 해당 주기(오늘 등)에 지급받은 학생 제외
-      const payableWorkers = targetWorkers.filter(
-        (wName) => !checkStudentRoutinePaid(r, wName, ledgerHistory).isPaid
-      );
-      const alreadyPaidWorkers = targetWorkers.filter(
-        (wName) => checkStudentRoutinePaid(r, wName, ledgerHistory).isPaid
-      );
+      // 대타 중복 등 한 명이 여러 몫을 맡으면 그 횟수만큼 중복 지급.
+      // 이미 받은 횟수(같은 주기 장부 기록 수)를 뺀 나머지만 지급한다.
+      const rosterNames = new Set(students.map((s) => s.name));
+      const occurrences = new Map<string, number>();
+      for (const wName of targetWorkers) {
+        if (!rosterNames.has(wName)) continue;
+        occurrences.set(wName, (occurrences.get(wName) ?? 0) + 1);
+      }
+      const payPlan: { name: string; times: number }[] = [];
+      const alreadyPaidWorkers: string[] = [];
+      occurrences.forEach((count, name) => {
+        const priorCount = countStudentRoutinePaid(r, name, ledgerHistory);
+        const times = Math.max(0, count - priorCount);
+        if (times > 0) payPlan.push({ name, times });
+        else alreadyPaidWorkers.push(name);
+      });
 
-      if (payableWorkers.length === 0) {
+      if (payPlan.length === 0) {
         showToast(`[급여 지급] ${r.name} 당번(${targetWorkers.join(", ")})이 이미 모두 급여를 받았습니다.`);
         return;
       }
 
-      const paidNames: string[] = [];
+      const payTimesByName = new Map(payPlan.map((p) => [p.name, p.times]));
       setStudents((prev) =>
         prev.map((s) => {
-          if (payableWorkers.includes(s.name)) {
-            paidNames.push(s.name);
-            return { ...s, balance: s.balance + netPay };
+          const times = payTimesByName.get(s.name);
+          if (times) {
+            return { ...s, balance: s.balance + netPay * times };
           }
           return s;
         })
       );
 
-      const totalTaxCollectedNow = taxPerWorker * paidNames.length;
+      const totalPayTimes = payPlan.reduce((n, p) => n + p.times, 0);
+      const totalTaxCollectedNow = taxPerWorker * totalPayTimes;
       if (totalTaxCollectedNow > 0) {
         setTreasuryBalance((prev) => prev + totalTaxCollectedNow);
         setTotalTaxCollected((prev) => prev + totalTaxCollectedNow);
       }
 
-      for (const name of paidNames) {
-        addLedgerEntry(
-          "입금",
-          "학급 국고",
-          name,
-          name,
-          `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
-          r.pay,
-          taxPerWorker,
-          [name]
-        );
+      for (const p of payPlan) {
+        for (let i = 0; i < p.times; i++) {
+          addLedgerEntry(
+            "입금",
+            "학급 국고",
+            p.name,
+            p.name,
+            `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
+            r.pay,
+            taxPerWorker,
+            [p.name]
+          );
+        }
       }
+      const paidDisplay = payPlan.map((p) => (p.times > 1 ? `${p.name} ${p.times}회분` : p.name));
       showToast(
-        `[급여 지급] ${r.name} 담당 ${paidNames.join(", ")}에게 실지급 ${netPay.toLocaleString()} ${currencyName}${
+        `[급여 지급] ${r.name} 담당 ${paidDisplay.join(", ")}에게 실지급 ${netPay.toLocaleString()} ${currencyName}${
           taxPerWorker > 0 ? ` (세금 ${taxPerWorker.toLocaleString()} ${currencyName} 원천징수)` : ""
         } 지급 완료${alreadyPaidWorkers.length > 0 ? ` (이미 지급된 ${alreadyPaidWorkers.join(", ")} 제외)` : ""}`
       );
@@ -1178,12 +1328,19 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         for (const r of payable) {
           const targetWorkers = getActiveRoutineWorkers(r, students, false);
 
-          // 이미 지급된 당번 제외
-          const unpaidWorkers = targetWorkers.filter(
-            (wName) => !checkStudentRoutinePaid(r, wName, ledgerHistory).isPaid
-          );
-          totalExcludedCount += (targetWorkers.length - unpaidWorkers.length);
-          if (unpaidWorkers.length === 0) continue;
+          // 대타 중복 등 한 명이 여러 몫을 맡으면 그 횟수만큼 중복 지급
+          const occurrences = new Map<string, number>();
+          for (const wName of targetWorkers) {
+            occurrences.set(wName, (occurrences.get(wName) ?? 0) + 1);
+          }
+          const payPlan = new Map<string, number>();
+          occurrences.forEach((count, name) => {
+            const priorCount = countStudentRoutinePaid(r, name, ledgerHistory);
+            const times = Math.max(0, count - priorCount);
+            totalExcludedCount += count - times;
+            if (times > 0) payPlan.set(name, times);
+          });
+          if (payPlan.size === 0) continue;
 
           const taxPerWorker = shouldDeductTax ? calculateTax("income", r.pay, taxConfig) : 0;
           const netPay = Math.max(0, r.pay - taxPerWorker);
@@ -1191,20 +1348,23 @@ export function useClassroomState(options?: ClassroomStateOptions) {
           let countForRoutine = 0;
           for (let i = 0; i < nextStudents.length; i++) {
             const s = nextStudents[i];
-            if (unpaidWorkers.includes(s.name)) {
-              nextStudents[i] = { ...s, balance: s.balance + netPay };
-              totalTaxCollectedNow += taxPerWorker;
+            const times = payPlan.get(s.name);
+            if (times) {
+              nextStudents[i] = { ...s, balance: s.balance + netPay * times };
+              totalTaxCollectedNow += taxPerWorker * times;
               countForRoutine++;
-              addLedgerEntry(
-                "입금",
-                "학급 국고",
-                s.name,
-                s.name,
-                `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
-                r.pay,
-                taxPerWorker,
-                [s.name]
-              );
+              for (let k = 0; k < times; k++) {
+                addLedgerEntry(
+                  "입금",
+                  "학급 국고",
+                  s.name,
+                  s.name,
+                  `${r.name} 당번 급여 (${r.payCycle || "1회"})`,
+                  r.pay,
+                  taxPerWorker,
+                  [s.name]
+                );
+              }
             }
           }
           if (countForRoutine > 0) {
@@ -1645,6 +1805,18 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     layouts,
     setLayouts,
     updateLayouts,
+    homeworks,
+    boardHomeworkIds,
+    setBoardHomeworkIds,
+    boardHomeworks,
+    addBoardHomework,
+    addHomework,
+    updateHomework,
+    toggleHomeworkSubmitted,
+    toggleHomeworkExempt,
+    setAllHomeworkSubmitted,
+    deleteHomework,
+    removeBoardHomework,
     toastMessage,
     showToast,
     addStudents,

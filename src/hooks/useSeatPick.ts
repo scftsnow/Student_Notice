@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
-import type { PickStudent, SeatAvoidGroup, SeatCellState, SeatConfig } from "@/types";
+import { useState } from "react";
+import type { PickStudent, SeatCellState, SeatConfig } from "@/types";
 import { buildSeatCells, autoAssignSeats } from "@/lib/pickRandom";
 import { ensureFreeCoords, isVersionedSeatDoc, normalizeSeatCell } from "@/lib/seatFree";
+import { useAvoidGroups, AVOID_GROUPS_STORAGE_KEY } from "./useAvoidGroups";
+
+export { SEAT_AVOID_STORAGE_KEY } from "./useAvoidGroups";
 
 const DEFAULT_CONFIG: SeatConfig = {
   divisions: 3,
@@ -50,36 +53,6 @@ function persistGridConfig(config: SeatConfig): void {
   }
 }
 
-/** 만나지 말아야 할 학생 그룹 저장 키. */
-export const SEAT_AVOID_STORAGE_KEY = "classroom_seat_avoid_groups";
-
-/** 저장된 분리 그룹 읽기 (형식 검증 포함). */
-function loadAvoidGroups(): SeatAvoidGroup[] {
-  try {
-    const raw = localStorage.getItem(SEAT_AVOID_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    const out: SeatAvoidGroup[] = [];
-    for (const item of parsed) {
-      if (typeof item !== "object" || item === null) continue;
-      const r = item as Record<string, unknown>;
-      if (typeof r.id !== "string") continue;
-      const members = Array.isArray(r.members)
-        ? Array.from(new Set(r.members.filter((m): m is string => typeof m === "string")))
-        : [];
-      out.push({
-        id: r.id,
-        mode: r.mode === "around" ? "around" : "side",
-        members,
-      });
-    }
-    return out;
-  } catch {
-    return [];
-  }
-}
-
 /**
  * cellsJson 파싱용 정규화. v1(배열) / v2(봉투) 모두 수용.
  * x/y 누락분은 격자 위치에서 유도한 % 좌표로 채워 항상 자유 좌표로 반환.
@@ -100,26 +73,32 @@ export function useSeatPick() {
   const [config, setConfig] = useState<SeatConfig>(loadInitialConfig);
   const [cells, setCells] = useState<SeatCellState[]>([]);
   const [error, setError] = useState("");
-  const [avoidGroups, setAvoidGroups] = useState<SeatAvoidGroup[]>(loadAvoidGroups);
+  const {
+    avoidGroups,
+    addAvoidGroup,
+    deleteAvoidGroup,
+    updateAvoidGroupMode,
+    addAvoidMember,
+    removeAvoidMember,
+  } = useAvoidGroups(AVOID_GROUPS_STORAGE_KEY);
 
-  // 분리 그룹 변경 시 즉시 저장
-  useEffect(() => {
-    try {
-      localStorage.setItem(SEAT_AVOID_STORAGE_KEY, JSON.stringify(avoidGroups));
-    } catch {
-      // ignore
-    }
-  }, [avoidGroups]);
+  /**
+   * 손으로 직접 앉힌 학생 id 집합 (자동 배치 결과와 구분).
+   * 랜덤 배치는 이 집합에 없는 학생만 다시 뽑고, 직접 앉힌 학생은 유지한다.
+   * (autoAssignSeats가 "이미 배치된 학생은 유지"로 동작하므로 이 구분이 필수)
+   */
+  const [manualIds, setManualIds] = useState<Set<string>>(() => new Set());
 
   const patchConfig = (patch: Partial<SeatConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
   };
 
-  /** 선택 인원수에 맞춰 빈 자리 틀 생성 */
+  /** 빈 자리 틀 생성 (수동 배치 기록도 초기화) */
   const buildCells = (studentCount: number): boolean => {
     setError("");
     try {
       setCells(buildSeatCells(config, studentCount));
+      setManualIds(new Set());
       persistGridConfig(config);
       return true;
     } catch (err: unknown) {
@@ -128,7 +107,10 @@ export function useSeatPick() {
     }
   };
 
-  /** 랜덤 배치 (배치된 학생은 유지, 빈자리에만 미배치 학생 채움). 성공 시 새 셀 배열, 실패 시 null */
+  /**
+   * 랜덤 배치. 수동으로 앉힌 학생은 그대로 두고, 나머지는 비워서 다시 뽑는다.
+   * (지난번 자동 배치 결과가 "고정"으로 취급되어 결과가 안 바뀌는 문제 방지)
+   */
   const randomAssign = (students: PickStudent[]): SeatCellState[] | null => {
     setError("");
     if (cells.length === 0) {
@@ -136,7 +118,12 @@ export function useSeatPick() {
       return null;
     }
     try {
-      const next = autoAssignSeats(cells, students, config.fillFrom, config.genderMode, avoidGroups);
+      const cleared = cells.map((c) =>
+        c.studentId && !manualIds.has(c.studentId)
+          ? { ...c, studentId: null, fixedStudentId: null }
+          : c
+      );
+      const next = autoAssignSeats(cleared, students, config.fillFrom, config.genderMode, avoidGroups);
       setCells(next);
       return next;
     } catch (err: unknown) {
@@ -147,6 +134,7 @@ export function useSeatPick() {
 
   const clearAssign = () => {
     setCells((prev) => prev.map((c) => ({ ...c, studentId: null, fixedStudentId: null })));
+    setManualIds(new Set());
   };
 
   /** 빈 셀 클릭: 열고/닫기. 찬 셀 클릭: 배치 지우기 */
@@ -158,6 +146,14 @@ export function useSeatPick() {
         return { ...c, enabled: !c.enabled };
       })
     );
+    // 수동으로 지운 학생은 더 이상 고정 취급하지 않음
+    setManualIds((prev) => {
+      const target = cells.find((c) => c.key === key)?.studentId;
+      if (!target || !prev.has(target)) return prev;
+      const next = new Set(prev);
+      next.delete(target);
+      return next;
+    });
   };
 
   /** 우클릭: 성별 지정 순환 (없음 → 남 → 여 → 없음) */
@@ -172,7 +168,7 @@ export function useSeatPick() {
     );
   };
 
-  /** 학생 풀에서 셀로 드래그: 해당 자리에 고정 배치 (배치되면 고정 취급) */
+  /** 학생 풀에서 셀로 드래그: 해당 자리에 고정 배치 (이후 랜덤 배치에서도 유지) */
   const dropStudentOnCell = (cellKey: string, studentId: string) => {
     setCells((prev) => {
       const without = prev.map((c) =>
@@ -185,9 +181,10 @@ export function useSeatPick() {
         return { ...c, studentId, fixedStudentId: null };
       });
     });
+    setManualIds((prev) => new Set(prev).add(studentId));
   };
 
-  /** 셀 간 드래그: 학생 교환 */
+  /** 셀 간 드래그: 학생 교환 (교환된 양쪽 모두 이후 랜덤 배치에서 유지) */
   const moveCell = (fromKey: string, toKey: string) => {
     if (fromKey === toKey) return;
     setCells((prev) => {
@@ -200,21 +197,37 @@ export function useSeatPick() {
         return c;
       });
     });
+    setManualIds((prev) => {
+      const from = cells.find((c) => c.key === fromKey)?.studentId;
+      const to = cells.find((c) => c.key === toKey)?.studentId;
+      const next = new Set(prev);
+      if (from) next.add(from);
+      if (to) next.add(to);
+      return next;
+    });
   };
 
   const clearCell = (key: string) => {
     setCells((prev) =>
       prev.map((c) => (c.key === key ? { ...c, studentId: null, fixedStudentId: null } : c))
     );
+    setManualIds((prev) => {
+      const target = cells.find((c) => c.key === key)?.studentId;
+      if (!target || !prev.has(target)) return prev;
+      const next = new Set(prev);
+      next.delete(target);
+      return next;
+    });
   };
 
-  /** 저장된 틀/결과 불러오기 (배치 포함). 형식 오류 시 false */
+  /** 저장된 틀/결과 불러오기 (배치 포함). 불러온 배치는 유지 취급. 형식 오류 시 false */
   const loadCellsJson = (cellsJson: string): boolean => {
     setError("");
     try {
       const cells = normalizeCells(JSON.parse(cellsJson));
       if (!cells || cells.length === 0) throw new Error("invalid");
       setCells(cells);
+      setManualIds(new Set(cells.map((c) => c.studentId).filter((id): id is string => id !== null)));
       return true;
     } catch {
       setError("저장된 자리 데이터를 읽지 못했습니다.");
@@ -246,6 +259,10 @@ export function useSeatPick() {
         return { ...c, studentId, fixedStudentId };
       });
       setCells(cleaned);
+      // 불러온 배치는 유지 취급 (명단에서 빠진 학생은 제외)
+      setManualIds(
+        new Set(cleaned.map((c) => c.studentId).filter((id): id is string => id !== null))
+      );
       return { dropped };
     } catch {
       setError("저장된 자리 데이터를 읽지 못했습니다.");
@@ -261,39 +278,6 @@ export function useSeatPick() {
   };
 
   const placedCount = cells.filter((c) => c.studentId !== null).length;
-
-  /** 분리 그룹 추가 (빈 그룹 반환 후 편집은 호출자가). */
-  const addAvoidGroup = (): string => {
-    const id = `avoid-${Date.now()}`;
-    setAvoidGroups((prev) => [...prev, { id, mode: "side", members: [] }]);
-    return id;
-  };
-
-  const deleteAvoidGroup = (id: string) => {
-    setAvoidGroups((prev) => prev.filter((g) => g.id !== id));
-  };
-
-  const updateAvoidGroupMode = (id: string, mode: "side" | "around") => {
-    setAvoidGroups((prev) => prev.map((g) => (g.id === id ? { ...g, mode } : g)));
-  };
-
-  const addAvoidMember = (id: string, studentId: string) => {
-    setAvoidGroups((prev) =>
-      prev.map((g) =>
-        g.id === id && !g.members.includes(studentId)
-          ? { ...g, members: [...g.members, studentId] }
-          : g
-      )
-    );
-  };
-
-  const removeAvoidMember = (id: string, studentId: string) => {
-    setAvoidGroups((prev) =>
-      prev.map((g) =>
-        g.id === id ? { ...g, members: g.members.filter((m) => m !== studentId) } : g
-      )
-    );
-  };
 
   return {
     config,

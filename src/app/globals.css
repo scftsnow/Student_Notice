@@ -68,7 +68,77 @@
 }
 @font-face {
   font-family: 'BMJUA';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/BMJUA.woff') format('woff');
+  src: url('/fonts/BMJUA.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMHANNAPro';
+  src: url('/fonts/BMHANNAPro.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMHANNA11yrs';
+  src: url('/fonts/BMHANNA11yrs.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMHANNAAir';
+  src: url('/fonts/BMHANNAAir.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMDOHYEON';
+  src: url('/fonts/BMDOHYEON.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMEULJIRO';
+  src: url('/fonts/BMEULJIRO.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMEuljiro10YearsLater';
+  src: url('/fonts/BMEuljiro10YearsLater.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMEuljiroOraeOrae';
+  src: url('/fonts/BMEuljiroOraeOrae.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMKIRANGHAERANG';
+  src: url('/fonts/BMKIRANGHAERANG.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMKkubulim';
+  src: url('/fonts/BMKkubulim.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'BMYEONSUNG';
+  src: url('/fonts/BMYEONSUNG.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -159,8 +229,49 @@ body {
   user-select: none !important;
 }
 
-/* 자리 배치 인쇄: 자리판(data-seat-print)만 용지에 출력, 색상 유지 */
+/* 자리 배치 인쇄: 자리판(data-seat-print)만 용지 좌상단에 1장으로 출력, 색상 유지
+ *
+ * 용지: A4 가로 + 8mm 여백 -> 본문 폭 281mm(약 1062px @96dpi), 본문 높이 194mm(약 733px)
+ * 자리판은 가로로 긴 배치(5열)라 A4 세로(본문 폭 733px)보다 가로 용지가 어울리고,
+ * 잘리는 열 없이 원본 크기 그대로 들어간다.
+ *
+ * 1) 좌표 기준
+ *    예전에는 position: absolute였는데, 좌표는 가장 가까운 positioned 조상 기준이다.
+ *    자리판 조상(SeatPickPanel의 min-w-0 relative)이 relative라서
+ *    자리판이 "페이지 좌상단"이 아니라 "그 조상의 좌상단"(네비+헤더+설정바 아래쪽)에 놓여
+ *    용지 상단이 비고 내용이 아래로 몰렸다. position: fixed면 인쇄에서 페이지 영역(용지 여백 안쪽)
+ *    좌상단이 컨테이닝 블록이 되므로 조상 offset과 무관하게 좌상단에 붙는다.
+ *
+ * 2) 크기 — 미리보기와 "똑같이" 인쇄한다
+ *    자리 카드는 좌표가 %가 아니라 화면에서 측정한 캔버스 폭 기준 절대 px이다
+ *    (SeatGrid의 size.w/centerToTopLeft). 그래서 인쇄 폭을 강제로 좁히면 배치가 따라오지 않고,
+ *    반대로 용지 폭까지 늘리면 카드 우측에 여백만 남는다.
+ *    예전에는 기준 폭 1000px + scale(0.73) 으로 용지에 맞췄는데, 그 결과
+ *    미리보기보다 작게 인쇄되어 용지 아래쪽이 비었다.
+ *    -> 축소는 걷어내고, 폭은 SeatGrid가 넘긴 실제 캔버스 폭(--seat-canvas-w) 그대로 쓴다.
+ *       그러면 인쇄 캔버스 폭이 화면과 같아져 여백·축소가 모두 생기지 않는다.
+ *
+ * 3) 빈 페이지 방지
+ *    visibility:hidden은 레이아웃을 그대로 남겨 문서 높이가 화면 페이지 높이로 유지된다.
+ *    자리판이 없는 요소는 display:none으로 레이아웃까지 없앤다(:has 미지원 브라우저에서는
+ *    위 visibility 규칙이 그대로 동작하는 폴백).
+ */
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
 @media print {
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 자리판만 노출 (비 [:has()] 지원 브라우저용 폴백) */
   body * {
     visibility: hidden;
   }
@@ -168,11 +279,26 @@ body {
   [data-seat-print] * {
     visibility: visible;
   }
+
+  /* 자리판을 담지 않는 요소는 레이아웃까지 제거 -> 상단 여백과 빈 페이지가 사라짐 */
+  body *:not([data-seat-print]):not([data-seat-print] *):not(:has([data-seat-print])) {
+    display: none;
+  }
+
   [data-seat-print] {
-    position: absolute;
-    left: 0;
+    position: fixed;
     top: 0;
-    width: 100%;
+    left: 0;
+    /* 자리판 폭 = 화면에서 실제로 측정된 자리판 자신의 폭.
+       카드 좌표가 화면 측정 px이라 인��� 폭이 이 값과 같아야
+       인쇄에서만 우측 여백이 생기지 않는다(용지 폭으로 늘리면 뒤가 비게 된다).
+       SeatGrid가 --seat-board-w 로 실제 offsetWidth 를 넘겨준다. */
+    width: var(--seat-board-w, 100%);
+    /* 축소하지 않는다 — 미리보기와 같은 크기로 인쇄한다 */
+    transform: none;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

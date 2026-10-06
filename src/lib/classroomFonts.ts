@@ -7,6 +7,78 @@ export interface ClassroomFont {
 }
 
 export const CLASSROOM_FONTS: ClassroomFont[] = [
+  // 0. 배달의민족 BM 시리즈 (로컬 내장) — 한나 3종 맨 앞 (목록 순서 유지)
+  {
+    id: "bm-hanna-pro",
+    name: "배달의민족 한나 Pro",
+    family: "'BMHANNAPro', sans-serif",
+    category: "제목",
+    desc: "교실 기본 추천 — 둥글고 또렷한 한나 대표체 (로컬 내장)",
+  },
+  {
+    id: "bm-hanna-11yrs",
+    name: "배달의민족 한나 11년",
+    family: "'BMHANNA11yrs', sans-serif",
+    category: "제목",
+    desc: "한나 11주년 기념체 (로컬 내장)",
+  },
+  {
+    id: "bm-hanna-air",
+    name: "배달의민족 한나 Air",
+    family: "'BMHANNAAir', sans-serif",
+    category: "제목",
+    desc: "가볍고 시원한 한나 라이트체 (로컬 내장)",
+  },
+  {
+    id: "bm-dohyeon",
+    name: "배달의민족 도현",
+    family: "'BMDOHYEON', sans-serif",
+    category: "제목",
+    desc: "굵고 시원한 직선 제목체 (로컬 내장)",
+  },
+  {
+    id: "bm-euljiro",
+    name: "배달의민족 을지로",
+    family: "'BMEULJIRO', sans-serif",
+    category: "제목",
+    desc: "을지로 간판 감성의 레트로 제목체 (로컬 내장)",
+  },
+  {
+    id: "bm-euljiro-10yrs",
+    name: "배달의민족 을지로 10년후",
+    family: "'BMEuljiro10YearsLater', sans-serif",
+    category: "제목",
+    desc: "을지로 10년후 버전 제목체 (로컬 내장)",
+  },
+  {
+    id: "bm-euljiro-oraeorae",
+    name: "배달의민족 을지로 오래오래",
+    family: "'BMEuljiroOraeOrae', sans-serif",
+    category: "제목",
+    desc: "을지로 오래오래 버전 제목체 (로컬 내장)",
+  },
+  {
+    id: "bm-kiranghaerang",
+    name: "배달의민족 기랑해랑",
+    family: "'BMKIRANGHAERANG', sans-serif",
+    category: "학교/손글씨",
+    desc: "기랑해랑 손글씨 감성 교실체 (로컬 내장)",
+  },
+  {
+    id: "bm-kkubulim",
+    name: "배달의민족 꾸불림",
+    family: "'BMKkubulim', sans-serif",
+    category: "학교/손글씨",
+    desc: "꾸불꾸불 귀여운 손글씨체 (로컬 내장)",
+  },
+  {
+    id: "bm-yeonsung",
+    name: "배달의민족 연성",
+    family: "'BMYEONSUNG', sans-serif",
+    category: "학교/손글씨",
+    desc: "부드럽고 정겨운 손글씨체 (로컬 내장)",
+  },
+
   // 1. 고딕 / 기본 본문 (최고 가독성)
   {
     id: "pretendard",
@@ -119,11 +191,12 @@ export const CLASSROOM_FONTS: ClassroomFont[] = [
     name: "배달의민족 주아",
     family: "'BMJUA', sans-serif",
     category: "제목",
-    desc: "둥글둥글 친근하여 초등 교실 인기 서체",
+    desc: "둥글둥글 친근하여 초등 교실 인기 서체 (로컬 내장)",
   },
 ];
 
-export const DEFAULT_CLASSROOM_FONT = CLASSROOM_FONTS[0]; // Pretendard
+export const DEFAULT_CLASSROOM_FONT =
+  CLASSROOM_FONTS.find((f) => f.id === "nanum-square-round") ?? CLASSROOM_FONTS[0]; // 나눔스퀘어 라운드 (기본값, 목록 순서는 한나 맨 앞 유지)
 
 export function getFontFamilyById(id: string): string {
   const font = CLASSROOM_FONTS.find((f) => f.id === id || f.family === id || f.name === id);

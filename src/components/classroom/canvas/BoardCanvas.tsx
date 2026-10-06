@@ -7,13 +7,16 @@ import FreeCardItem from "./FreeCardItem";
 import RoutineElementInCanvas from "./RoutineElementInCanvas";
 import CanvasClock from "./CanvasClock";
 import CanvasAccountIcon from "./CanvasAccountIcon";
+import HomeworkBoardCard from "@/components/classroom/homework/HomeworkBoardCard";
 import { RESIZE_ENABLE, RESIZE_HANDLES } from "./CanvasResizeHandles";
 import {
   BoardTheme, NoticeFontSize, ClassroomRoutine,
   ClassroomStudent, FreeCardData, BoardElementLayouts,
-  BoardTargetElement, TaxConfig, LedgerRecord,
+  BoardTargetElement, TaxConfig, LedgerRecord, Homework,
 } from "@/types/classroom";
+import { resolveHomeworkStatus } from "@/types/classroom";
 import { DEFAULT_LAYOUTS, isBoxVisibleToday } from "@/lib/boardDefaults";
+import { homeworkUnsubmitted } from "@/types/classroom";
 import { FALLBACK_FONT_FAMILY } from "@/lib/defaultFont";
 import { parsePercent, makeDragSaveHandler, makeResizeSaveHandler, selectedBorderClass } from "@/lib/canvasUtils";
 
@@ -51,6 +54,20 @@ interface BoardCanvasProps {
   taxConfig?: TaxConfig;
   ledgerHistory?: LedgerRecord[];
   onUndoLedgerEntry?: (id?: number | string) => void;
+  /** 칠판에 표시할 진행 중 과제 (미제출자 요소) */
+  boardHomeworks?: Homework[];
+  /** 전체 과제 (일괄 적용 대상. 칠판에 아직 못 박힌 과제도 함께 맞춰 준다) */
+  allHomeworks?: Homework[];
+  onUpdateHomework?: (id: string, patch: Partial<Homework>) => void;
+  onRemoveBoardHomework?: (id: string) => void;
+}
+
+/** 칠판에서 실제 렌더할 과제만 골라낸다 (마감/수동 완료 제외) */
+function filterActiveHomeworks(
+  list: Homework[],
+  todayStr: string
+): Homework[] {
+  return list.filter((h) => resolveHomeworkStatus(h, todayStr) === "ACTIVE");
 }
 
 export default function BoardCanvas({
@@ -62,8 +79,14 @@ export default function BoardCanvas({
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight, onCurrentFontFamily,
   showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
   previewScale = 75, taxConfig, ledgerHistory, onUndoLedgerEntry,
+  boardHomeworks = [], allHomeworks, onUpdateHomework, onRemoveBoardHomework,
 }: BoardCanvasProps) {
   const [liveDateStr, setLiveDateStr] = useState("");
+  /** 오늘 날짜 (YYYY-MM-DD) — 마감 지난 과제 자동 제외용 */
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
   const [internalLayouts, setInternalLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
   const layouts = externalLayouts ?? internalLayouts;
   const parentRef = useRef<HTMLDivElement>(null);
@@ -181,6 +204,11 @@ export default function BoardCanvas({
       if (onUpdateRoutine) {
         routines.forEach((r) => onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } }));
       }
+      // 과제 요소도 함께 일괄 적용한다 (빠지면 '다른 요소는 바뀌고 과제만 안 바뀐다'로 보인다)
+      const hwTargets = allHomeworks?.length ? allHomeworks : boardHomeworks;
+      if (onUpdateHomework) {
+        hwTargets.forEach((h) => onUpdateHomework(h.id, { layout: { ...h.layout, ...stylePatch } }));
+      }
     } else if (target === "routineBox") {
       if (onUpdateRoutine) {
         routines.forEach((r) => onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } }));
@@ -191,8 +219,12 @@ export default function BoardCanvas({
     } else if (target.startsWith("routine-") && onUpdateRoutine) {
       const r = routines.find((item) => item.id === target);
       if (r) onUpdateRoutine(r.id, { layout: { ...r.layout, ...stylePatch } });
+    } else if (target.startsWith("hw-") && onUpdateHomework) {
+      // 과제 미제출자 요소에도 대상 서식을 적용한다 (업무 요소와 동일)
+      const hw = boardHomeworks.find((h) => h.id === target);
+      if (hw) onUpdateHomework(hw.id, { layout: { ...hw.layout, ...stylePatch } });
     }
-  }, [appliedStyle, updateLayouts, freeCards, routines, onUpdateFreeCard, onUpdateRoutine]);
+  }, [appliedStyle, updateLayouts, freeCards, routines, boardHomeworks, allHomeworks, onUpdateFreeCard, onUpdateRoutine, onUpdateHomework]);
 
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
@@ -211,8 +243,12 @@ export default function BoardCanvas({
       const r = routines.find((item) => item.id === targetElement);
       return r?.layout?.fontSize || layouts.routineBox.fontSize || fontPxCurrent;
     }
+    if (targetElement && targetElement.startsWith("hw-")) {
+      const hw = boardHomeworks.find((h) => h.id === targetElement);
+      return hw?.layout?.fontSize || fontPxCurrent;
+    }
     return fontPxCurrent;
-  }, [targetElement, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, routines, fontSize]);
+  }, [targetElement, layouts.dateBox.fontSize, layouts.clockBox.fontSize, layouts.routineBox.fontSize, freeCards, routines, boardHomeworks, fontSize]);
 
   const targetLineHeight = useMemo(() => {
     const getLh = (lh: number | string | undefined) => {
@@ -232,8 +268,11 @@ export default function BoardCanvas({
       const r = routines.find((item) => item.id === targetElement);
       return getLh(r?.layout?.lineHeight || layouts.routineBox.lineHeight);
     }
+    if (targetElement && targetElement.startsWith("hw-")) {
+      return getLh(boardHomeworks.find((h) => h.id === targetElement)?.layout?.lineHeight);
+    }
     return 140;
-  }, [targetElement, layouts.routineBox.lineHeight, freeCards, routines]);
+  }, [targetElement, layouts.routineBox.lineHeight, freeCards, routines, boardHomeworks]);
 
   useEffect(() => { onCurrentFontSize?.(targetFontSize); }, [targetFontSize, onCurrentFontSize]);
   useEffect(() => { onCurrentLineHeight?.(targetLineHeight); }, [targetLineHeight, onCurrentLineHeight]);
@@ -253,8 +292,11 @@ export default function BoardCanvas({
       const r = routines.find((item) => item.id === targetElement);
       return r?.layout?.fontFamily || layouts.routineBox.fontFamily;
     }
+    if (targetElement && targetElement.startsWith("hw-")) {
+      return boardHomeworks.find((h) => h.id === targetElement)?.layout?.fontFamily;
+    }
     return undefined;
-  }, [targetElement, layouts.dateBox.fontFamily, layouts.clockBox.fontFamily, layouts.routineBox.fontFamily, freeCards, routines]);
+  }, [targetElement, layouts.dateBox.fontFamily, layouts.clockBox.fontFamily, layouts.routineBox.fontFamily, freeCards, routines, boardHomeworks]);
 
   useEffect(() => { onCurrentFontFamily?.(targetFontFamily); }, [targetFontFamily, onCurrentFontFamily]);
 
@@ -544,6 +586,106 @@ export default function BoardCanvas({
               placeholder={card.id === "noticeBox" ? "전달할 알림장 내용을 입력하세요..." : "메모를 입력하세요..."}
             />
           ))}
+          {/* 칠판 미제출자 요소 — 업무 요소와 동일한 Rnd 래퍼/스타일 */}
+          {filterActiveHomeworks(boardHomeworks, todayStr)
+            .filter((hw) => isBoxVisibleToday(true, hw.visibleDays))
+            .map((hw) => {
+            // 기본 위치: 칠판 하단 (업무 요소 82~92% 아래 빈 띠).
+            // 이전 기본값(78%)은 업무 요소와 겹쳐 당번 이름 클릭을 가로챘다.
+            const hwLeft = parsePercent(hw.left, 2.5);
+            const hwTop = parsePercent(hw.top, 88.0);
+            // 기본 너비 95% — 이전엔 falsy 분기가 "auto" 로 가서 기본값이 죽어 있었고
+            // 이름 목록 폭으로 늘어나 옆 요소를 덮었다.
+            const hwWidth = (parsePercent(hw.width, 95) / 100) * containerSize.width;
+            const hwHeight = hw.height
+              ? (parsePercent(hw.height, 19) / 100) * containerSize.height
+              : "auto";
+            const hwSelected = targetElement === hw.id;
+
+            return (
+              <Rnd
+                key={hw.id}
+                scale={scale}
+                cancel="button, select, input, [contenteditable='true'], [role='dialog'], .routine-text-editor, .canvas-text-content"
+                enableUserSelectHack={false}
+                position={{
+                  x: (hwLeft / 100) * containerSize.width,
+                  y: (hwTop / 100) * containerSize.height,
+                }}
+                size={{ width: hwWidth, height: hwHeight }}
+                onDragStop={makeDragSaveHandler(
+                  containerSize,
+                  typeof hwWidth === "number" ? hwWidth : 300,
+                  typeof hwHeight === "number" ? hwHeight : 40,
+                  (left, top) => onUpdateHomework?.(hw.id, { left, top })
+                )}
+                onResizeStop={makeResizeSaveHandler(
+                  containerSize,
+                  (width, height, left, top) =>
+                    onUpdateHomework?.(hw.id, { width, height, left, top })
+                )}
+                enableResizing={RESIZE_ENABLE}
+                resizeHandleComponent={RESIZE_HANDLES}
+                onClick={(e: ReactMouseEvent<HTMLElement>) => {
+                  e.stopPropagation();
+                  onSelectElement?.(hw.id);
+                }}
+                minWidth={120}
+                className={`group rounded-2xl border transition-all font-bold leading-snug cursor-grab active:cursor-grabbing relative overflow-hidden ${
+                  hwSelected ? "z-30" : "z-10"
+                } ${selectedBorderClass(hwSelected)}`}
+                style={{
+                  fontSize: `${hw.layout?.fontSize || fontPx}px`,
+                  color: hw.layout?.color || "inherit",
+                  textAlign: hw.layout?.align || "left",
+                  fontFamily: hw.layout?.fontFamily || undefined,
+                  lineHeight: hw.layout?.lineHeight || "1.4",
+                }}
+              >
+                {/* 상단바 — 업무 요소와 동일한 absolute overlay */}
+                <div
+                  className={`absolute top-0 left-0 right-0 z-20 transition-opacity flex items-center justify-between px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+                    hwSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-white/70 shrink-0">
+                    <GripHorizontal className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-bold tracking-tight">{hw.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-200 font-bold">
+                      미제출 {homeworkUnsubmitted(hw, students).length}명
+                    </span>
+                    {onRemoveBoardHomework && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveBoardHomework(hw.id);
+                        }}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 hover:bg-white/25 text-white/90 hover:text-white font-bold cursor-pointer transition-colors"
+                        title="칠판에서 빼기 (과제는 그대로 유지)"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2 w-full overflow-y-auto overflow-x-hidden">
+                  <HomeworkBoardCard
+                    homework={hw}
+                    students={students}
+                    theme={theme}
+                    onSelect={() => onSelectElement?.(hw.id)}
+                    onUpdateHomework={onUpdateHomework}
+                    onRemoveBoardHomework={onRemoveBoardHomework}
+                  />
+                </div>
+              </Rnd>
+            );
+            })}
+
           {showEconomyShortcut && (
             <CanvasAccountIcon
               scale={scale}

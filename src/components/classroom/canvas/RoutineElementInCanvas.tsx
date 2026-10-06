@@ -1,11 +1,29 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { EyeOff, RefreshCw, X, Coins, FastForward, RotateCcw, CheckSquare, User, Copy } from "lucide-react";
+import { EyeOff, RefreshCw, Coins, FastForward, RotateCcw, CheckSquare, Copy } from "lucide-react";
 import { ClassroomRoutine, ClassroomStudent, BoardTheme, TaxConfig, LedgerRecord } from "@/types/classroom";
 import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, serializePinchHitters, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
+import {
+  BOARD_NAME_SPAN_CLASS,
+  boardNameColor,
+  boardTextColor,
+  contextMenuPos,
+  copyToClipboard,
+  editableKeyGuard,
+  editablePasteGuard,
+  escapeHtml,
+  extractTemplateFromDOM,
+  popupAnchorFrom,
+  BoardContextMenu,
+  BoardElementShell,
+  BoardItemPopup,
+  BoardItemPopupHeader,
+  useMounted,
+  type ContextMenuItem,
+  type PopupAnchor,
+} from "./boardElementShared";
 
 interface RoutineElementInCanvasProps {
   routine: ClassroomRoutine;
@@ -30,7 +48,7 @@ export default function RoutineElementInCanvas({
   onSkipRoutineWorker, onCancelSkipRoutineWorker, onUndoLedgerEntry, onSelect,
 }: RoutineElementInCanvasProps) {
   const [activePopupIndex, setActivePopupIndex] = useState<number | null>(null);
-  const [workerPopupPos, setWorkerPopupPos] = useState<{ x: number; y: number } | null>(null);
+  const [workerAnchor, setWorkerAnchor] = useState<PopupAnchor | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const isTaxOn = taxConfig
     ? taxConfig.taxMethod !== "TAX_FREE" && (taxConfig.taxRate ?? taxConfig.incomeTaxValue ?? 10) > 0
@@ -40,22 +58,16 @@ export default function RoutineElementInCanvas({
   useEffect(() => {
     setApplyTax(isTaxOn);
   }, [isTaxOn]);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const workerColor = theme === "white" ? "text-indigo-700" : theme === "warm" ? "text-rose-700" : "text-amber-300";
-  const routineTextColor = theme === "white" ? "text-slate-900" : theme === "warm" ? "text-amber-950" : theme === "navy" ? "text-slate-200" : "text-white/90";
+  const workerColor = boardNameColor(theme);
+  const routineTextColor = boardTextColor(theme);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    setActivePopupIndex(null); setWorkerPopupPos(null);
-    const x = Math.max(10, Math.min(e.clientX, window.innerWidth - 250));
-    const y = Math.max(10, Math.min(e.clientY, window.innerHeight - 330));
-    setContextMenu({ x, y });
+    setActivePopupIndex(null); setWorkerAnchor(null);
+    setContextMenu(contextMenuPos(e));
   };
 
   // 현재 활성 당번 목록 (건너뛰기 반영, 대타 태그 미포함)
@@ -78,7 +90,7 @@ export default function RoutineElementInCanvas({
       else updated[activePopupIndex] = { name: val, isSkip: false };
       onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
     }
-    setActivePopupIndex(null); setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerAnchor(null);
   };
 
   const handleSkipWorker = (workerIdx: number | null) => {
@@ -90,7 +102,7 @@ export default function RoutineElementInCanvas({
         skipHistory: [...(routine.skipHistory || []), rawWorkers[workerIdx]],
       });
     }
-    setActivePopupIndex(null); setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerAnchor(null);
   };
 
   const handleCancelSkip = () => {
@@ -101,7 +113,7 @@ export default function RoutineElementInCanvas({
       hist.pop();
       onUpdateRoutine(routine.id, { skipHistory: hist.length > 0 ? hist : undefined });
     }
-    setActivePopupIndex(null); setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerAnchor(null);
   };
 
   const handleCancelPinch = (workerIdx: number | null) => {
@@ -110,12 +122,12 @@ export default function RoutineElementInCanvas({
       delete updated[workerIdx];
       onUpdateRoutine(routine.id, { pinchHitterStudent: serializePinchHitters(updated) });
     }
-    setActivePopupIndex(null); setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerAnchor(null);
   };
 
   const handlePayWorker = (workerName: string) => {
     if (onPayRoutineToday && workerName) onPayRoutineToday(routine.id, [workerName], applyTax);
-    setActivePopupIndex(null); setWorkerPopupPos(null);
+    setActivePopupIndex(null); setWorkerAnchor(null);
   };
 
   const handleCancelPay = (recordId?: number | string) => {
@@ -130,7 +142,7 @@ export default function RoutineElementInCanvas({
       window.dispatchEvent(new CustomEvent("classroom_undo_ledger", { detail: { id: recordId } }));
     }
     setActivePopupIndex(null);
-    setWorkerPopupPos(null);
+  setWorkerAnchor(null);
   };
 
   const segments = parseRoutineFormat(routine.displayFormat, routine.name, workerList, routine.icon);
@@ -146,20 +158,7 @@ export default function RoutineElementInCanvas({
       setContextMenu(null);
       return;
     }
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      } catch { /* noop */ }
-    }
+    await copyToClipboard(text);
     setContextMenu(null);
   };
 
@@ -168,9 +167,6 @@ export default function RoutineElementInCanvas({
   const lastGoodHtmlRef = useRef<string>("");
   const [isEditing, setIsEditing] = useState(false);
   const editableRef = useRef<HTMLDivElement>(null);
-
-  const escapeHtml = (str: string): string =>
-    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
   const ZWSP = "\u200B";
 
@@ -212,15 +208,6 @@ export default function RoutineElementInCanvas({
     }
   }, [routineHtml]);
 
-  const extractTemplateFromNode = (node: Node): string => {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
-    if (node instanceof HTMLElement) {
-      if (node.dataset.workerIndex !== undefined || node.getAttribute("data-worker-index") !== null) return "?";
-      return Array.from(node.childNodes).map(extractTemplateFromNode).join("");
-    }
-    return "";
-  };
-  const extractTemplateFromDOM = (container: HTMLElement): string => extractTemplateFromNode(container).replace(/\u200B/g, "").trim();
 
   const handleBlur = () => {
     isFocusedRef.current = false;
@@ -235,51 +222,6 @@ export default function RoutineElementInCanvas({
     else editableRef.current.innerHTML = routineHtml;
   };
 
-  // 선택 영역에 worker span이 포함되어 있는지 확인
-  const isSelectionDamagingWorkers = (sel: Selection): boolean => {
-    if (!sel.rangeCount || sel.isCollapsed) return false;
-    return Boolean(sel.getRangeAt(0).cloneContents().querySelector("[data-worker-index]"));
-  };
-
-  // 커서 바로 앞/뒤에 worker span이 맞닿아 있는지 정확하게 검사 (Backspace/Delete 키용)
-  const isWorkerAdjacent = (direction: "before" | "after", sel: Selection): boolean => {
-    if (!sel.rangeCount || !editableRef.current) return false;
-    const range = sel.getRangeAt(0);
-    const { startContainer: node, startOffset: offset } = range;
-    if (direction === "before") {
-      if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").slice(0, offset).replace(/\u200B/g, "").length > 0) return false;
-      let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current ? node.parentElement : node;
-      if (node.nodeType === Node.ELEMENT_NODE && offset > 0) {
-        curr = node.childNodes[offset - 1];
-        if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
-      }
-      let prev = curr?.previousSibling;
-      while (prev && prev.nodeType === Node.TEXT_NODE && (prev.textContent ?? "").replace(/\u200B/g, "") === "") prev = prev.previousSibling;
-      return Boolean(prev instanceof HTMLElement && prev.dataset.workerIndex !== undefined);
-    }
-    if (node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").slice(offset).replace(/\u200B/g, "").length > 0) return false;
-    let curr: Node | null = node.nodeType === Node.TEXT_NODE && node.parentElement !== editableRef.current ? node.parentElement : node;
-    if (node.nodeType === Node.ELEMENT_NODE && offset < node.childNodes.length) {
-      curr = node.childNodes[offset];
-      if (curr instanceof HTMLElement && curr.dataset.workerIndex !== undefined) return true;
-    }
-    let next = curr?.nextSibling;
-    while (next && next.nodeType === Node.TEXT_NODE && (next.textContent ?? "").replace(/\u200B/g, "") === "") next = next.nextSibling;
-    return Boolean(next instanceof HTMLElement && next.dataset.workerIndex !== undefined);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter") { e.preventDefault(); editableRef.current?.blur(); return; }
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    if (isSelectionDamagingWorkers(sel) && (e.key === "Backspace" || e.key === "Delete" || e.key.length === 1)) {
-      e.preventDefault(); return;
-    }
-    if (sel.isCollapsed && ((e.key === "Backspace" && isWorkerAdjacent("before", sel)) || (e.key === "Delete" && isWorkerAdjacent("after", sel)))) {
-      e.preventDefault();
-    }
-  };
-
   const handleInput = () => {
     if (!editableRef.current) return;
     const currentCount = editableRef.current.querySelectorAll("[data-worker-index]").length;
@@ -289,15 +231,6 @@ export default function RoutineElementInCanvas({
       return;
     }
     lastGoodHtmlRef.current = editableRef.current.innerHTML;
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const sel = window.getSelection();
-    if (sel && isSelectionDamagingWorkers(sel)) return;
-    const text = e.clipboardData.getData("text/plain");
-    if (!text) return;
-    document.execCommand("insertText", false, text);
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -319,25 +252,89 @@ export default function RoutineElementInCanvas({
   // 이름 세그먼트 클릭 시 팝오버 열기 (포털 뷰포트 좌표 산출)
   const handleWorkerSpanClick = (targetEl: HTMLElement, workerIdx: number) => {
     if (activePopupIndex === workerIdx) {
-      setActivePopupIndex(null); setWorkerPopupPos(null);
+      setActivePopupIndex(null); setWorkerAnchor(null);
     } else {
-      const rect = targetEl.getBoundingClientRect();
-      let top = rect.top - 298;
-      if (top < 10) top = Math.min(window.innerHeight - 300, rect.bottom + 8);
-      const left = Math.max(10, Math.min(rect.left, window.innerWidth - 250));
-      setWorkerPopupPos({ x: left, y: Math.max(10, top) });
+      // 위치는 팝오버가 자기 높이를 재서 붙인다 (과제 요소와 동일)
+      setWorkerAnchor(popupAnchorFrom(targetEl));
       setActivePopupIndex(workerIdx);
     }
   };
 
+  /** 우클릭 컨텍스트 메뉴 항목 (공용 셸이 그린다) */
+  const routineMenuItems: ContextMenuItem[] = [
+    ...(onPayRoutineToday
+      ? [
+          {
+            key: "pay",
+            label: "이 업무 급여 지급",
+            icon: <Coins className="w-3.5 h-3.5 text-amber-400" />,
+            disabled: routine.pay <= 0 || rawWorkers.length === 0,
+            trailing: routine.pay > 0 ? (
+              <span className="text-amber-300 font-bold">
+                {routine.pay.toLocaleString()}
+                {currencyName}
+              </span>
+            ) : null,
+            onClick: () => {
+              onPayRoutineToday(routine.id, undefined, false);
+              setContextMenu(null);
+            },
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+    ...(routine.skipHistory && routine.skipHistory.length > 0
+      ? [
+          {
+            key: "cancelSkip",
+            label: `건너뛰기 취소 (${routine.skipHistory.length})`,
+            icon: <RotateCcw className="w-3.5 h-3.5" />,
+            labelClass: "text-rose-300 hover:text-rose-200",
+            onClick: () => {
+              handleCancelSkip();
+              setContextMenu(null);
+            },
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+    { key: "d1", divider: true },
+    ...(onAdvanceRoutine
+      ? [
+          {
+            key: "advance",
+            label: "다음 순서로",
+            icon: <FastForward className="w-3.5 h-3.5 text-indigo-300" />,
+            onClick: () => {
+              onAdvanceRoutine(routine.id);
+              setContextMenu(null);
+            },
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+    { key: "d2", divider: true },
+    {
+      key: "copy",
+      label: "내용 복사",
+      icon: <Copy className="w-3.5 h-3.5 text-slate-300" />,
+      onClick: handleCopyContent,
+    },
+    ...(onUpdateRoutine
+      ? [
+          {
+            key: "hide",
+            label: "알림장에서 숨기기",
+            icon: <EyeOff className="w-3.5 h-3.5 text-slate-400" />,
+            labelClass: "text-slate-300 hover:text-white",
+            onClick: () => {
+              onUpdateRoutine(routine.id, { visibleInNotice: false });
+              setContextMenu(null);
+            },
+          } satisfies ContextMenuItem,
+        ]
+      : []),
+  ];
+
   return (
-    <div
-      ref={containerRef}
-      onClick={(e) => { e.stopPropagation(); onSelect?.(); }}
-      onContextMenu={handleContextMenu}
-      className="relative w-full group"
-      style={{ fontSize: "inherit" }}
-    >
+    <BoardElementShell onSelect={onSelect} onContextMenu={handleContextMenu}>
       <div
         ref={editableRef}
         contentEditable={true}
@@ -355,137 +352,47 @@ export default function RoutineElementInCanvas({
         onFocus={() => { isFocusedRef.current = true; setIsEditing(true); onSelect?.(); }}
         onBlur={handleBlur}
         onClick={handleClick}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(e) => editableKeyGuard(e, editableRef.current)}
         onInput={handleInput}
-        onPaste={handlePaste}
+        onPaste={editablePasteGuard}
           className={`outline-none rounded inline-block transition-all cursor-text select-text routine-text-editor ${customColor ? "" : routineTextColor}`}
           style={customColor ? { color: customColor, whiteSpace: "pre-wrap", letterSpacing: "-0.02em" } : { whiteSpace: "pre-wrap", letterSpacing: "-0.02em" }}
         title={isEditing ? "텍스트 수정 중 (Enter로 완료)" : "클릭: 서식 편집 / 당번 클릭: 급여·대타 메뉴"}
       />
 
-      {/* 우클릭 최상위 포털 컨텍스트 메뉴 */}
-      {mounted && contextMenu && createPortal(
-        <>
-          {/* 전체화면 투명 백드롭 (뒤쪽 알림장 및 글상자 클릭 차단) */}
-          <div
-            className="fixed inset-0 z-[99998]"
-            onClick={(e) => { e.stopPropagation(); setContextMenu(null); }}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenu(null); }}
-          />
-
-          {/* 컨텍스트 메뉴 창 */}
-          <div
-            className="fixed z-[99999] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl text-white text-xs overflow-hidden select-none"
-            style={{ left: contextMenu.x, top: contextMenu.y, minWidth: 210 }}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          >
-            <div className="px-3 py-2 border-b border-white/10 flex items-center gap-1.5">
-              <CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />
-              <span className="font-bold text-white/90 truncate">{routine.name}</span>
-            </div>
-
-            <div className="p-1.5 space-y-0.5">
-              {onPayRoutineToday && (
-                <button
-                  type="button"
-                  disabled={routine.pay <= 0 || rawWorkers.length === 0}
-                  onClick={() => { onPayRoutineToday(routine.id, undefined, false); setContextMenu(null); }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-left"
-                >
-                  <Coins className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="font-semibold">이 업무 급여 지급</span>
-                  {routine.pay > 0 && <span className="ml-auto text-amber-300 font-bold">{routine.pay.toLocaleString()}{currencyName}</span>}
-                </button>
-              )}
-
-              {Boolean(routine.skipHistory && routine.skipHistory.length > 0) && (
-                <button
-                  type="button"
-                  onClick={() => { handleCancelSkip(); setContextMenu(null); }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-rose-300 hover:text-rose-200"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span className="font-semibold">건너뛰기 취소 ({routine.skipHistory!.length})</span>
-                </button>
-              )}
-
-              <div className="h-px bg-white/10 my-0.5" />
-
-              {onAdvanceRoutine && (
-                <button
-                  type="button"
-                  onClick={() => { onAdvanceRoutine(routine.id); setContextMenu(null); }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
-                >
-                  <FastForward className="w-3.5 h-3.5 text-indigo-300" />
-                  <span className="font-semibold">다음 순서로</span>
-                </button>
-              )}
-
-              <div className="h-px bg-white/10 my-0.5" />
-
-              <button
-                type="button"
-                onClick={handleCopyContent}
-                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left font-medium"
-              >
-                <Copy className="w-3.5 h-3.5 text-slate-300" />
-                <span className="font-semibold">내용 복사</span>
-              </button>
-
-              {onUpdateRoutine && (
-                <button
-                  type="button"
-                  onClick={() => { onUpdateRoutine(routine.id, { visibleInNotice: false }); setContextMenu(null); }}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors text-left text-slate-300 hover:text-white"
-                >
-                  <EyeOff className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="font-semibold">알림장에서 숨기기</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </>,
-        document.body
+      {/* 우클릭 컨텍스트 메뉴 (공용 셸 — 과제 요소와 동일) */}
+      {mounted && contextMenu && (
+        <BoardContextMenu
+          pos={contextMenu}
+          title={routine.name}
+          icon={<CheckSquare className="w-4 h-4 text-indigo-400 shrink-0" />}
+          items={routineMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
-      {/* 당번 클릭 급여/대타 최상위 포털 팝오버 */}
-      {mounted && activePopupIndex !== null && workerPopupPos && createPortal(
-        (() => {
-          const workerIdx = activePopupIndex;
-          const currentWorker = rawWorkers[workerIdx] || "";
-          const detail = pinchDetails[workerIdx];
-          const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
-          const payStatus = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory);
-          const isPaid = payStatus.isPaid;
+      {/* 당번 클릭 급여/대타 최상위 포털 팝오버 (공용 셸) */}
+      {mounted && activePopupIndex !== null && workerAnchor && (() => {
+        const workerIdx = activePopupIndex;
+        const currentWorker = rawWorkers[workerIdx] || "";
+        const detail = pinchDetails[workerIdx];
+        const isSubstituted = Boolean(detail && detail.name && detail.name !== "none");
+        const payStatus = checkStudentRoutinePaid(routine, currentWorker, ledgerHistory);
+        const isPaid = payStatus.isPaid;
 
-          return (
-            <>
-              <div className="fixed inset-0 z-[99998]" onClick={(e) => { e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setActivePopupIndex(null); setWorkerPopupPos(null); }} />
-              <div
-                className="fixed z-[99999] min-w-[220px] max-w-[280px] bg-slate-900 border border-slate-700 rounded-2xl p-3 shadow-2xl text-xs space-y-2.5 text-white select-none"
-                style={{ left: workerPopupPos.x, top: workerPopupPos.y }}
-                onClick={(e) => e.stopPropagation()}
-                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              >
-                <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-                  <span className="font-extrabold text-white flex items-center gap-1">
-                    <User className="w-3.5 h-3.5" />
-                    <span className={isPaid ? "text-lime-300 font-black" : "text-amber-300"}>{currentWorker}</span>
-                    {isSubstituted && <span className="text-[10px] text-amber-400 font-bold">(대타)</span>}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => { setActivePopupIndex(null); setWorkerPopupPos(null); }}
-                    className="text-white/40 hover:text-white p-0.5 leading-none"
-                    title="닫기"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* 건너뛰기 및 취소 버튼 */}
+        return (
+          <BoardItemPopup
+          anchor={workerAnchor}
+            onClose={() => { setActivePopupIndex(null); setWorkerAnchor(null); }}
+            header={
+              <BoardItemPopupHeader
+                name={currentWorker || "당번"}
+                nameClass={isPaid ? "text-lime-300 font-black" : "text-amber-300"}
+                tag={isSubstituted ? <span className="text-[10px] text-amber-400 font-bold">(대타)</span> : null}
+              />
+            }
+          >
+            {/* 건너뛰기 및 취소 버튼 */}
                 <div className="pt-0.5 pb-1 border-b border-white/10 space-y-1">
                   <button
                     type="button"
@@ -569,12 +476,9 @@ export default function RoutineElementInCanvas({
                     </button>
                   )}
                 </div>
-              </div>
-            </>
-          );
-        })(),
-        document.body
-      )}
-    </div>
+          </BoardItemPopup>
+        );
+      })()}
+    </BoardElementShell>
   );
 }

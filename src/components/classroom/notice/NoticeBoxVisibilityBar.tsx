@@ -11,8 +11,18 @@ import {
   CalendarDays,
   X,
   Check,
+  ClipboardList,
+  Monitor,
 } from "lucide-react";
-import { BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
+import {
+  BoardElementLayouts,
+  FreeCardData,
+  ClassroomRoutine,
+  ClassroomStudent,
+  Homework,
+  resolveHomeworkStatus,
+  homeworkUnsubmitted,
+} from "@/types/classroom";
 import { formatVisibleDays } from "@/lib/boardDefaults";
 
 interface NoticeBoxVisibilityBarProps {
@@ -26,6 +36,14 @@ interface NoticeBoxVisibilityBarProps {
   onAddFreeCard?: () => void;
   routines?: ClassroomRoutine[];
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
+  /** 진행/완료 구분 없이 전체 과제 (글상자 표시 바에서 칠판 표시를 토글한다) */
+  homeworks?: Homework[];
+  /** 현재 칠판에 표시 중인 과제 id 목록 */
+  boardHomeworkIds?: string[];
+  students?: ClassroomStudent[];
+  onAddBoardHomework?: (id: string) => void;
+  onRemoveBoardHomework?: (id: string) => void;
+  onUpdateHomework?: (id: string, patch: Partial<Homework>) => void;
 }
 
 type StandardBoxKey = "dateBox" | "clockBox";
@@ -35,6 +53,13 @@ const DAYS_BUTTONS = [
   { day: 1, label: "월" }, { day: 2, label: "화" }, { day: 3, label: "수" },
   { day: 4, label: "목" }, { day: 5, label: "금" },
 ];
+
+/** 오늘 날짜 (마감 지난 과제 표시용) */
+function todayStr(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 export default function NoticeBoxVisibilityBar({
   layouts,
@@ -47,6 +72,12 @@ export default function NoticeBoxVisibilityBar({
   onAddFreeCard,
   routines = [],
   onUpdateRoutine,
+  homeworks = [],
+  boardHomeworkIds = [],
+  students = [],
+  onAddBoardHomework,
+  onRemoveBoardHomework,
+  onUpdateHomework,
 }: NoticeBoxVisibilityBarProps) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>("");
@@ -54,7 +85,7 @@ export default function NoticeBoxVisibilityBar({
   const [scheduleTarget, setScheduleTarget] = useState<{
     id: string;
     name: string;
-    type: "standard" | "freeCard" | "routine";
+    type: "standard" | "freeCard" | "routine" | "homework";
     visibleDays?: number[];
   } | null>(null);
   const [tempDays, setTempDays] = useState<number[]>([]);
@@ -120,10 +151,27 @@ export default function NoticeBoxVisibilityBar({
     setEditingKey(null);
   };
 
+  const finishRenameHomework = (hw: Homework) => {
+    const trimmed = editingText.trim();
+    if (trimmed && onUpdateHomework) {
+      onUpdateHomework(hw.id, { title: trimmed });
+    }
+    setEditingKey(null);
+  };
+
+  /** 칠판 표시/숨김 — 칠판에 올리는 것과 표시 여부가 같은 동작이다 */
+  const toggleHomework = (hw: Homework, nextVisible: boolean) => {
+    if (nextVisible) {
+      onAddBoardHomework?.(hw.id);
+    } else {
+      onRemoveBoardHomework?.(hw.id);
+    }
+  };
+
   const openScheduleModal = (
     id: string,
     name: string,
-    type: "standard" | "freeCard" | "routine",
+    type: "standard" | "freeCard" | "routine" | "homework",
     visibleDays?: number[]
   ) => {
     setScheduleTarget({ id, name, type, visibleDays });
@@ -156,6 +204,10 @@ export default function NoticeBoxVisibilityBar({
             visibleDays: finalDays,
           },
         });
+      }
+    } else if (scheduleTarget.type === "homework") {
+      if (onUpdateHomework) {
+        onUpdateHomework(scheduleTarget.id, { visibleDays: finalDays });
       }
     } else {
       const boxKey = scheduleTarget.id as StandardBoxKey;
@@ -342,7 +394,88 @@ export default function NoticeBoxVisibilityBar({
           </label>
         )}
 
-        {/* 6. 자유 글상자들 (알림장 본문 포함 완전 일원화) */}
+        {/* 6. 과제 미제출자 요소 — 업무 루틴과 동일한 표시/이름수정/요일설정 방식 */}
+        {homeworks.map((hw) => {
+          const done = resolveHomeworkStatus(hw, todayStr()) !== "ACTIVE";
+          const onBoard = boardHomeworkIds.includes(hw.id);
+          const isVisible = onBoard && !done;
+          const displayName = hw.title;
+          const isEditing = editingKey === hw.id;
+          const scheduleText = formatVisibleDays(hw.visibleDays);
+          const pending = homeworkUnsubmitted(hw, students).length;
+
+          return (
+            <div
+              key={hw.id}
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-semibold transition-all shadow-sm ${
+                isVisible
+                  ? "bg-white border-slate-200 text-slate-700"
+                  : "bg-slate-100 border-slate-200 text-slate-400"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={isVisible}
+                disabled={done}
+                onChange={(e) => toggleHomework(hw, e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                title={
+                  done
+                    ? "마감된 과제는 칠판에 표시할 수 없습니다"
+                    : `${displayName} 칠판 표시/숨김 토글`
+                }
+              />
+              <ClipboardList className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editingText}
+                  autoFocus
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onBlur={() => finishRenameHomework(hw)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") finishRenameHomework(hw);
+                    if (e.key === "Escape") setEditingKey(null);
+                  }}
+                  className="w-20 px-1 py-0.5 border border-indigo-300 rounded text-xs bg-white text-slate-800 font-bold focus:outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => startRename(hw.id, displayName)}
+                  className="hover:underline hover:text-indigo-600 select-none max-w-[120px] truncate"
+                  title="클릭하여 과제 이름 변경"
+                >
+                  {displayName}
+                </button>
+              )}
+
+              {done ? (
+                <span className="text-[10px] shrink-0">마감</span>
+              ) : pending === 0 ? (
+                <span className="text-[10px] text-lime-600 font-extrabold shrink-0">전원 제출</span>
+              ) : null}
+
+              {/* 요일 자동 표시 버튼 & 뱃지 */}
+              <button
+                type="button"
+                onClick={() => openScheduleModal(hw.id, displayName, "homework", hw.visibleDays)}
+                className={`p-0.5 rounded transition-colors flex items-center gap-0.5 ${
+                  scheduleText
+                    ? "text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-1 border border-indigo-200 font-bold text-[10px]"
+                    : "text-slate-400 hover:text-slate-700"
+                }`}
+                title={scheduleText ? `표시 요일: ${scheduleText}` : "요일별 자동 표시 설정"}
+              >
+                <CalendarDays className="w-3 h-3 shrink-0" />
+                {scheduleText && <span>{scheduleText}</span>}
+              </button>
+            </div>
+          );
+        })}
+
+        {/* 7. 자유 글상자들 (알림장 본문 포함 완전 일원화) */}
         {freeCards.map((card, idx) => {
           const preview = card.html ? card.html.replace(/<[^>]+>/g, "").trim().slice(0, 8) : "";
           const defaultTitle = preview ? `자유: ${preview}` : `자유 ${idx + 1}`;

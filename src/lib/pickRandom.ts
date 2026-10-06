@@ -1,4 +1,4 @@
-import type { PickStudent, SeatAvoidGroup, SeatCellState, SeatFillFrom } from "@/types";
+import type { AvoidGroup, PickStudent, SeatAvoidGroup, SeatCellState, SeatFillFrom } from "@/types";
 import { SEAT_DIVISION_GUTTER, gridCellToPercent, seatRowCenterY } from "./seatFree";
 
 type Rand = () => number;
@@ -96,13 +96,16 @@ function interleaveByGender<T>(pools: T[][], rand: Rand): T[] {
  * 모둠 분배. sizes 합계가 인원과 다르면 throw.
  * - 무관: 전체 셔플 후 라운드로빈으로 한 명씩 배분
  * - 분리: 성별 풀을 번갈아 병합한 뒤 라운드로빈 배분 (각 모둠에 남녀가 균등 분산)
+ * - avoidGroups가 있으면 같은 분리 그룹 학생이 같은 모둠에 들지 않게 best-effort 교환
  */
 export function dealGroups<T>(
   input: readonly T[],
   sizes: number[],
   getGender: (item: T) => string | null,
   separateGender: boolean,
-  rand: Rand = Math.random
+  rand: Rand = Math.random,
+  avoidGroups: readonly AvoidGroup[] = [],
+  getId: (item: T) => string = (item: T) => (item as unknown as { id: string }).id
 ): T[][] {
   const total = sizes.reduce((a, b) => a + b, 0);
   if (total !== input.length) {
@@ -122,23 +125,32 @@ export function dealGroups<T>(
     : shuffle(input, rand);
   // 분리 모드: 성별 교대 순서를 그대로 잘라 각 모둠에 비율대로 분배
   // 무관 모드: 라운드로빈으로 한 명씩 배분
+  let groups: T[][];
   if (separateGender) {
-    const groups: T[][] = [];
+    groups = [];
     let offset = 0;
     for (const size of sizes) {
       groups.push(ordered.slice(offset, offset + size));
       offset += size;
     }
-    return groups;
-  }
-  const groups: T[][] = sizes.map(() => []);
-  let gi = 0;
-  for (const item of ordered) {
-    while (groups[gi].length >= sizes[gi]) {
+  } else {
+    groups = sizes.map(() => []);
+    let gi = 0;
+    for (const item of ordered) {
+      while (groups[gi].length >= sizes[gi]) {
+        gi = (gi + 1) % groups.length;
+      }
+      groups[gi].push(item);
       gi = (gi + 1) % groups.length;
     }
-    groups[gi].push(item);
-    gi = (gi + 1) % groups.length;
+  }
+
+  // 만나지 말아야 할 학생 분리 (best-effort 모둠 간 교환, 모둠 인원 유지)
+  if (avoidGroups.length > 0) {
+    const idGroups = groups.map((g) => g.map(getId));
+    const resolved = resolveGroupViolations(idGroups, avoidGroups, rand);
+    const byId = new Map(input.map((item) => [getId(item), item]));
+    return resolved.map((g) => g.map((id) => byId.get(id) as T));
   }
   return groups;
 }
@@ -154,6 +166,156 @@ export function parseGroupSizes(text: string): number[] {
     throw new Error("모둠 인원을 `4,4,5` 형식의 1 이상 정수로 입력해 주세요.");
   }
   return sizes;
+}
+
+export interface GroupAvoidViolation {
+  groupId: string;
+  groupIndex: number;
+  aId: string;
+  bId: string;
+}
+
+/**
+ * 모둠 분리 위반 쌍 목록 (같은 분리 그룹 학생이 같은 모둠에 배정된 경우).
+ * 자리 뽑기의 findSeatViolations와 쌍을 이루는 모둠용 검사다.
+ */
+export function findGroupViolations(
+  groups: readonly (readonly string[])[],
+  avoidGroups: readonly AvoidGroup[]
+): GroupAvoidViolation[] {
+  const out: GroupAvoidViolation[] = [];
+  for (const g of avoidGroups) {
+    const memberSet = new Set(g.members);
+    if (memberSet.size < 2) continue;
+    groups.forEach((members, groupIndex) => {
+      const present = members.filter((m) => memberSet.has(m));
+      for (let i = 0; i < present.length; i++) {
+        for (let j = i + 1; j < present.length; j++) {
+          out.push({ groupId: g.id, groupIndex, aId: present[i], bId: present[j] });
+        }
+      }
+    });
+  }
+  return out;
+}
+
+/**
+ * 위반이 줄도록 모둠 간 교환을 반복 (best-effort).
+ * 자리 뽑기의 resolveSeatViolations와 같은 최급강하 + 흔들기 구조다.
+ * 모둠 인원은 그대로 두고 사람만 교환한다.
+ */
+export function resolveGroupViolations(
+  groups: readonly (readonly string[])[],
+  avoidGroups: readonly AvoidGroup[],
+  rand: Rand = Math.random,
+  maxIters = 500
+): string[][] {
+  if (avoidGroups.length === 0) return groups.map((g) => [...g]);
+  const countOf = (gs: readonly (readonly string[])[]): number =>
+    findGroupViolations(gs, avoidGroups).length;
+
+  let best = groups.map((g) => [...g]);
+  let bestCount = countOf(best);
+  if (bestCount === 0) return best;
+  // 흔들기로 악화돼도 복원할 전역 최상 (흔들기는 무조건 덮어쓰므로 별도 보관)
+  let gbest = best.map((g) => [...g]);
+  let gbestCount = bestCount;
+
+  const swapIn = (
+    gs: string[][],
+    a: { gi: number; ci: number },
+    b: { gi: number; ci: number }
+  ): string[][] => {
+    const next = gs.map((g) => [...g]);
+    const tmp = next[a.gi][a.ci];
+    next[a.gi][a.ci] = next[b.gi][b.ci];
+    next[b.gi][b.ci] = tmp;
+    return next;
+  };
+  const pickCell = (gs: string[][]): { gi: number; ci: number } | null => {
+    const nonEmpty = gs
+      .map((g, gi) => ({ gi, n: g.length }))
+      .filter((c) => c.n > 0);
+    if (nonEmpty.length === 0) return null;
+    const picked = nonEmpty[Math.floor(rand() * nonEmpty.length)];
+    return { gi: picked.gi, ci: Math.floor(rand() * gs[picked.gi].length) };
+  };
+
+  let stagnant = 0;
+  for (let iter = 0; iter < maxIters && bestCount > 0; iter++) {
+    if (findGroupViolations(best, avoidGroups).length === 0) break;
+    // 모든 모둠 간 교환 중 가장 좋아지는 수를 둔다 (최급강하).
+    // 같은 모둠 안 교환은 위반 수를 바꾸지 않으므로 건너뛴다.
+    let improved: string[][] | null = null;
+    let improvedCount = bestCount;
+    const order: { gi: number; ci: number }[] = [];
+    best.forEach((g, gi) => g.forEach((_, ci) => order.push({ gi, ci })));
+    for (let bi = order.length - 1; bi > 0; bi--) {
+      const j = Math.floor(rand() * (bi + 1));
+      [order[bi], order[j]] = [order[j], order[bi]];
+    }
+    outer: for (let bi = 0; bi < order.length; bi++) {
+      for (let di = bi + 1; di < order.length; di++) {
+        const b = order[bi];
+        const d = order[di];
+        if (b.gi === d.gi) continue;
+        const next = swapIn(best, b, d);
+        const nextCount = countOf(next);
+        if (nextCount < improvedCount) {
+          improved = next;
+          improvedCount = nextCount;
+          if (nextCount === 0) break outer;
+        }
+      }
+    }
+    if (improved) {
+      best = improved;
+      bestCount = improvedCount;
+      if (bestCount < gbestCount) {
+        gbest = best.map((g) => [...g]);
+        gbestCount = bestCount;
+      }
+      stagnant = 0;
+    } else {
+      stagnant++;
+      // 막히면 무작위 교환 몇 번으로 흔들고 계속 (재시작)
+      if (stagnant >= 20) {
+        stagnant = 0;
+        let shaken = best;
+        for (let k = 0; k < 5; k++) {
+          const x = pickCell(shaken);
+          const y = pickCell(shaken);
+          if (!x || !y || x.gi === y.gi) continue;
+          shaken = swapIn(shaken, x, y);
+        }
+        best = shaken;
+        bestCount = countOf(best);
+      }
+    }
+  }
+  return gbest;
+}
+
+/**
+ * 분리 위반 쌍 요약문 ("분리 불가 2쌍 (a–b, c–d)"). 자리·모둠 공용.
+ * 같은 쌍이 여러 곳에서 걸려도 한 번만 센다.
+ */
+export function summarizeAvoidPairs(
+  pairs: readonly (readonly [string, string])[],
+  maxShown = 5
+): string {
+  const seen = new Set<string>();
+  const uniq: string[] = [];
+  for (const [a, b] of pairs) {
+    const key = [a, b].sort().join("–");
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniq.push(key);
+    }
+  }
+  return `분리 불가 ${uniq.length}쌍 (${uniq.slice(0, maxShown).join(", ")}${
+    uniq.length > maxShown ? " 외" : ""
+  })`;
 }
 
 export interface SeatGridConfig {

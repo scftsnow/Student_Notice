@@ -1,4 +1,5 @@
-$workdir = "C:\Users\ADMIN\Desktop\Student_Notice"
+$workdir = "C:\Users\USER\Desktop\Student_Notice"
+$env:Path += ";C:\Program Files\nodejs"
 
 # Already running -> just open browser
 $listening = netstat -ano | Select-String ":3001" | Select-String "LISTENING"
@@ -8,7 +9,7 @@ if ($listening) {
 }
 
 # Start production server fully hidden (no console window)
-Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm start" -WorkingDirectory $workdir -WindowStyle Hidden
+Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm.cmd start" -WorkingDirectory $workdir -WindowStyle Hidden
 
 # Wait up to 60s for port, then open browser
 for ($i = 0; $i -lt 30; $i++) {

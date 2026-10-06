@@ -11,8 +11,11 @@ import {
   Settings,
   Sparkles,
   Dices,
+  Timer,
+  BookOpenCheck,
 } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
+import { openTimerWindow } from "@/lib/timerUtils";
 import UnifiedLedgerModal from "@/components/classroom/economy/UnifiedLedgerModal";
 import RecentLedgerPanel from "@/components/classroom/economy/RecentLedgerPanel";
 
@@ -64,6 +67,11 @@ export default function Navbar({
       setLiveClassName(classNameTitle);
     }
   }, [classNameTitle, currencyName]);
+
+  // 타이머 메뉴는 새 창으로만 열기 (현재 메뉴 유지)
+  const handleTimerMenu = useCallback(() => {
+    openTimerWindow();
+  }, []);
 
   const handleUndo = useCallback((id?: number | string) => {
     try {
@@ -167,8 +175,10 @@ export default function Navbar({
     { href: "/notice", label: "알림장", icon: FileText },
     { href: "/students", label: "학생 명단", icon: Users },
     { href: "/routines", label: "학생 업무", icon: CheckSquare },
+    { href: "/homework", label: "학생 과제", icon: BookOpenCheck },
     { href: "/economy", label: "학급 화폐", icon: Coins },
     { href: "/picks", label: "뽑기", icon: Dices },
+    { href: "/timer", label: "타이머", icon: Timer },
     { href: "/settings", label: "설정", icon: Settings },
   ];
 
@@ -181,7 +191,7 @@ export default function Navbar({
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2 lg:gap-4">
           {/* Left: Logo & Class Name + Nav Links grouped together */}
-          <div className="flex items-center gap-3 lg:gap-4 shrink-0">
+          <div className="flex items-center gap-2 lg:gap-3 min-w-0">
             {/* Logo & Class Name */}
             <Link href="/notice" className="flex items-center gap-2 group shrink-0">
               <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
@@ -195,33 +205,49 @@ export default function Navbar({
               </div>
             </Link>
 
-            {/* Nav Links (좌측으로 밀착, 줄어들지 않도록 보호) */}
-            <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 shrink-0">
+            {/* Nav Links (좁은 화면에서는 가로 스크롤, 우측 통계와 겹치지 않음) */}
+            <nav className="hidden md:flex items-center gap-[1px] min-w-0 overflow-x-auto scrollbar-none">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = pathname.startsWith(item.href);
-                return (
+                const cls = `flex items-center gap-1 px-2 lg:px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? "bg-indigo-50 text-indigo-700 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                }`;
+                const inner = (
+                  <>
+                    <Icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                    {item.label}
+                  </>
+                );
+                // 타이머는 전광판 팝업 + 제어 화면 이동
+                return item.href === "/timer" ? (
+                  <button
+                    key={item.href}
+                    type="button"
+                    onClick={handleTimerMenu}
+                    className={`${cls} cursor-pointer`}
+                  >
+                    {inner}
+                  </button>
+                ) : (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
-                      isActive
-                        ? "bg-indigo-50 text-indigo-700 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                    }`}
+                    className={cls}
                   >
-                    <Icon className={`w-3.5 h-3.5 lg:w-4 lg:h-4 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
-                    {item.label}
+                    {inner}
                   </Link>
                 );
               })}
             </nav>
           </div>
 
-          {/* Right Header Stats: 최근 지급 내역 & 국고 잔액 */}
-          <div className="flex items-center gap-2 lg:gap-2.5 flex-1 justify-end min-w-0">
-            {/* 최근 지급 내역 패널 (클릭 시 모달 또는 아코디언) — 좌우 50% 확대 */}
-            <div className="hidden sm:block w-full max-w-[510px] lg:max-w-[600px] min-w-[330px]">
+          {/* Right Header Stats: 최근 지급 내역 */}
+          <div className="flex items-center gap-2 lg:gap-2.5 shrink-0 justify-end min-w-0">
+            {/* 최근 지급 내역 패널 */}
+            <div className="hidden min-[1400px]:block w-full max-w-[510px] lg:max-w-[600px] min-w-[330px]">
               <RecentLedgerPanel
                 records={ledgerHistory}
                 undoneRecords={undoneLedgerHistory}
@@ -237,24 +263,6 @@ export default function Navbar({
                 }}
               />
             </div>
-
-            {/* Treasury Balance Pill -> Opens Ledger History Modal */}
-            <button
-              type="button"
-              onClick={() => {
-                syncFromStorage();
-                setLedgerModalFilter("treasury");
-                setIsLedgerOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-              title="국고 입출금 이력 보기 (클릭 시 오늘 이력 표시)"
-            >
-              <Coins className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>국고:</span>
-              <span className="font-mono text-amber-700 font-bold">
-                {liveTreasury.toLocaleString()} {liveCurrency || currencyName}
-              </span>
-            </button>
           </div>
         </div>
       </div>
@@ -265,16 +273,26 @@ export default function Navbar({
           const Icon = item.icon;
           const isActive =
             item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
+          const cls = `flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap ${
+            isActive ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"
+          }`;
+          const inner = (
+            <>
+              <Icon className="w-3.5 h-3.5" />
+              {item.label}
+            </>
+          );
+          return item.href === "/timer" ? (
+            <button key={item.href} type="button" onClick={handleTimerMenu} className={cls}>
+              {inner}
+            </button>
+          ) : (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap ${
-                isActive ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
+              className={cls}
             >
-              <Icon className="w-3.5 h-3.5" />
-              {item.label}
+              {inner}
             </Link>
           );
         })}

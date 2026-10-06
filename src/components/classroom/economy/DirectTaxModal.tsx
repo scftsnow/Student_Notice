@@ -24,20 +24,21 @@ export default function DirectTaxModal({
   onExecute,
 }: DirectTaxModalProps) {
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
-  const [amount, setAmount] = useState(100);
-  const [desc, setDesc] = useState("학급 바자회 수익금 세수 편입");
+  const [amount, setAmount] = useState<number | "">("");
+  const [desc, setDesc] = useState("");
   const [targetType, setTargetType] = useState<"common" | "student">("common");
   const [selectedStudent, setSelectedStudent] = useState(students[0]?.name || "");
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
-    if (amount <= 0) {
+    const amt = typeof amount === "number" ? amount : 0;
+    if (amt <= 0) {
       alert("올바른 금액을 입력하세요.");
       return;
     }
     const refundTarget = mode === "withdraw" && targetType === "student" ? selectedStudent : undefined;
-    onExecute(mode, amount, desc.trim() || (mode === "deposit" ? "세금 직접 입금" : "세금 직접 출금"), refundTarget);
+    onExecute(mode, amt, desc.trim() || (mode === "deposit" ? "세금 직접 입금" : "세금 직접 출금"), refundTarget);
     onClose();
   };
 
@@ -71,7 +72,6 @@ export default function DirectTaxModal({
             type="button"
             onClick={() => {
               setMode("deposit");
-              setDesc("학급 바자회 수익금 세수 편입");
             }}
             className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
               mode === "deposit" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
@@ -83,7 +83,6 @@ export default function DirectTaxModal({
             type="button"
             onClick={() => {
               setMode("withdraw");
-              setDesc("학급 문구류 구입 세수 지출");
             }}
             className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
               mode === "withdraw" ? "bg-white text-rose-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
@@ -100,7 +99,8 @@ export default function DirectTaxModal({
               type="number"
               min={1}
               value={amount}
-              onChange={(e) => setAmount(parseInt(e.target.value, 10) || 0)}
+              placeholder="금액 입력"
+              onChange={(e) => setAmount(e.target.value === "" ? "" : parseInt(e.target.value, 10) || 0)}
               className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm font-bold focus:outline-none"
             />
           </div>
@@ -114,8 +114,8 @@ export default function DirectTaxModal({
                   onChange={(e) => setTargetType(e.target.value as "common" | "student")}
                   className="px-2 py-1.5 border border-slate-200 rounded-lg bg-white focus:outline-none"
                 >
-                  <option value="common">학급 공동 행사/물품 지출</option>
-                  <option value="student">특정 학생에게 전송 (환급·지원금)</option>
+                  <option value="common">출금</option>
+                  <option value="student">학생 전송</option>
                 </select>
                 {targetType === "student" && (
                   <select

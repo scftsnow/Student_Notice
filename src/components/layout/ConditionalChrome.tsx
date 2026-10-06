@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 
 /** 전광판 등 크롬 없는 전체화면이 필요한 경로 */
-const CHROMELESS_PATHS = ["/picks/window"];
+const CHROMELESS_PATHS = ["/picks/window", "/timer/window"];
 
 interface ConditionalChromeProps {
   classNameTitle: string;

@@ -47,8 +47,32 @@ function formatShortDateTime(dateStr?: string): string {
   return dateStr;
 }
 
-function amountText(type: string, amount: number, currencyName: string, tax?: number): string {
-  const net = (type === "입금" && tax) ? amount - tax : amount;
+/**
+ * 표기 금액.
+ * 국고(세수) 기록은 amount 자체가 국고 잔액 증감이므로 세금을 빼지 않는다.
+ * (세수 편입은 amount === tax로 저장돼 있어, 빼면 0원으로 보인다)
+ * 학생 수취 기록만 "총액 − 원천징수 = 실지급"으로 표시한다.
+ */
+export function ledgerNetAmount(
+  type: string,
+  amount: number,
+  tax?: number,
+  targets?: string[]
+): number {
+  if (type !== "입금" || !tax) return amount;
+  const isTreasury = (targets ?? []).includes("treasury");
+  if (isTreasury) return amount;
+  return amount - tax;
+}
+
+function amountText(
+  type: string,
+  amount: number,
+  currencyName: string,
+  tax?: number,
+  targets?: string[]
+): string {
+  const net = ledgerNetAmount(type, amount, tax, targets);
   const abs = Math.abs(net).toLocaleString();
   const sign = type === "차감" ? "-" : type === "거래" ? "↔" : "+";
   return `${sign}${abs} ${currencyName}`;
@@ -110,18 +134,18 @@ export default function RecentLedgerPanel({
                   {formatShortDateTime(latest.date)}
                 </span>
               )}
-              <span className="text-[10px] text-slate-700 truncate font-semibold">
+              <span className="text-[10px] text-slate-700 font-semibold shrink-0 whitespace-nowrap">
                 {latest.targetDisplay}
               </span>
               {latest.desc && (
-                <span className="text-[10px] text-slate-400 truncate hidden xl:inline">
+                <span className="text-[10px] text-slate-400 truncate min-w-0 hidden xl:inline">
                   · {latest.desc}
                 </span>
               )}
               <span className={`text-[10px] font-black shrink-0 ${
                 latest.type === "차감" ? "text-rose-600" : latest.type === "거래" ? "text-indigo-600" : "text-emerald-700"
               }`}>
-                {amountText(latest.type, latest.amount, currencyName, latest.tax)}
+                {amountText(latest.type, latest.amount, currencyName, latest.tax, latest.targets)}
               </span>
             </div>
           ) : (
@@ -217,11 +241,12 @@ export default function RecentLedgerPanel({
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className="text-[11px] font-semibold text-slate-800 truncate leading-tight">
+                      {/* 이름은 4글자까지 항상 보이게 하고, 잘리는 쪽은 메모로 넘긴다 */}
+                      <p className="text-[11px] font-semibold text-slate-800 leading-tight shrink-0 whitespace-nowrap">
                         {rec.targetDisplay}
                       </p>
                       {rec.date && (
-                        <span className="text-[9.5px] font-mono text-slate-400 shrink-0 leading-tight" title={rec.date}>
+                        <span className="text-[9.5px] font-mono text-slate-400 min-w-0 truncate leading-tight" title={rec.date}>
                           {formatShortDateTime(rec.date)}
                         </span>
                       )}
@@ -235,7 +260,7 @@ export default function RecentLedgerPanel({
                   <span className={`shrink-0 text-[11px] font-black tabular-nums ${
                     rec.type === "차감" ? "text-rose-600" : rec.type === "거래" ? "text-indigo-600" : "text-emerald-700"
                   }`}>
-                    {amountText(rec.type, rec.amount, currencyName, rec.tax)}
+                    {amountText(rec.type, rec.amount, currencyName, rec.tax, rec.targets)}
                   </span>
                   <button
                     type="button"

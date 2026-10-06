@@ -58,3 +58,9 @@ playwright-report/
 .opencode/node_modules/
 .opencode/package.json
 .opencode/package-lock.json
+
+# 에이전트 작업 산출물 (커밋 금지)
+.opencode/
+STATUS.md
+backup/
+logs/

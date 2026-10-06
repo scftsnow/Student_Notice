@@ -19,10 +19,11 @@ import StudentPool from "./StudentPool";
 import SeatMiniCanvas from "./SeatMiniCanvas";
 import { PresetLibrarySection, PresetRowShell } from "./PresetLibrary";
 import { useSeatPick } from "@/hooks/useSeatPick";
+import { usePersistentFlag } from "@/hooks/usePersistentFlag";
 import { formatPickName } from "@/lib/pickFormat";
 import { serializeSeatCells } from "@/lib/seatFree";
-import { findSeatViolations } from "@/lib/pickRandom";import { playError } from "@/lib/pickSound";
-import { openPickWindow } from "@/lib/pickWindowHelper";
+import { findSeatViolations, summarizeAvoidPairs } from "@/lib/pickRandom";import { playError } from "@/lib/pickSound";
+import { openPickWindow, broadcastPick, stampPayload, PICK_SYNC_CHANNEL } from "@/lib/pickWindowHelper";
 import type { PickSeatCell } from "@/lib/pickWindowHelper";
 import type { PickStudent, SeatCellState } from "@/types";
 import type { SavedSeatPreset, SeatPresetConfig } from "@/types/classroom";
@@ -70,7 +71,7 @@ export default function SeatPickPanel({
   /** 자유 캔버스 위치 오버라이드 (key → % 좌표). hook 셀 x/y 위에 덮어씀. 틀 재생성·불러오기 시 초기화. */
   const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>({});
   /** 배치 숨기기: 자리배치를 빈 틀처럼 표시 + 분리 메뉴 숨김 (상태는 유지) */
-  const [hidePlaced, setHidePlaced] = useState(false);
+  const [hidePlaced, setHidePlaced] = usePersistentFlag("classroom_pick_hide_placed", false);
   /** 보기 방향. teacher면 칠판이 아래에 오도록 뒤집어 표시. */
   const [orientation, setOrientation] = useState<"student" | "teacher">("student");
   const [notice, setNotice] = useState("");
@@ -174,26 +175,35 @@ export default function SeatPickPanel({
       showError("자리에 앉힐 학생을 1명 이상 선택해 주세요.");
       return;
     }
-    const next = seat.randomAssign(selected);
-    if (next) {
+    // 버튼을 누른 시점에는 자리 틀(후보)만 보낸다. 실제 배치는 전광판에서
+    // [추첨 시작]을 누른 그 순간에 rollSeats가 계산한다.
+    openPickWindow({
+      id: `pick-seat-${Date.now()}`,
+      type: "seat",
+      title: "자리 뽑기",
+      rollingNames: selected.map(formatPickName),
+      results: [],
+      rolled: false,
+    });
+  }, [selected]);
+
+  // 전광판의 추첨 요청에 응답해 이 순간에 실제로 자리를 배정한다
+  const rollSeats = useCallback(
+    (id: string) => {
+      if (selected.length === 0) return;
+      const next = seat.randomAssign(selected);
+      if (!next) {
+        playError();
+        return;
+      }
       autoSaveRef.current = true;
       // 분리 그룹 위반 확인 (best-effort 적용 후 남은 쌍 안내)
       const violations = findSeatViolations(next, seat.avoidGroups);
       if (violations.length > 0) {
-        const seen = new Set<string>();
-        const pairs: string[] = [];
-        for (const v of violations) {
-          const key = [v.aName, v.bName].sort().join("–");
-          if (!seen.has(key)) {
-            seen.add(key);
-            pairs.push(key);
-          }
-        }
-        showError(
-          `분리 불가 ${pairs.length}쌍 (${pairs.slice(0, 5).join(", ")}${
-            pairs.length > 5 ? " 외" : ""
-          }): 자리를 수동으로 조정해 주세요.`
+        const pairs = violations.map(
+          (v): readonly [string, string] => [v.aName, v.bName]
         );
+        showError(`${summarizeAvoidPairs(pairs)}: 자리를 수동으로 조정해 주세요.`);
       }
       const merged = next.map((c) => {
         const o = posOverrides[c.key];
@@ -217,27 +227,29 @@ export default function SeatPickPanel({
           lockedGender: c.lockedGender,
         };
       });
-      openPickWindow({
-        id: `pick-seat-${Date.now()}`,
-        type: "seat",
-        title: "자리 뽑기",
-        rollingNames: selected.map(formatPickName),
-        results: placed.length > 0 ? placed : selected.map(formatPickName),
-        seatCells,
-      });
-    } else {
-      playError();
-    }
-  }, [seat, selected, byId, posOverrides]);
+      broadcastPick(
+        stampPayload({
+          id,
+          type: "seat",
+          title: "자리 뽑기",
+          rollingNames: selected.map(formatPickName),
+          results: placed.length > 0 ? placed : selected.map(formatPickName),
+          seatCells,
+          rolled: true,
+        })
+      );
+    },
+    [seat, selected, byId, posOverrides]
+  );
 
-  // 별도 창에서 '다시 뽑기' 요청 시 재추첨 실행
+  // 전광판이 '지금 뽑아라'고 요청하면 그때 랜덤이 돈다
   useEffect(() => {
     let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel("classroom_pick_sync");
+      channel = new BroadcastChannel(PICK_SYNC_CHANNEL);
       channel.onmessage = (e: MessageEvent) => {
-        if (e.data?.type === "REQUEST_REDRAW") {
-          handleDraw();
+        if (e.data?.type === "PICK_ROLL" && e.data?.pickType === "seat") {
+          rollSeats(String(e.data.id));
         }
       };
     } catch {
@@ -246,7 +258,7 @@ export default function SeatPickPanel({
     return () => {
       if (channel) channel.close();
     };
-  }, [handleDraw]);
+  }, [rollSeats]);
 
   // ---- 자리 저장 팝업 ----
   const openSaveModal = () => {
@@ -456,7 +468,6 @@ export default function SeatPickPanel({
               }`}
             >
               {hidePlaced ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              {hidePlaced ? "숨김 중" : "표시 중"}
             </button>
           </div>
           <div>

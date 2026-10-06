@@ -6,7 +6,7 @@ import PickTargetSelector from "./PickTargetSelector";
 import { dealRounds } from "@/lib/pickRandom";
 import { formatPickName } from "@/lib/pickFormat";
 import { playError } from "@/lib/pickSound";
-import { openPickWindow } from "@/lib/pickWindowHelper";
+import { openPickWindow, broadcastPick, stampPayload, PICK_SYNC_CHANNEL } from "@/lib/pickWindowHelper";
 import type { PickStudent } from "@/types";
 
 interface StudentPickPanelProps {
@@ -21,8 +21,6 @@ export default function StudentPickPanel({ students }: StudentPickPanelProps) {
   const [error, setError] = useState("");
   // 중복 미허용 시 이미 뽑힌 학생 ID (다음 추첨에서 제외, 리셋으로 복원)
   const [excludedIds, setExcludedIds] = useState<string[]>([]);
-  // 팝업에서 실제 추첨 시작 전까지는 미확정 (reveal 전 내역 오염 방지)
-  const pendingRef = useRef<{ id: string; ids: string[] } | null>(null);
 
   const byId = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const selected = useMemo(
@@ -65,43 +63,62 @@ export default function StudentPickPanel({ students }: StudentPickPanelProps) {
       return;
     }
     try {
-      const picked = dealRounds(drawPool, count, 1, allowDup);
       const drawId = `pick-student-${Date.now()}`;
-      // 팝업에서 [추첨 시작]을 눌러 실제 추첨이 시작될 때 내역에 확정 (PICK_COMMIT 수신 시)
-      // 중복 허용 시에도 기록은 누적, 후보 제외만 하지 않음
-      pendingRef.current = { id: drawId, ids: picked.flat().map((s) => s.id) };
-      const display = (picked[0] ?? []).map(formatPickName);
-
+      // 버튼을 누른 시점에는 후보만 보낸다. 실제로 뽑는 것은 전광판에서
+      // [추첨 시작]을 누른 그 순간(rollStudent)이다.
       openPickWindow({
         id: drawId,
         type: "student",
         title: "학생 뽑기",
         rollingNames: poolNames,
-        results: display,
+        results: [],
+        rolled: false,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "뽑기 중 오류가 발생했습니다.");
       playError();
     }
-  }, [drawPool, count, allowDup, poolNames]);
+  }, [drawPool.length, count, allowDup, poolNames]);
 
-  // 팝업 이벤트: '다시 뽑기' 재추첨 / '추첨 시작' 확정
+  // 전광판의 추첨 요청에 응답해 이 순간에 실제로 뽑는다.
+  // 후보에서 이미 뽑힌 학생을 제외하는 확정 처리도 여기서 함께 된다.
+  const rollStudent = useCallback(
+    (id: string) => {
+      if (drawPool.length === 0) return;
+      try {
+        const picked = dealRounds(drawPool, count, 1, allowDup);
+        const names = picked.flat().map((s) => s.id);
+        const display = (picked[0] ?? []).map(formatPickName);
+
+        // 실제로 추첨이 시작되었으므로 뽑힌 학생을 후보에서 제외한다
+        setExcludedIds((prev) => [...prev, ...names.filter((n) => !prev.includes(n))]);
+
+        broadcastPick(
+          stampPayload({
+            id,
+            type: "student",
+            title: "학생 뽑기",
+            rollingNames: poolNames,
+            results: display,
+            rolled: true,
+          })
+        );
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "뽑기 중 오류가 발생했습니다.");
+        playError();
+      }
+    },
+    [drawPool, count, allowDup, poolNames]
+  );
+
+  // 전광판이 '지금 뽑아라'고 요청하면 그때 랜덤이 돈다
   useEffect(() => {
     let channel: BroadcastChannel | null = null;
     try {
-      channel = new BroadcastChannel("classroom_pick_sync");
+      channel = new BroadcastChannel(PICK_SYNC_CHANNEL);
       channel.onmessage = (e: MessageEvent) => {
-        if (e.data?.type === "REQUEST_REDRAW") {
-          runDraw();
-        } else if (e.data?.type === "PICK_COMMIT") {
-          const pending = pendingRef.current;
-          if (pending && e.data?.id === pending.id) {
-            pendingRef.current = null;
-            setExcludedIds((prev) => [
-              ...prev,
-              ...pending.ids.filter((id) => !prev.includes(id)),
-            ]);
-          }
+        if (e.data?.type === "PICK_ROLL" && e.data?.pickType === "student") {
+          rollStudent(String(e.data.id));
         }
       };
     } catch {
@@ -110,7 +127,7 @@ export default function StudentPickPanel({ students }: StudentPickPanelProps) {
     return () => {
       if (channel) channel.close();
     };
-  }, [runDraw]);
+  }, [rollStudent]);
 
   return (
     <div className="space-y-4">

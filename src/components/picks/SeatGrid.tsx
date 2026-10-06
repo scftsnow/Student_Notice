@@ -113,6 +113,20 @@ export default function SeatGrid({
     return () => ro.disconnect();
   }, [hasCanvas]);
 
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * 자리판 자신의 실제 폭을 CSS 변수로 넘긴다.
+   * 카드 좌표가 화면 측정 px이라 인쇄 폭이 이 값과 같아야 우측 여백이 생기지 않는다.
+   * (패딩/border를 식으로 계산하면 어긋나므로 실제 측정값을 그대로 쓴다)
+   * 이 변수는 @media print 안에서만 적용되므로 측정→반영이 순환하지 않는다.
+   */
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    el.style.setProperty("--seat-board-w", `${el.offsetWidth}px`);
+  }, [size.w, cells.length]);
+
   if (cells.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-400">
@@ -271,34 +285,29 @@ export default function SeatGrid({
         >
           {!cell.enabled ? (
             <span className="text-[10px] text-slate-400 leading-4">닫힘</span>
-          ) : cell.studentId ? (
-            <>
-              <div className="text-[11px] font-bold text-slate-800 truncate leading-4">
-                {displayName(cell.studentId)}
-              </div>
+          ) : (
+            // 성별 기호를 먼저, 그 뒤에 이름을 한 줄에 나란히 배치한다.
+            // h-full + items-center 로 카드 높이를 꽉 채워 세로 가운데 정렬한다.
+            <div className="w-full h-full flex items-center justify-center gap-1 leading-none">
               {cell.lockedGender && (
                 <span
-                  className={`text-[11px] font-bold leading-3 ${
+                  className={`text-[20px] font-bold shrink-0 ${
                     cell.lockedGender === "남" ? "text-blue-500" : "text-rose-500"
                   }`}
                 >
                   {cell.lockedGender === "남" ? "♂" : "♀"}
                 </span>
               )}
-            </>
-          ) : (
-            <>
-              <span className="text-[10px] text-slate-300 leading-4">빈자리</span>
-              {cell.lockedGender && (
-                <span
-                  className={`block text-[11px] font-bold leading-3 ${
-                    cell.lockedGender === "남" ? "text-blue-500" : "text-rose-500"
-                  }`}
-                >
-                  {cell.lockedGender === "남" ? "♂ 지정" : "♀ 지정"}
-                </span>
-              )}
-            </>
+              <span
+                className={`truncate ${
+                  cell.studentId
+                    ? "text-[20px] font-bold text-slate-800"
+                    : "text-[18px] text-slate-300"
+                }`}
+              >
+                {cell.studentId ? displayName(cell.studentId) : "빈자리"}
+              </span>
+            </div>
           )}
         </div>
       </Rnd>
@@ -315,7 +324,11 @@ export default function SeatGrid({
   );
 
   return (
-    <div data-seat-print className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-2">
+    <div
+      ref={boardRef}
+      data-seat-print
+      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-2"
+    >
       {!isTeacher && chalkboardBar}
       <div
         ref={canvasRef}

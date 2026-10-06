@@ -25,7 +25,7 @@ export default function TransactionModal({
 }: TransactionModalProps) {
   const [fromVal, setFromVal] = useState(students[0]?.name || "");
   const [toVal, setToVal] = useState(students[1]?.name || students[0]?.name || "");
-  const [amount, setAmount] = useState(100);
+  const [amount, setAmount] = useState<number | "">("");
   const [desc, setDesc] = useState("학생 간 거래");
   const isTaxOn = isTaxEnabled(taxConfig);
   const [applyTax, setApplyTax] = useState(isTaxOn);
@@ -57,12 +57,13 @@ export default function TransactionModal({
       alert("송금자와 수취인이 같을 수 없습니다.");
       return;
     }
-    if (amount <= 0) {
+    const amt = typeof amount === "number" ? amount : 0;
+    if (amt <= 0) {
       alert("올바른 금액을 입력하세요.");
       return;
     }
     try {
-      onExecute(fromVal, toVal, amount, desc.trim() || "학생 간 거래", applyTax);
+      onExecute(fromVal, toVal, amt, desc.trim() || "학생 간 거래", applyTax);
       onClose();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "거래 실행 실패";
@@ -84,10 +85,6 @@ export default function TransactionModal({
         </div>
 
         <div className="space-y-3 text-xs">
-          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-            학생끼리 주고받는 거래만 처리합니다. 국고 입금·출금과 국고→학생 전송은 [국고 입·출금]에서
-            처리해 주세요.
-          </p>
           <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
               <label className="font-semibold text-slate-600">보내는 학생</label>
@@ -126,7 +123,8 @@ export default function TransactionModal({
               type="number"
               min={1}
               value={amount}
-              onChange={(e) => setAmount(parseInt(e.target.value, 10) || 0)}
+              placeholder="금액 입력"
+              onChange={(e) => setAmount(e.target.value === "" ? "" : parseInt(e.target.value, 10) || 0)}
               className="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-bold text-sm focus:outline-none"
             />
           </div>
@@ -152,7 +150,7 @@ export default function TransactionModal({
               <span className="font-semibold text-slate-700">
                 세금 부과 ({taxConfig ? getEffectiveTaxRate(taxConfig) : 10}% 국고 귀속)
               </span>
-              {applyTax && taxConfig && amount > 0 && (
+              {applyTax && taxConfig && typeof amount === "number" && amount > 0 && (
                 <span className="text-[11px] text-emerald-600 font-bold mt-0.5">
                   수취인 세금 부과: {calculateTax("transaction", amount, taxConfig).toLocaleString()} {currencyName} (실수령: {Math.max(0, amount - calculateTax("transaction", amount, taxConfig)).toLocaleString()} {currencyName})
                 </span>

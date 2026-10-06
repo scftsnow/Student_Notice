@@ -32,6 +32,8 @@ interface SeatMiniCanvasProps {
   large?: boolean;
   /** true면 성별 표시를 숨긴다 (뽑는 화면 창용). 관리 화면 미리보기는 그대로 표시. */
   hideGender?: boolean;
+  /** 카드에 data-shuffle-key 를 붙인다 (좌석 이동 FLIP 애니메이션 추적용) */
+  shuffleKeys?: boolean;
   /** 상단(교탁/칠판 헤더) 아래 부가 노트 */
   note?: ReactNode;
 }
@@ -83,6 +85,7 @@ export default function SeatMiniCanvas({
   keyByLabel = false,
   large = false,
   hideGender = false,
+  shuffleKeys = false,
 }: SeatMiniCanvasProps) {
   const visible = cells.filter((c) => c.enabled);
   const fitHeight = seatMiniHeightPx(distinctYBands(cells), large);
@@ -107,7 +110,8 @@ export default function SeatMiniCanvas({
       >
                 {visible.map((c) => {
           const genderMark =
-            !hideGender && c.lockedGender ? (c.lockedGender === "남" ? "♂" : "♀") : null;          const genderColorCls = !c.lockedGender
+            !hideGender && c.lockedGender ? (c.lockedGender === "남" ? "♂" : "♀") : null;
+          const genderColorCls = !c.lockedGender
             ? ""
             : c.lockedGender === "남"
               ? dark
@@ -131,6 +135,7 @@ export default function SeatMiniCanvas({
               width: `${cardWidth}%`,
               transform: "translate(-50%, -50%)",
             }}
+            data-shuffle-key={shuffleKeys ? c.key : undefined}
             title={c.label || "빈자리"}
           >
             <div
@@ -145,19 +150,18 @@ export default function SeatMiniCanvas({
               } ${cardExtraClass}`}
             >
               <span className={`${large ? "text-4xl sm:text-5xl" : "text-[11px] sm:text-xs"} truncate block`}>
-                {c.label ? (
-                  c.label
-                ) : genderMark ? (
-                  <span className={`font-bold ${genderColorCls}`}>{genderMark}</span>
-                ) : (
-                  "·"
+                {/* 성별 기호(♂/♀)를 먼저, 그 뒤에 이름을 한 줄에 나란히 보여준다.
+                    빈자리는 점을 그리지 않는다. 성별 지정이 있으면 ♂/♀만 표시한다.
+                    hideGender면 genderMark가 null이므로 기호가 아예 렌더되지 않는다. */}
+                {genderMark && (
+                  <span
+                    className={`${large ? "text-lg" : "text-[11px]"} font-bold ${genderColorCls} mr-0.5`}
+                  >
+                    {genderMark}
+                  </span>
                 )}
+                {c.label}
               </span>
-              {c.lockedGender && c.label && !hideGender && (
-                <span className={`${large ? "text-lg" : "text-[11px]"} font-bold ${genderColorCls}`}>
-                  {genderMark}
-                </span>
-              )}
             </div>
           </div>
           );

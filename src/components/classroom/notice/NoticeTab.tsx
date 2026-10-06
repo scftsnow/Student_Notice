@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus, Undo2, Redo2 } from "lucide-react";
-import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine } from "@/types/classroom";
+import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine, ClassroomStudent, Homework } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import { useSelectionRange } from "@/hooks/useSelectionRange";
 import FontSelectorDropdown from "./FontSelectorDropdown";
@@ -44,6 +44,13 @@ interface NoticeTabProps {
   onPreviewScaleChange?: (scale: number) => void;
   routines?: ClassroomRoutine[];
   onUpdateRoutine?: (id: string, patch: Partial<ClassroomRoutine>) => void;
+  /** 진행/완료 구분 없이 전체 과제 (글상자 표시 바에서 칠판 표시를 토글한다) */
+  homeworks?: Homework[];
+  boardHomeworkIds?: string[];
+  students?: ClassroomStudent[];
+  onAddBoardHomework?: (id: string) => void;
+  onRemoveBoardHomework?: (id: string) => void;
+  onUpdateHomework?: (id: string, patch: Partial<Homework>) => void;
   onUndo?: () => void; onRedo?: () => void; canUndo?: boolean; canRedo?: boolean;
 }
 
@@ -54,6 +61,8 @@ export default function NoticeTab({
   showEconomyShortcut = false, onToggleEconomyShortcut, onOpenRoutineNoticeSettings,
   layouts, onUpdateLayouts, freeCards, onToggleFreeCardVisibility, onUpdateFreeCard, onAddFreeCard,
   previewScale = 75, onPreviewScaleChange, routines, onUpdateRoutine,
+  homeworks, boardHomeworkIds, students,
+  onAddBoardHomework, onRemoveBoardHomework, onUpdateHomework,
   onUndo, onRedo, canUndo, canRedo,
 }: NoticeTabProps) {
   const {
@@ -100,9 +109,31 @@ export default function NoticeTab({
     onPreviewScaleChange?.(Math.max(50, Math.min(100, Math.round(next))));
   };
 
+  /**
+   * DOM 직접 편집(execCommand 등)을 해도 되는 대상인가.
+   *
+   * 텍스트 카드(알림장 본문 / 자유 글상자)이면서 **현재 선택이 그 카드 안에 있을 때만** 허용한다.
+   * 이 조건이 없으면 마지막으로 편집하던 영역을 그대로 건드려서
+   * "선택한 대상"과 "적용되는 대상"이 어긋나고 다른 요소까지 같이 바뀐다.
+   * (업무/과제 요소 등 나머지는 전부 대상 지정 경로만 쓴다)
+   */
+  const canEditDomDirectly = (): boolean => {
+    const t = targetElement;
+    if (!t || !(t === "noticeBox" || t.startsWith("free-"))) return false;
+    const el = document.querySelector<HTMLElement>(`[data-card-id="${t}"]`);
+    const sel = typeof window !== "undefined" ? window.getSelection() : null;
+    if (!el || !sel || !sel.rangeCount) return false;
+    const node = sel.anchorNode;
+    return !!node && el.contains(node);
+  };
+
   const applyFontFamilyToSelectionOrTarget = (fontId: string) => {
     const fontObj = CLASSROOM_FONTS.find((f) => f.id === fontId);
     const fontFamily = fontObj ? fontObj.family : "'Pretendard', sans-serif";
+    if (!canEditDomDirectly()) {
+      onApplyFontFamily?.(fontFamily);
+      return;
+    }
     const { range, sel } = getEffectiveRange();
 
     if (range) {
@@ -170,6 +201,10 @@ export default function NoticeTab({
   };
 
   const applyColorToSelectionOrTarget = (color: string) => {
+    if (!canEditDomDirectly()) {
+      onApplyColor?.(color);
+      return;
+    }
     const { range, sel } = getEffectiveRange();
     if (range) {
       if (sel) { sel.removeAllRanges(); sel.addRange(range); }
@@ -183,13 +218,16 @@ export default function NoticeTab({
   };
 
   const applyFontSizeToSelectionOrTarget = (sz: NoticeFontSize) => {
-    onFontSizeChange(sz);
     const numSz = Number(sz);
+    // 전역 글자 크기는 '전체 일괄 적용'일 때만 바꾼다.
+    // 개별 대상에서 전역을 건드리면 크기를 지정하지 않은 요소들이 그 값을 상속받아
+    // '선택한 대상'과 '바뀐 요소'가 어긋난다. (대상은 아래에서 개별 적용한다)
     if (targetElement === "all") {
+      onFontSizeChange(sz);
       onApplyFontSize?.(numSz);
       return;
     }
-    const handledInline = applyInlineFontSize(numSz);
+    const handledInline = canEditDomDirectly() ? applyInlineFontSize(numSz) : false;
     if (!handledInline) {
       onApplyFontSize?.(numSz);
     }
@@ -220,6 +258,9 @@ export default function NoticeTab({
               {(showEconomyShortcut || targetElement === "accountBox") && (
                 <option value="accountBox">학생 계좌</option>
               )}
+              {homeworks && homeworks.map((hw) => (
+                <option key={hw.id} value={hw.id}>과제: {hw.title}</option>
+              ))}
               {freeCards && freeCards.map((card, idx) => (
                 <option key={card.id} value={card.id}>{card.label?.trim() || `자유 글상자 ${idx + 1}`}</option>
               ))}
@@ -290,13 +331,13 @@ export default function NoticeTab({
 
           {/* 글자 정렬 */}
           <div className="flex items-center gap-1">
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd("justifyLeft"); onApplyAlign?.("left"); }} title="왼쪽 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); if (canEditDomDirectly()) execCmd("justifyLeft"); onApplyAlign?.("left"); }} title="왼쪽 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
               <AlignLeft className="w-3.5 h-3.5" />
             </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd("justifyCenter"); onApplyAlign?.("center"); }} title="가운데 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); if (canEditDomDirectly()) execCmd("justifyCenter"); onApplyAlign?.("center"); }} title="가운데 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
               <AlignCenter className="w-3.5 h-3.5" />
             </button>
-            <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd("justifyRight"); onApplyAlign?.("right"); }} title="오른쪽 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
+            <button type="button" onMouseDown={(e) => { e.preventDefault(); if (canEditDomDirectly()) execCmd("justifyRight"); onApplyAlign?.("right"); }} title="오른쪽 정렬" className="w-7 h-7 rounded hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-600 hover:text-slate-900">
               <AlignRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -518,6 +559,12 @@ export default function NoticeTab({
           onAddFreeCard={onAddFreeCard}
           routines={routines}
           onUpdateRoutine={onUpdateRoutine}
+          homeworks={homeworks}
+          boardHomeworkIds={boardHomeworkIds}
+          students={students}
+          onAddBoardHomework={onAddBoardHomework}
+          onRemoveBoardHomework={onRemoveBoardHomework}
+          onUpdateHomework={onUpdateHomework}
         />
       )}
 

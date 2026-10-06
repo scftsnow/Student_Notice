@@ -164,6 +164,12 @@ export default function NoticePageClient() {
           }
           layouts={state.layouts}
           onUpdateLayouts={state.updateLayouts}
+          homeworks={state.homeworks}
+          boardHomeworkIds={state.boardHomeworkIds}
+          students={state.students}
+          onAddBoardHomework={state.addBoardHomework}
+          onRemoveBoardHomework={state.removeBoardHomework}
+          onUpdateHomework={state.updateHomework}
           freeCards={state.freeCards}
           onToggleFreeCardVisibility={handleToggleFreeCardVisibility}
           onUpdateFreeCard={handleUpdateFreeCard}
@@ -207,6 +213,9 @@ export default function NoticePageClient() {
           taxConfig={state.taxConfig}
           ledgerHistory={state.ledgerHistory}
           onUndoLedgerEntry={state.undoLedgerEntry}
+          boardHomeworks={state.boardHomeworks}
+          onUpdateHomework={state.updateHomework}
+          onRemoveBoardHomework={state.removeBoardHomework}
         />
       </div>
       </div>
