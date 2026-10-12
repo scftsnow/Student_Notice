@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { DatabaseBackup, Download, Upload, CheckCircle2 } from "lucide-react";
+import { DatabaseBackup, Download, Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { saveClassroomSnapshot, restoreClassIdentity } from "@/app/actions";
 import { DEFAULT_FONT_STORAGE_KEY } from "@/lib/defaultFont";
 
@@ -20,6 +20,9 @@ const BACKUP_KEYS = [
   "classroom_show_economy_shortcut",
   DEFAULT_FONT_STORAGE_KEY,
 ] as const;
+
+/** BroadcastChannel로 학생 탭/다른 창에 전체 복원 알림 */
+const RESTORE_SYNC_CHANNEL = "classroom_os_restore_sync";
 
 interface BackupFile {
   app: "classroom-os";
@@ -85,7 +88,7 @@ export default function BackupSection() {
       const url = URL.createObjectURL(blob);
       const d = new Date();
       const pad = (n: number) => String(n).padStart(2, "0");
-      const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}`;
+      const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
       const a = document.createElement("a");
       a.href = url;
       a.download = `학급설정백업_${stamp}.json`;
@@ -104,6 +107,8 @@ export default function BackupSection() {
     setError("");
     setNotice("");
     setBusy(true);
+    let serverSynced = false;
+    let classIdentitySynced = false;
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as Partial<BackupFile>;
@@ -147,27 +152,38 @@ export default function BackupSection() {
         }
       }
 
-      // 2) 서버 스냅샷도 백업 시점으로 (실패해도 로컬 복원은 유지, 다음 자동 동기화가 따라잡음)
+      // 2) 서버 스냅샷도 백업 시점으로
       try {
         await saveClassroomSnapshot(v3raw);
+        serverSynced = true;
       } catch {
-        // ignore — debounced background sync covers it
+        // 네트워크/DB 오류 → 사용자에게 알림
+        setError((prev) => (prev ? prev + "\n" : "") + "⚠ 서버 스냅샷 동기화 실패 — 다른 기기/학생 화면은 예전 상태일 수 있습니다.");
       }
 
-      // 2b) 서버 학급 정보(학급명·화폐명)도 백업 시점으로 — 상단 크롬 타이틀이 DB를 직접 읽기 때문.
-      // 나머지는 UI에서 바꿀 수 없어 손대지 않는다.
+      // 2b) 서버 학급 정보(학급명·화폐명)도 백업 시점으로
       try {
         const v3 = JSON.parse(v3raw) as Record<string, unknown>;
         const cn = typeof v3.className === "string" ? v3.className : undefined;
         const cur = typeof v3.currencyName === "string" ? v3.currencyName : undefined;
         if (cn !== undefined && cur !== undefined) {
           await restoreClassIdentity(cn, cur);
+          classIdentitySynced = true;
         }
       } catch {
-        // ignore — 다음 설정 저장 시 따라잡음
+        setError((prev) => (prev ? prev + "\n" : "") + "⚠ 학급 정보(이름/화폐) 동기화 실패 — 상단 타이틀이 예전 값일 수 있습니다.");
       }
 
-      // 3) 통상 로드 경로로 재시작 → 백업 시점과 동일한 상태
+      // 3) 다른 탭/학생 화면에 전체 복원 알림 전송 → 그쪽도 reload 유도
+      try {
+        const channel = new BroadcastChannel(RESTORE_SYNC_CHANNEL);
+        channel.postMessage({ type: "FULL_RESTORE", timestamp: Date.now() });
+        channel.close();
+      } catch {
+        // ignore — BroadcastChannel 미지원 환경이면 스킵
+      }
+
+      // 4) 통상 로드 경로로 재시작 → 백업 시점과 동일한 상태
       window.location.reload();
     } catch {
       setError("백업 파일을 읽지 못했습니다 (JSON 형식을 확인해 주세요).");
@@ -195,8 +211,9 @@ export default function BackupSection() {
         </p>
       )}
       {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
-          {error}
+        <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200 flex items-start gap-1.5">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+          <span className="whitespace-pre-line">{error}</span>
         </p>
       )}
 

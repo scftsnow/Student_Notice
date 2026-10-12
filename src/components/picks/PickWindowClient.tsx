@@ -24,6 +24,7 @@ import SeatMiniCanvas from "./SeatMiniCanvas";
 import {
   PICK_SYNC_CHANNEL,
   requestPickRoll,
+  getPayloadKey,
   type PickWindowPayload,
 } from "@/lib/pickWindowHelper";
 
@@ -160,6 +161,13 @@ export default function PickWindowClient() {
   const seatCanvasRef = useRef<HTMLDivElement>(null);
   const prevSeatPosRef = useRef(new Map<string, { left: number; top: number }>());
 
+  /** 이 창이 의도한 뽑기 타입 (window.name에서 추출: "ClassroomPickWindow_order" → "order") */
+  const intendedTypeRef = useRef<PickWindowPayload["type"] | null>(null);
+  if (typeof window !== "undefined" && !intendedTypeRef.current) {
+    const match = window.name.match(/^ClassroomPickWindow_(student|order|group|seat)$/);
+    if (match) intendedTypeRef.current = match[1] as PickWindowPayload["type"];
+  }
+
   const clearTimers = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
@@ -175,6 +183,9 @@ export default function PickWindowClient() {
 
     /** 새 페이로드를 화면에 반영한다. 결과가 이미 뽑힌 상태면 공개 시퀀스까지 실행. */
     const adopt = (next: PickWindowPayload) => {
+      // 이 창의 의도한 타입과 다르면 무시 (종류별 별도 창 유지)
+      if (intendedTypeRef.current && next.type !== intendedTypeRef.current) return;
+
       const rollingNow = phaseRef.current === "rolling";
       if (!rollingNow) clearTimers();
       setPayload(next);
@@ -213,10 +224,16 @@ export default function PickWindowClient() {
     // 이미 들고 있는 것보다 seq가 클 때만 적용하므로, 놓친 브로드캐스트를 되살린다.
     const resyncFromStorage = () => {
       try {
-        const saved = localStorage.getItem("classroom_current_pick_payload");
+        // 이 창의 의도한 타입이 있으면 타입별 키에서, 없으면 legacy 키에서 읽는다
+        const key = intendedTypeRef.current
+          ? getPayloadKey(intendedTypeRef.current)
+          : "classroom_current_pick_payload";
+        const saved = localStorage.getItem(key);
         if (!saved) return;
         const parsed = JSON.parse(saved) as PickWindowPayload;
         if (!parsed || !Array.isArray(parsed.results)) return;
+        // 타입 불일치면 무시
+        if (intendedTypeRef.current && parsed.type !== intendedTypeRef.current) return;
         const cur = payloadRef.current;
         if (cur && typeof cur.seq === "number" && parsed.seq <= cur.seq) return;
         adopt(parsed);
@@ -234,9 +251,8 @@ export default function PickWindowClient() {
         if (e.data?.type === "PICK_START" || e.data?.type === "PICK_UPDATE") {
           const next = e.data.payload as PickWindowPayload;
           if (next) {
-            // 다른 종류 뽑기의 추첨은 무시 (종류별 별도 창 유지)
-            const currentType = payloadRef.current?.type;
-            if (currentType && next.type !== currentType) return;
+            // 이 창의 의도한 타입과 다르면 무시 (종류별 별도 창 유지)
+            if (intendedTypeRef.current && next.type !== intendedTypeRef.current) return;
             // 추첨 대기 중이던 것과 다른 추첨이면 새로 시작
             if (awaitingRef.current && next.id !== payloadRef.current?.id) {
               awaitingRef.current = false;

@@ -49,17 +49,28 @@ export type PickWindowPayloadInput = Omit<PickWindowPayload, "seq" | "rolled"> &
 /** 팝업 ↔ 패널 동기화 채널명 */
 export const PICK_SYNC_CHANNEL = "classroom_pick_sync";
 
-/** 전광판이 결과를 받을 때 쓰는 localStorage 키 */
-const PAYLOAD_KEY = "classroom_current_pick_payload";
+/** 전광판이 결과를 받을 때 쓰는 localStorage 키 (타입별 분리) */
+export const PAYLOAD_KEY_PREFIX = "classroom_current_pick_payload_";
+
+/** 전체 타입용 legacy 키 (호환용) */
+const PAYLOAD_KEY_LEGACY = "classroom_current_pick_payload";
+
+/**
+ * 타입별 localStorage 키 생성
+ */
+export function getPayloadKey(type: PickWindowPayload["type"]): string {
+  return `${PAYLOAD_KEY_PREFIX}${type}`;
+}
 
 /**
  * 세대 번호 부여. 직전 값보다 반드시 크게 만든다.
  * (같은 밀리초에 연속 뽑기해도 seq가 엄격히 증가해야 팝업이 최신임을 판별한다)
  */
-function stampSeq(seq?: number): number {
+function stampSeq(seq?: number, type?: PickWindowPayload["type"]): number {
   let prevSeq = 0;
   try {
-    const raw = localStorage.getItem(PAYLOAD_KEY);
+    const key = type ? getPayloadKey(type) : PAYLOAD_KEY_LEGACY;
+    const raw = localStorage.getItem(key);
     if (raw) {
       const n = Number(JSON.parse(raw)?.seq);
       if (Number.isFinite(n)) prevSeq = n;
@@ -74,18 +85,21 @@ function stampSeq(seq?: number): number {
 
 /** 페이로드에 seq·기본값을 채운다 */
 export function stampPayload(input: PickWindowPayloadInput): PickWindowPayload {
+  const type = input.type;
   return {
     ...input,
     results: input.results ?? [],
     rolled: input.rolled ?? true,
-    seq: stampSeq(input.seq),
+    seq: stampSeq(input.seq, type),
   };
 }
 
 /** 저장 + 브로드캐스트 (창 열기 없이 이미 열린 전광판에만 전달) */
 export function broadcastPick(payload: PickWindowPayload): void {
   try {
-    localStorage.setItem(PAYLOAD_KEY, JSON.stringify(payload));
+    localStorage.setItem(getPayloadKey(payload.type), JSON.stringify(payload));
+    // Legacy 키에도 저장 (이전 버전 호환)
+    localStorage.setItem(PAYLOAD_KEY_LEGACY, JSON.stringify(payload));
   } catch {
     // ignore storage error
   }
@@ -114,7 +128,8 @@ export function openPickWindow(input: PickWindowPayloadInput): Window | null {
   const left = Math.max(0, Math.round((window.screen.width - w) / 2));
   const top = Math.max(0, Math.round((window.screen.height - h) / 2));
 
-  // 뽑기 종류별 별도 창: 같은 종류는 기존 창을 재사용하고, 다른 종류는 각자 창을 유지한다.
+  // 뽑기 종류별 별도 창: 종류가 다르면 무조건 새 창(name에 type 포함).
+  // 같은 종류라도 매번 새 창을 원하면 name에 seq나 id를 포함하면 된다.
   const popup = window.open(
     `/picks/window?seq=${payload.seq}`,
     `ClassroomPickWindow_${payload.type}`,
