@@ -139,10 +139,12 @@ export default function CanvasClock({
             : isAnalog
             ? analogClockPx
             : "auto",
+          // 상단바는 absolute 오버레이(날짜·업무 요소와 동일)라 박스 높이에서 제외한다.
+          // 학생창도 상단바 없이 같은 박스를 그리므로 미리보기와 1:1 일치한다.
           height: layout.height
             ? (parsePercent(layout.height, isAnalog ? 18 : 10) / 100) * containerSize.height
             : isAnalog
-            ? analogClockPx + 24
+            ? analogClockPx
             : "auto",
         }}
         onDragStop={makeDragSaveHandler(
@@ -174,9 +176,9 @@ export default function CanvasClock({
           textAlign: layout.align || (isAnalog ? "center" : "right"),
         }}
       >
-        {/* 시계 상단바 */}
+        {/* 시계 상단바 — absolute overlay (날짜·업무 요소와 동일, 내용 Y위치 유지) */}
         <div
-          className={`transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
+          className={`absolute top-0 left-0 right-0 z-20 transition-opacity flex items-center gap-1.5 px-2 py-0.5 bg-slate-900/40 rounded-t-xl border-b border-white/10 select-none cursor-grab active:cursor-grabbing ${
             targetElement === "clockBox" ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
           onContextMenu={handleContextMenu}
@@ -198,13 +200,13 @@ export default function CanvasClock({
             </button>
           </div>
         </div>
-        <div className="flex items-center justify-center flex-1">
+        <div className="flex items-center justify-center flex-1 w-full h-full">
           {isAnalog ? (
             <div
-              className="aspect-square flex items-center justify-center pointer-events-none p-1"
+              className="aspect-square w-full max-h-full flex items-center justify-center pointer-events-none p-1"
+              data-testid="canvas-analog-clock"
               style={{
-                width: layout.width ? "100%" : `${analogClockPx}px`,
-                height: "auto",
+                maxWidth: layout.width ? "100%" : `${analogClockPx}px`,
               }}
             >
               <AnalogClock color={layout.color || "currentColor"} size="100%" />

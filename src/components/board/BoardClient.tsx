@@ -295,7 +295,7 @@ export default function BoardClient({
       </div>
       )}
 
-      {/* 글상자 2: 시각 글상자 */}
+      {/* 글상자 2: 시각 글상자 (미리보기 CanvasClock과 같은 박스 모델: 상단바 없음, 박스 = 시계) */}
       {isBoxVisibleToday(layouts.clockBox?.visible, layouts.clockBox?.visibleDays) && (
       <div
         className="absolute z-10 flex items-center"
@@ -305,18 +305,14 @@ export default function BoardClient({
           width: layouts.clockBox.width || (layouts.clockBox.clockType === "analog" ? `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px` : "auto"),
           height: layouts.clockBox.height || (layouts.clockBox.clockType === "analog" ? `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px` : "auto"),
           color: layouts.clockBox.color || "inherit",
-          justifyContent: layouts.clockBox.align === "left" ? "flex-start" : layouts.clockBox.align === "center" ? "center" : "flex-end",
+          // 아날로그는 미리보기처럼 박스 중앙에 시계를 둔다 (정렬값과 무관)
+          justifyContent: layouts.clockBox.clockType === "analog" ? "center" : layouts.clockBox.align === "left" ? "flex-start" : layouts.clockBox.align === "center" ? "center" : "flex-end",
         }}
       >
         {layouts.clockBox.clockType === "analog" ? (
           <div
-            className="aspect-square flex items-center justify-center p-1 pointer-events-none"
-            style={{
-              width: "100%",
-              height: "100%",
-              maxWidth: layouts.clockBox.width ? "100%" : `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
-              maxHeight: layouts.clockBox.height ? "100%" : `${(layouts.clockBox.fontSize || fontSize || 42) * 2.2}px`,
-            }}
+            className="aspect-square w-full max-h-full flex items-center justify-center p-1 pointer-events-none"
+            data-testid="board-analog-clock"
           >
             <AnalogClock color={layouts.clockBox.color || "currentColor"} size="100%" />
           </div>

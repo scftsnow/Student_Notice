@@ -185,15 +185,44 @@ export default function BoardCanvas({
     };
 
     updateLayouts((prev) => {
+      // 아날로그 시계는 박스 크기(width/height)로 렌더되므로 글자 크기만 바꾸면 겉보기에
+      // 아무 일도 안 일어난다. 기존 수동 리사이즈 크기를 새 글자 크기에 비례해 함께 키운다.
+      const scaleAnalogBox = (box: typeof prev.clockBox) => {
+        if (
+          styleFontSize &&
+          box.clockType === "analog" &&
+          (box.width || box.height) &&
+          Number.isFinite(styleFontSize)
+        ) {
+          const oldFont = box.fontSize || Number(fontSize) || 42;
+          if (oldFont > 0 && styleFontSize !== oldFont) {
+            const ratio = styleFontSize / oldFont;
+            const scaled = { ...box };
+            if (box.width) {
+              const w = parseFloat(box.width);
+              if (!isNaN(w)) scaled.width = `${(w * ratio).toFixed(1)}%`;
+            }
+            if (box.height) {
+              const h = parseFloat(box.height);
+              if (!isNaN(h)) scaled.height = `${(h * ratio).toFixed(1)}%`;
+            }
+            return scaled;
+          }
+        }
+        return box;
+      };
       if (target === "all") {
         return {
           ...prev,
           dateBox: { ...prev.dateBox, ...stylePatch },
-          clockBox: { ...prev.clockBox, ...stylePatch },
+          clockBox: { ...scaleAnalogBox(prev.clockBox), ...stylePatch },
           routineBox: { ...prev.routineBox, ...stylePatch },
         };
       }
       if (target === "dateBox" || target === "clockBox" || target === "routineBox" || target === "accountBox") {
+        if (target === "clockBox") {
+          return { ...prev, clockBox: { ...scaleAnalogBox(prev.clockBox), ...stylePatch } };
+        }
         return { ...prev, [target]: { ...prev[target as keyof BoardElementLayouts], ...stylePatch } };
       }
       return prev;
@@ -224,7 +253,7 @@ export default function BoardCanvas({
       const hw = boardHomeworks.find((h) => h.id === target);
       if (hw) onUpdateHomework(hw.id, { layout: { ...hw.layout, ...stylePatch } });
     }
-  }, [appliedStyle, updateLayouts, freeCards, routines, boardHomeworks, allHomeworks, onUpdateFreeCard, onUpdateRoutine, onUpdateHomework]);
+  }, [appliedStyle, updateLayouts, freeCards, routines, boardHomeworks, allHomeworks, onUpdateFreeCard, onUpdateRoutine, onUpdateHomework, fontSize]);
 
   // 선택 요소 변경 시 해당 요소의 실제 fontSize 및 lineHeight를 부모 툴바로 전달
   const targetFontSize = useMemo(() => {
