@@ -49,29 +49,30 @@ function layoutForCount(n: number): ResultLayout {
 }
 function resultContainerClass(layout: ResultLayout, rolling = false): string {
   // 섞는 중에는 FLIP 이동으로 스크롤바가 깜빡이지 않도록 스크롤 잠금
+  // 결과는 창 폭을 최대한 사용한다 (교실 전광판 가독성)
   const scroll = rolling
     ? "overflow-hidden"
     : layout === "dense4" || layout === "dense5"
       ? "max-h-[80vh] overflow-y-auto"
       : layout === "grid"
-        ? "max-h-[70vh] overflow-y-auto"
+        ? "max-h-[75vh] overflow-y-auto"
         : "";
   switch (layout) {
     case "hero":
       return "flex items-center justify-center p-2 w-full";
     case "duo":
-      return "grid grid-cols-1 sm:grid-cols-2 gap-4 p-2 w-full max-w-5xl";
+      return "grid grid-cols-1 sm:grid-cols-2 gap-5 p-2 w-full max-w-6xl";
     case "trio":
-      return "grid grid-cols-1 sm:grid-cols-3 gap-4 p-2 w-full max-w-6xl";
+      return "grid grid-cols-1 sm:grid-cols-3 gap-5 p-2 w-full max-w-7xl";
     case "quad":
-      return "grid grid-cols-2 gap-4 p-2 w-full max-w-5xl";
+      return "grid grid-cols-2 gap-5 p-2 w-full max-w-6xl";
     case "dense4":
-      return `grid grid-cols-2 sm:grid-cols-4 gap-4 ${scroll} p-2 w-full max-w-5xl mx-auto`;
+      return `grid grid-cols-2 sm:grid-cols-4 gap-4 ${scroll} p-2 w-full`;
     case "dense5":
-      return `grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 ${scroll} p-2 w-full max-w-6xl mx-auto`;
+      return `grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 ${scroll} p-2 w-full`;
     case "grid":
     default:
-      return `grid grid-cols-1 sm:grid-cols-2 gap-3 ${scroll} p-2`;
+      return `grid grid-cols-1 sm:grid-cols-2 gap-4 ${scroll} p-2 w-full`;
   }
 }
 
@@ -82,20 +83,20 @@ function resultCardClass(layout: ResultLayout, animate = true): string {
     "bg-gradient-to-r from-indigo-900/70 to-violet-900/70 border border-indigo-500/30 text-white font-black flex items-center";
   switch (layout) {
     case "hero":
-      return `px-12 py-10 sm:px-16 sm:py-12 rounded-3xl text-6xl sm:text-8xl shadow-2xl${anim}`;
+      return `px-14 py-12 sm:px-20 sm:py-14 rounded-3xl text-7xl sm:text-9xl shadow-2xl${anim}`;
     case "duo":
-      return `px-8 py-8 rounded-3xl text-4xl sm:text-5xl shadow-xl justify-center gap-3 ${base}${anim}`;
+      return `px-10 py-9 rounded-3xl text-5xl sm:text-6xl shadow-xl justify-center gap-3 ${base}${anim}`;
     case "trio":
-      return `px-6 py-7 rounded-3xl text-3xl sm:text-4xl shadow-xl justify-center gap-3 ${base}${anim}`;
+      return `px-7 py-8 rounded-3xl text-4xl sm:text-5xl shadow-xl justify-center gap-3 ${base}${anim}`;
     case "quad":
-      return `px-6 py-6 rounded-2xl text-3xl sm:text-4xl shadow-lg justify-center gap-3 ${base}${anim}`;
+      return `px-7 py-7 rounded-2xl text-4xl sm:text-5xl shadow-lg justify-center gap-3 ${base}${anim}`;
     case "dense4":
-      return `px-6 py-5 rounded-2xl text-3xl sm:text-4xl shadow-lg gap-3 ${base}${anim}`;
+      return `px-7 py-6 rounded-2xl text-4xl sm:text-5xl shadow-lg gap-3 ${base}${anim}`;
     case "dense5":
-      return `px-5 py-4 rounded-2xl text-2xl sm:text-3xl shadow-lg gap-2.5 ${base}${anim}`;
+      return `px-6 py-5 rounded-2xl text-3xl sm:text-4xl shadow-lg gap-2.5 ${base}${anim}`;
     case "grid":
     default:
-      return `px-6 py-4 rounded-2xl text-2xl sm:text-3xl shadow-lg gap-3 ${base}${anim}`;
+      return `px-7 py-5 rounded-2xl text-3xl sm:text-4xl shadow-lg gap-3 ${base}${anim}`;
   }
 }
 
@@ -108,12 +109,12 @@ function resultBadgeClass(layout: ResultLayout): string {
     case "trio":
     case "quad":
     case "dense4":
-      return `w-10 h-10 rounded-xl text-base ${base}`;
+      return `w-12 h-12 rounded-xl text-xl ${base}`;
     case "dense5":
-      return `w-9 h-9 rounded-xl text-sm ${base}`;
+      return `w-11 h-11 rounded-xl text-lg ${base}`;
     case "grid":
     default:
-      return `w-8 h-8 rounded-xl bg-indigo-500/30 text-indigo-300 text-sm font-bold flex items-center justify-center shrink-0 border border-indigo-400/30`;
+      return `w-10 h-10 rounded-xl bg-indigo-500/30 text-indigo-300 text-lg font-bold flex items-center justify-center shrink-0 border border-indigo-400/30`;
   }
 }
 
@@ -362,6 +363,8 @@ export default function PickWindowClient() {
     const isGroupShuffle = p.type === "group";
     const isSeatShuffle = p.type === "seat";
     prevCellPosRef.current = new Map();
+    // 이전 판의 좌표가 남아 있으면 새 판 첫 이동이 엉뚱한 곳에서 출발한다
+    prevSeatPosRef.current = new Map();
 
     // 화면용 섞기 모션 (결과와 무관한 장식)
     const steps = 16;
@@ -691,14 +694,14 @@ export default function PickWindowClient() {
             <div className="py-4 space-y-4 w-full animate-[scale-up_0.2s_ease-out]">
               <div
                 ref={shuffleGridRef}
-                className="w-full max-w-6xl mx-auto space-y-3 max-h-[70vh] overflow-hidden p-2"
+                className="w-full space-y-3 max-h-[70vh] overflow-hidden p-2"
               >
                 {(rollingGroups.length > 0
                   ? rollingGroups
                   : parsedGroups.map((g) => g.members)
                 ).map((members, gi) => (
                   <div key={gi} className="flex items-center gap-3">
-                    <span className="shrink-0 px-4 py-2 rounded-xl bg-indigo-500/40 border border-indigo-400/40 text-white text-lg sm:text-xl font-black shadow">
+                    <span className="shrink-0 px-5 py-2.5 rounded-xl bg-indigo-500/40 border border-indigo-400/40 text-white text-2xl sm:text-3xl font-black shadow">
                       {parsedGroups[gi]?.label ?? `${gi + 1}모둠`}
                     </span>
                     <div className="flex-1 flex flex-wrap gap-2">
@@ -706,7 +709,7 @@ export default function PickWindowClient() {
                         <div
                           key={name}
                           data-shuffle-key={name}
-                          className={`${resultCardClass(groupMemberLayout, false)} flex-1 min-w-[130px]`}
+                          className={`${resultCardClass(groupMemberLayout, false)} flex-1 min-w-[160px]`}
                         >
                           <span className="truncate flex-1 text-center">{name}</span>
                         </div>
@@ -722,7 +725,7 @@ export default function PickWindowClient() {
           </div>
           ) : isSeatBoard ? (
             <div className="py-4 space-y-4 w-full animate-[scale-up_0.2s_ease-out]">
-              <div ref={seatCanvasRef} className="w-full max-w-6xl mx-auto">
+              <div ref={seatCanvasRef} className="w-full">
                 <SeatMiniCanvas cells={rollingSeatCells} dark large shuffleKeys />
               </div>
               <div className="flex items-center justify-center gap-2 text-base font-bold text-indigo-300 animate-pulse">
@@ -732,7 +735,7 @@ export default function PickWindowClient() {
             </div>
           ) : (
             <div className="py-12 space-y-8 animate-[scale-up_0.2s_ease-out]">
-              <div className="inline-block min-w-[300px] sm:min-w-[420px] px-12 py-8 rounded-3xl bg-indigo-600 text-white text-4xl sm:text-6xl font-black shadow-2xl shadow-indigo-500/50 border border-indigo-400/40 animate-pulse">
+              <div className="inline-block min-w-[320px] sm:min-w-[480px] px-14 py-10 rounded-3xl bg-indigo-600 text-white text-5xl sm:text-7xl font-black shadow-2xl shadow-indigo-500/50 border border-indigo-400/40 animate-pulse">
                 {current || "..."}
               </div>
               <div className="flex items-center justify-center gap-2 text-base font-bold text-indigo-300 animate-pulse">
@@ -748,7 +751,7 @@ export default function PickWindowClient() {
             className={
               isDenseLayout
                 ? "w-full space-y-3 animate-[fade-in_0.3s_ease-out]"
-                : "w-full max-w-3xl space-y-6 animate-[fade-in_0.3s_ease-out]"
+                : "w-full max-w-5xl space-y-6 animate-[fade-in_0.3s_ease-out]"
             }
           >
             <div className="flex items-center justify-center gap-2">
@@ -756,8 +759,8 @@ export default function PickWindowClient() {
               <h3
                 className={
                   isDenseLayout
-                    ? "text-lg font-black text-white"
-                    : "text-xl sm:text-2xl font-black text-white"
+                    ? "text-xl font-black text-white"
+                    : "text-2xl sm:text-3xl font-black text-white"
                 }
               >
                 {phase === "revealing" ? "결과 공개 중..." : "🎉 최종 추첨 결과"}
@@ -766,17 +769,17 @@ export default function PickWindowClient() {
 
             {/* 결과 목록 (모둠은 행별 모둠 카드, 자리는 동일 좌표 미니 캔버스, 그 외 인원수별 맞춤 배치·크기) */}
             {isGroupBoard ? (
-              <div className="w-full max-w-6xl mx-auto space-y-3 max-h-[70vh] overflow-y-auto p-2">
+              <div className="w-full space-y-3 max-h-[70vh] overflow-y-auto p-2">
                 {parsedGroups.slice(0, revealed).map((g, gi) => (
                   <div key={`${g.label}-${gi}`} className={`flex items-center gap-3 ${POP_ANIM}`}>
-                    <span className="shrink-0 px-4 py-2 rounded-xl bg-indigo-500/40 border border-indigo-400/40 text-white text-lg sm:text-xl font-black shadow">
+                    <span className="shrink-0 px-5 py-2.5 rounded-xl bg-indigo-500/40 border border-indigo-400/40 text-white text-2xl sm:text-3xl font-black shadow">
                       {g.label}
                     </span>
                     <div className="flex-1 flex flex-wrap gap-2">
                       {g.members.map((m) => (
                         <div
                           key={`${gi}-${m}`}
-                          className={`${resultCardClass(groupMemberLayout)} flex-1 min-w-[130px]`}
+                          className={`${resultCardClass(groupMemberLayout)} flex-1 min-w-[160px]`}
                         >
                           <span className="truncate flex-1 text-center">{m}</span>
                         </div>
@@ -786,7 +789,7 @@ export default function PickWindowClient() {
                 ))}
               </div>
             ) : isSeatBoard ? (
-              <div className="w-full max-w-6xl mx-auto p-2">
+              <div className="w-full p-2">
                 <SeatMiniCanvas cells={revealSeatCells} dark cardExtraClass={POP_ANIM} keyByLabel large />
               </div>
             ) : (
