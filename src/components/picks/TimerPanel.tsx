@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Timer,
   Play,
@@ -11,6 +11,7 @@ import {
   Hourglass,
   AlarmClock,
   ExternalLink,
+  Settings,
 } from "lucide-react";
 import { openTimerWindow } from "@/lib/timerUtils";
 import { formatCountdown, formatStopwatch, type TimerMode } from "@/lib/timerUtils";
@@ -24,6 +25,7 @@ import BgmSection from "./BgmSection";
 export default function TimerPanel() {
   const t = useTimerController();
   const cardRef = useRef<HTMLDivElement>(null);
+  const [showBgmSettings, setShowBgmSettings] = useState(false);
 
   return (
     <div
@@ -38,6 +40,22 @@ export default function TimerPanel() {
           타이머
         </h3>
         <div className="flex items-center gap-1">
+          {t.isCountdown && (
+            <button
+              type="button"
+              onClick={() => setShowBgmSettings((v) => !v)}
+              title={showBgmSettings ? "BGM 설정 숨기기" : "BGM 설정"}
+              aria-label={showBgmSettings ? "BGM 설정 숨기기" : "BGM 설정"}
+              aria-expanded={showBgmSettings}
+              className={`p-1 rounded-lg transition-colors ${
+                showBgmSettings
+                  ? "text-indigo-600 bg-indigo-50"
+                  : "text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => openTimerWindow()}
@@ -232,7 +250,7 @@ export default function TimerPanel() {
               −1분
             </button>
           </div>
-          <BgmSection t={t} />
+          {showBgmSettings && <BgmSection t={t} />}
         </div>
       )}
     </div>

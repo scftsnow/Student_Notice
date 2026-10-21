@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Timer,
   Play,
@@ -9,6 +9,7 @@ import {
   Hourglass,
   AlarmClock,
   X,
+  Settings,
 } from "lucide-react";
 import { formatCountdown, formatStopwatch, type TimerMode } from "@/lib/timerUtils";
 import { useTimerController, TIMER_PRESET_SECONDS } from "@/hooks/useTimerController";
@@ -20,6 +21,7 @@ import BgmSection from "./BgmSection";
  */
 export default function TimerWindowView() {
   const t = useTimerController();
+  const [showBgmSettings, setShowBgmSettings] = useState(false);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -33,14 +35,32 @@ export default function TimerWindowView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white flex flex-col items-center justify-center p-4 sm:p-6 select-none relative">
-      <button
-        type="button"
-        onClick={() => window.close()}
-        title="창 닫기"
-        className="absolute top-4 right-4 p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"
-      >
-        <X className="w-5 h-5" />
-      </button>
+      <div className="absolute top-4 right-4 flex items-center gap-1">
+        {t.isCountdown && (
+          <button
+            type="button"
+            onClick={() => setShowBgmSettings((v) => !v)}
+            title={showBgmSettings ? "BGM 설정 숨기기" : "BGM 설정"}
+            aria-label={showBgmSettings ? "BGM 설정 숨기기" : "BGM 설정"}
+            aria-expanded={showBgmSettings}
+            className={`p-2 rounded-xl transition-colors ${
+              showBgmSettings
+                ? "text-indigo-300 bg-indigo-500/15"
+                : "text-slate-500 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => window.close()}
+          title="창 닫기"
+          className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
       <div className="w-full max-w-2xl flex flex-col items-center space-y-5">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold tracking-wide">
@@ -222,7 +242,7 @@ export default function TimerWindowView() {
                 −1분
               </button>
             </div>
-            <BgmSection t={t} dark />
+            {showBgmSettings && <BgmSection t={t} dark />}
           </div>
         )}
 
