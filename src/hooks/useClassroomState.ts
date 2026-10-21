@@ -24,6 +24,7 @@ import { DEFAULT_LAYOUTS, DEFAULT_NOTICE_CARD } from "@/lib/boardDefaults";
 import { parsePinchHitters, parsePinchHitterDetails, serializePinchHitters, resolveStudentName, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { updateCurrencyName, saveClassroomSnapshot, loadClassroomSnapshot } from "@/app/actions";
 import { countStudentRoutinePaid } from "@/lib/routinePayStatus";
+import { AVOID_GROUPS_STORAGE_KEY } from "@/hooks/useAvoidGroups";
 
 export interface ClassroomStateOptions {
   initialCurrencyName?: string;
@@ -704,6 +705,150 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       );
     },
     []
+  );
+
+  /**
+   * 학생 이름 변경.
+   * 이름이 곧 식별자(자리·모둠·업무·과제·프리셋·원장)이므로 참조 중인 이름을 함께 바꾼다.
+   * 중복 이름은 명단 등록 규칙과 동일하게 거부한다.
+   * @returns 변경 성공 여부 (중복·빈 이름이면 false)
+   */
+  const renameStudent = useCallback(
+    (oldName: string, newName: string): boolean => {
+      const nextName = newName.trim();
+      if (!nextName) {
+        showToast("학생 이름을 입력해 주세요.");
+        return false;
+      }
+      if (!students.some((s) => s.name === oldName)) {
+        showToast("변경할 학생을 명단에서 찾지 못했습니다.");
+        return false;
+      }
+      if (nextName === oldName) return true;
+      if (students.some((s) => s.name === nextName)) {
+        showToast(`'${nextName}' 이름은 이미 명단에 있습니다.`);
+        return false;
+      }
+
+      const swapName = (value: string) => (value === oldName ? nextName : value);
+
+      setStudents((prev) =>
+        prev.map((s) => (s.name === oldName ? { ...s, name: nextName } : s))
+      );
+
+      // 업무 순서·대타·건너뛰기 기록
+      setRoutines((prev) =>
+        prev.map((r) => {
+          const details = parsePinchHitterDetails(r.pinchHitterStudent);
+          let pinchChanged = false;
+          const nextDetails: Record<number, { name: string; isSkip?: boolean }> = {};
+          for (const [slot, entry] of Object.entries(details)) {
+            if (entry.name === oldName) {
+              nextDetails[Number(slot)] = { ...entry, name: nextName };
+              pinchChanged = true;
+            } else {
+              nextDetails[Number(slot)] = entry;
+            }
+          }
+          return {
+            ...r,
+            order: r.order.map(swapName),
+            pinchHitterStudent: pinchChanged
+              ? serializePinchHitters(nextDetails)
+              : r.pinchHitterStudent,
+            skipHistory: r.skipHistory
+              ? r.skipHistory.map((item) => (typeof item === "string" ? swapName(item) : item))
+              : r.skipHistory,
+          };
+        })
+      );
+
+      // 과제 제출·제외 명단
+      setHomeworks((prev) =>
+        prev.map((h) => ({
+          ...h,
+          submitted: h.submitted.map(swapName),
+          exempt: h.exempt.map(swapName),
+        }))
+      );
+
+      // 뽑기 프리셋 (순서·모둠)
+      setSavedOrders((prev) =>
+        prev.map((p) => ({ ...p, order: p.order.map(swapName) }))
+      );
+      setSavedGroups((prev) =>
+        prev.map((p) => ({ ...p, groups: p.groups.map((g) => g.map(swapName)) }))
+      );
+
+      // 자리 프리셋 (배정·고정 학생)
+      setSavedSeats((prev) =>
+        prev.map((p) => ({
+          ...p,
+          cells: p.cells.map((cell) => ({
+            ...cell,
+            studentId: cell.studentId === oldName ? nextName : cell.studentId,
+            fixedStudentId:
+              cell.fixedStudentId === oldName ? nextName : cell.fixedStudentId,
+          })),
+        }))
+      );
+
+      // 묶음 정산의 지정 학생
+      setCustomBundles((prev) =>
+        prev.map((b) => ({
+          ...b,
+          actions: b.actions.map((a) =>
+            a.specificTargets
+              ? { ...a, specificTargets: Array.from(new Set(a.specificTargets.map(swapName))) }
+              : a
+          ),
+        }))
+      );
+
+      // 원장 기록 (급여 지급 여부·학생별 합계 계산에 이름 사용)
+      const renameLedgerRecord = (record: LedgerRecord): LedgerRecord => ({
+        ...record,
+        from: swapName(record.from),
+        to: swapName(record.to),
+        targetDisplay: swapName(record.targetDisplay),
+        targets: Array.isArray(record.targets)
+          ? Array.from(new Set(record.targets.map(swapName)))
+          : record.targets,
+      });
+      setLedgerHistory((prev) => prev.map(renameLedgerRecord));
+      setUndoneLedgerHistory((prev) => prev.map(renameLedgerRecord));
+
+      // 자리·모둠 공용 분리 그룹은 별도 localStorage 키를 쓴다.
+      try {
+        const raw = localStorage.getItem(AVOID_GROUPS_STORAGE_KEY);
+        if (raw) {
+          const parsed: unknown = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            let changed = false;
+            const nextGroups = parsed.map((group) => {
+              if (!group || typeof group !== "object") return group;
+              const row = group as Record<string, unknown>;
+              if (!Array.isArray(row.members)) return group;
+              const members = Array.from(
+                new Set(row.members.map((m) => (m === oldName ? nextName : m)))
+              );
+              if (JSON.stringify(members) === JSON.stringify(row.members)) return group;
+              changed = true;
+              return { ...row, members };
+            });
+            if (changed) {
+              localStorage.setItem(AVOID_GROUPS_STORAGE_KEY, JSON.stringify(nextGroups));
+            }
+          }
+        }
+      } catch {
+        // localStorage를 쓸 수 없는 환경은 무시
+      }
+
+      showToast(`'${oldName}' → '${nextName}' 이름이 변경되었습니다.`);
+      return true;
+    },
+    [students, showToast]
   );
 
   // 2. Routine Actions
@@ -1821,6 +1966,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     showToast,
     addStudents,
     deleteStudent,
+    renameStudent,
     updateStudentGender,
     addRoutine,
     deleteRoutine,

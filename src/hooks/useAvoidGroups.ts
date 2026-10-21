@@ -56,6 +56,16 @@ export function useAvoidGroups(storageKey: string) {
     }
   }, [storageKey, avoidGroups]);
 
+  // 다른 탭에서 학생 이름이 바뀌는 등 저장값이 갱신되면 다시 읽는다.
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== storageKey) return;
+      setAvoidGroups(loadAvoidGroups(storageKey));
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [storageKey]);
+
   /** 분리 그룹 추가 (빈 그룹 반환 후 편집은 호출자가). */
   const addAvoidGroup = (): string => {
     const id = `avoid-${Date.now()}`;

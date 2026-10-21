@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent } from "react";
-import { User, Users, Plus, X } from "lucide-react";
+import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { User, Users, Plus, X, Pencil } from "lucide-react";
 import { ClassroomStudent } from "@/types/classroom";
 
 interface StudentTabProps {
   students: ClassroomStudent[];
   onAddStudents: (names: string[]) => void;
   onDeleteStudent: (name: string) => void;
+  onRenameStudent: (oldName: string, newName: string) => boolean;
   onUpdateGender: (name: string, gender: "남" | "여" | null) => void;
 }
 
@@ -15,10 +16,75 @@ export default function StudentTab({
   students,
   onAddStudents,
   onDeleteStudent,
+  onRenameStudent,
   onUpdateGender,
 }: StudentTabProps) {
   const [inputText, setInputText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 카드 안에서 바로 이름을 고치는 인라인 편집 상태 (모달 없음)
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const skipEditBlurRef = useRef(false);
+
+  useEffect(() => {
+    if (!editingName) return;
+    const input = editInputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }, [editingName]);
+
+  const startEditing = (name: string) => {
+    skipEditBlurRef.current = false;
+    setDraftName(name);
+    setEditingName(name);
+  };
+
+  const cancelEditing = () => {
+    skipEditBlurRef.current = true;
+    setEditingName(null);
+    setDraftName("");
+  };
+
+  const commitEditing = () => {
+    if (!editingName) return;
+    const original = editingName;
+    const next = draftName.trim();
+    if (!next || next === original) {
+      cancelEditing();
+      return;
+    }
+    if (!onRenameStudent(original, next)) {
+      // 중복 이름 등으로 거부되면 편집 상태를 유지해 바로 고칠 수 있게 한다.
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+      return;
+    }
+    setEditingName(null);
+    setDraftName("");
+    skipEditBlurRef.current = true;
+  };
+
+  const handleEditBlur = () => {
+    if (skipEditBlurRef.current) {
+      skipEditBlurRef.current = false;
+      return;
+    }
+    commitEditing();
+  };
+
+  const handleEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitEditing();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancelEditing();
+    }
+  };
 
   const handleSubmit = () => {
     const raw = inputText.trim();
@@ -149,20 +215,44 @@ export default function StudentTab({
                     여
                   </button>
                 </div>
-                <span className="font-bold text-slate-800 text-sm truncate">{s.name}</span>
+                {editingName === s.name ? (
+                  <input
+                    ref={editInputRef}
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onKeyDown={handleEditKeyDown}
+                    onBlur={handleEditBlur}
+                    maxLength={20}
+                    aria-label={`${s.name} 학생 이름 변경`}
+                    className="min-w-0 flex-1 w-full rounded-md border border-indigo-400 bg-white px-1.5 py-0.5 text-sm font-bold text-slate-800 outline-none ring-2 ring-indigo-100"
+                  />
+                ) : (
+                  <span className="font-bold text-slate-800 text-sm truncate">{s.name}</span>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`${s.name} 학생을 명단에서 삭제하시겠습니까?`)) {
-                    onDeleteStudent(s.name);
-                  }
-                }}
-                className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors shrink-0 font-bold text-sm cursor-pointer"
-                title={`${s.name} 학생 삭제`}
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => startEditing(s.name)}
+                  className="text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 p-1 rounded-md transition-colors shrink-0 cursor-pointer"
+                  title={`${s.name} 학생 이름 변경`}
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`${s.name} 학생을 명단에서 삭제하시겠습니까?`)) {
+                      onDeleteStudent(s.name);
+                    }
+                  }}
+                  className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-md transition-colors shrink-0 font-bold text-sm cursor-pointer"
+                  title={`${s.name} 학생 삭제`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
