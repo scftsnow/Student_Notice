@@ -20,6 +20,8 @@ export interface ClassroomRoutine {
   absenceMode?: "next" | "defer" | "pass" | "manual";
   pinchHitterStudent?: string;
   skipHistory?: (string | number)[];
+  /** 순서 변경 시점(YYYY-MM-DD HH:MM). 이 시각 이전 오늘 지급 기록은 무시해 재지급 가능 */
+  paidResetAt?: string;
   displayFormat?: string;
   visibleInNotice?: boolean;
   layout?: Partial<ElementLayout>;

@@ -58,6 +58,8 @@ export function useTimerController() {
   const swBaseRef = useRef(0);
   const swAccumRef = useRef(0);
   const fanfareFiredRef = useRef(false);
+  const applyDebounceRef = useRef(0);
+  const pendingTimeRef = useRef<{ min: string; sec: string } | null>(null);
 
   // 타임스탬프 기준 틱 (백그라운드 스로틀에도 마감시각은 정확)
   useEffect(() => {
@@ -233,29 +235,39 @@ export function useTimerController() {
   const resetCountdown = useCallback(() => {
     playClick();
     fanfareFiredRef.current = false;
+    setMinText(String(Math.floor(totalMs / 60000)));
+    setSecText(String(Math.floor((totalMs % 60000) / 1000)));
     setRemainingMs(totalMs);
     setStatus("idle");
   }, [totalMs]);
 
-  const applyTotal = useCallback((ms: number) => {
+  /** 설정 시간 확정 (프리셋·직접 입력·복원 공용, 소리 없음) */
+  const commitTotal = useCallback((ms: number) => {
     const clamped = Math.min(MAX_TIMER_TOTAL_MS, Math.max(10_000, ms));
-    playClick();
     fanfareFiredRef.current = false;
     setTotalMs(clamped);
+    setMinText(String(Math.floor(clamped / 60000)));
+    setSecText(String(Math.floor((clamped % 60000) / 1000)));
     setRemainingMs(clamped);
     setStatus("idle");
   }, []);
 
+  const applyTotal = useCallback((ms: number) => {
+    playClick();
+    commitTotal(ms);
+  }, [commitTotal]);
+
   const adjustRunning = useCallback(
     (deltaMs: number) => {
       playClick();
+      const nextTotal = Math.min(MAX_TIMER_TOTAL_MS, Math.max(10_000, totalMs + deltaMs));
+      setTotalMs(nextTotal);
+      setMinText(String(Math.floor(nextTotal / 60000)));
+      setSecText(String(Math.floor((nextTotal % 60000) / 1000)));
       if (status === "running") {
         endAtRef.current = Math.max(Date.now(), endAtRef.current + deltaMs);
-        setTotalMs((prev) => Math.min(MAX_TIMER_TOTAL_MS, Math.max(10_000, prev + deltaMs)));
         setRemainingMs(Math.min(MAX_TIMER_TOTAL_MS, Math.max(0, endAtRef.current - Date.now())));
       } else {
-        const nextTotal = Math.min(MAX_TIMER_TOTAL_MS, Math.max(10_000, totalMs + deltaMs));
-        setTotalMs(nextTotal);
         setRemainingMs((prev) => Math.min(MAX_TIMER_TOTAL_MS, Math.max(0, prev + deltaMs)));
         fanfareFiredRef.current = false;
         if (status === "done") setStatus("idle");
@@ -269,6 +281,47 @@ export function useTimerController() {
     swBaseRef.current = Date.now();
     setSwRunning(true);
   }, []);
+
+  /**
+   * 분·초 직접 입력용: 타이핑할 때마다 800ms 뒤 자동 적용.
+   * 프리셋·±1분 등 내부 동기화(setMinText/setSecText 직접 호출)는 예약하지 않아
+   * 실행 중 +1분을 눌러도 리셋되지 않는다.
+   */
+  const scheduleAutoApply = useCallback((minStr: string, secStr: string) => {
+    pendingTimeRef.current = { min: minStr, sec: secStr };
+    window.clearTimeout(applyDebounceRef.current);
+    applyDebounceRef.current = window.setTimeout(() => {
+      const pending = pendingTimeRef.current;
+      pendingTimeRef.current = null;
+      if (!pending) return;
+      const ms =
+        (Math.max(0, Number(pending.min) || 0) * 60 + Math.max(0, Number(pending.sec) || 0)) * 1000;
+      commitTotal(ms);
+    }, 800);
+  }, [commitTotal]);
+
+  const typeMinText = (value: string) => {
+    setMinText(value);
+    scheduleAutoApply(value, secText);
+  };
+
+  const typeSecText = (value: string) => {
+    setSecText(value);
+    scheduleAutoApply(minText, value);
+  };
+
+  /** Enter·포커스 이탈 시 예약된 자동 적용을 즉시 실행 */
+  const flushTypedTime = useCallback(() => {
+    window.clearTimeout(applyDebounceRef.current);
+    const pending = pendingTimeRef.current;
+    pendingTimeRef.current = null;
+    if (!pending) return;
+    const ms =
+      (Math.max(0, Number(pending.min) || 0) * 60 + Math.max(0, Number(pending.sec) || 0)) * 1000;
+    commitTotal(ms);
+  }, [commitTotal]);
+
+  useEffect(() => () => window.clearTimeout(applyDebounceRef.current), []);
 
   const pauseStopwatch = useCallback(() => {
     playClick();
@@ -362,6 +415,9 @@ export function useTimerController() {
     secText,
     setMinText,
     setSecText,
+    typeMinText,
+    typeSecText,
+    flushTypedTime,
     isFullscreen,
     isCountdown,
     done,

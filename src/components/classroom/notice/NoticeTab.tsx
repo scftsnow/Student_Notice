@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { AlignLeft, AlignCenter, AlignRight, ClipboardList, Minus, Plus, Undo2, Redo2 } from "lucide-react";
-import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine, ClassroomStudent, Homework } from "@/types/classroom";
+import { BoardTheme, NoticeFontSize, BoardTargetElement, BoardElementLayouts, FreeCardData, ClassroomRoutine, ClassroomStudent, Homework, resolveHomeworkStatus } from "@/types/classroom";
 import { CLASSROOM_FONTS } from "@/lib/classroomFonts";
 import { useSelectionRange } from "@/hooks/useSelectionRange";
 import FontSelectorDropdown from "./FontSelectorDropdown";
@@ -233,6 +233,13 @@ export default function NoticeTab({
     }
   };
 
+  // 마감된 과제는 대상 선택·표시 바에서 제외하기 위한 오늘 날짜
+  const todayStr = (() => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  })();
+
   return (
     <div className="rounded-2xl bg-slate-50 border border-slate-200 shadow-sm divide-y divide-slate-200/80">
       {/* 1행: 상단 서식 편집 툴바 (이 행 클릭은 요소 선택을 유지) */}
@@ -258,9 +265,11 @@ export default function NoticeTab({
               {(showEconomyShortcut || targetElement === "accountBox") && (
                 <option value="accountBox">학생 계좌</option>
               )}
-              {homeworks && homeworks.map((hw) => (
-                <option key={hw.id} value={hw.id}>과제: {hw.title}</option>
-              ))}
+              {homeworks && homeworks
+                .filter((hw) => resolveHomeworkStatus(hw, todayStr) === "ACTIVE")
+                .map((hw) => (
+                  <option key={hw.id} value={hw.id}>과제: {hw.title}</option>
+                ))}
               {freeCards && freeCards.map((card, idx) => (
                 <option key={card.id} value={card.id}>{card.label?.trim() || `자유 글상자 ${idx + 1}`}</option>
               ))}

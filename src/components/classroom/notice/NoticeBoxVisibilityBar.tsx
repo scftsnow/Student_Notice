@@ -394,8 +394,10 @@ export default function NoticeBoxVisibilityBar({
           </label>
         )}
 
-        {/* 6. 과제 미제출자 요소 — 업무 루틴과 동일한 표시/이름수정/요일설정 방식 */}
-        {homeworks.map((hw) => {
+        {/* 6. 과제 미제출자 요소 — 업무 루틴과 동일한 표시/이름수정/요일설정 방식 (마감된 과제는 표시 안 함) */}
+        {homeworks
+          .filter((hw) => resolveHomeworkStatus(hw, todayStr()) === "ACTIVE")
+          .map((hw) => {
           const done = resolveHomeworkStatus(hw, todayStr()) !== "ACTIVE";
           const onBoard = boardHomeworkIds.includes(hw.id);
           const isVisible = onBoard && !done;
@@ -543,20 +545,20 @@ export default function NoticeBoxVisibilityBar({
             </div>
           );
         })}
-      </div>
 
-      {/* 자유 글상자 추가 바로가기 */}
-      {onAddFreeCard && (
-        <button
-          type="button"
-          onClick={onAddFreeCard}
-          className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-sm transition-all flex items-center gap-1 ml-auto shrink-0 cursor-pointer"
-          title="새 자유 글상자를 칠판에 추가합니다"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>글상자 추가</span>
-        </button>
-      )}
+        {/* 자유 글상자 추가 바로가기 */}
+        {onAddFreeCard && (
+          <button
+            type="button"
+            onClick={onAddFreeCard}
+            className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-sm transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+            title="새 자유 글상자를 칠판에 추가합니다"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>글상자 추가</span>
+          </button>
+        )}
+      </div>
 
       {/* 요일별 자동 표시 설정 모달 */}
       {scheduleTarget && (

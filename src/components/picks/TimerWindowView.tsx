@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   Timer,
   Play,
@@ -21,7 +21,15 @@ import BgmSection from "./BgmSection";
  */
 export default function TimerWindowView() {
   const t = useTimerController();
-  const [showBgmSettings, setShowBgmSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handleTimeKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      t.flushTypedTime();
+    }
+  };
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -35,32 +43,14 @@ export default function TimerWindowView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white flex flex-col items-center justify-center p-4 sm:p-6 select-none relative">
-      <div className="absolute top-4 right-4 flex items-center gap-1">
-        {t.isCountdown && (
-          <button
-            type="button"
-            onClick={() => setShowBgmSettings((v) => !v)}
-            title={showBgmSettings ? "BGM 설정 숨기기" : "BGM 설정"}
-            aria-label={showBgmSettings ? "BGM 설정 숨기기" : "BGM 설정"}
-            aria-expanded={showBgmSettings}
-            className={`p-2 rounded-xl transition-colors ${
-              showBgmSettings
-                ? "text-indigo-300 bg-indigo-500/15"
-                : "text-slate-500 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => window.close()}
-          title="창 닫기"
-          className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => window.close()}
+        title="창 닫기"
+        className="absolute top-4 right-4 p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
 
       <div className="w-full max-w-2xl flex flex-col items-center space-y-5">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold tracking-wide">
@@ -173,9 +163,26 @@ export default function TimerWindowView() {
             <RotateCcw className="w-4 h-4" />
             리셋
           </button>
+          {t.isCountdown && (
+            <button
+              type="button"
+              onClick={() => setShowSettings((v) => !v)}
+              title={showSettings ? "시간·BGM 설정 숨기기" : "시간·BGM 설정"}
+              aria-label={showSettings ? "시간·BGM 설정 숨기기" : "시간·BGM 설정"}
+              aria-expanded={showSettings}
+              className={`px-6 py-3 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all ${
+                showSettings
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                  : "bg-white/10 hover:bg-white/20 text-white"
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              설정
+            </button>
+          )}
         </div>
 
-        {t.isCountdown && (
+        {t.isCountdown && showSettings && (
           <div className="w-full max-w-xl space-y-2">
             <div className="grid grid-cols-4 gap-2">
               {TIMER_PRESET_SECONDS.map((sec) => (
@@ -200,9 +207,11 @@ export default function TimerWindowView() {
                 min={0}
                 max={99}
                 value={t.minText}
-                onChange={(e) => t.setMinText(e.target.value)}
+                onChange={(e) => t.typeMinText(e.target.value)}
+                onBlur={t.flushTypedTime}
+                onKeyDown={handleTimeKeyDown}
                 disabled={t.status === "running"}
-                title="분"
+                title="분 (입력하면 자동 적용)"
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-white/10 bg-white/10 font-mono text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-40"
               />
               <span className="text-sm font-bold text-slate-400 shrink-0">분</span>
@@ -211,22 +220,14 @@ export default function TimerWindowView() {
                 min={0}
                 max={59}
                 value={t.secText}
-                onChange={(e) => t.setSecText(e.target.value)}
+                onChange={(e) => t.typeSecText(e.target.value)}
+                onBlur={t.flushTypedTime}
+                onKeyDown={handleTimeKeyDown}
                 disabled={t.status === "running"}
-                title="초"
+                title="초 (입력하면 자동 적용)"
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-white/10 bg-white/10 font-mono text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-40"
               />
               <span className="text-sm font-bold text-slate-400 shrink-0">초</span>
-              <button
-                type="button"
-                onClick={() =>
-                  t.applyTotal((Math.max(0, Number(t.minText) || 0) * 60 + Math.max(0, Number(t.secText) || 0)) * 1000)
-                }
-                disabled={t.status === "running"}
-                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white text-sm font-bold transition-colors shrink-0"
-              >
-                설정
-              </button>
               <button
                 type="button"
                 onClick={() => t.adjustRunning(60_000)}
@@ -242,7 +243,7 @@ export default function TimerWindowView() {
                 −1분
               </button>
             </div>
-            {showBgmSettings && <BgmSection t={t} dark />}
+            {<BgmSection t={t} dark />}
           </div>
         )}
 

@@ -8,7 +8,7 @@
 - Stack: Next.js 14 App Router, React 18, TS, Tailwind. Dev 포트 **3001 고정**.
 - 상태: `useClassroomState` + localStorage `classroom_os_state_v3` + BroadcastChannel.
 - 작업 디렉토리: `C:\Users\ADMIN\Desktop\Student_Notice`
-- 서버 시작: 바탕화면 `ClassroomOS` 바로가기 (백그라운드). 개발 중이면 `npm run dev`.
+- 서버 시작: 바탕화면 `ClassroomOS 웹` 바로가기 (꺼져 있으면 로컬 서버를 켠 뒤 브라우저 열기). 개발 중이면 `npm run dev`.
 
 ## 1. 담당 구역 (subagent 소유권 — 아키텍처 레이어 기준)
 

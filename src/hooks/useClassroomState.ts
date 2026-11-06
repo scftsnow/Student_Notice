@@ -175,13 +175,20 @@ export function useClassroomState(options?: ClassroomStateOptions) {
         const saved = savedV3 || savedV2;
         if (saved) {
           const parsed = JSON.parse(saved) as Record<string, unknown>;
-          applyParsedState(parsed, options?.initialCurrencyName);
-          // If migrated from v2, immediately persist into v3
-          if (!savedV3 && savedV2) {
-            try { localStorage.setItem("classroom_os_state_v3", savedV2); } catch { /* noop */ }
+          // 포트가 바뀌어 localStorage가 비어 보이거나, 빈 상태면 DB를 우선한다.
+          const hasLocalData =
+            (Array.isArray(parsed.students) && parsed.students.length > 0) ||
+            (Array.isArray(parsed.routines) && parsed.routines.length > 0) ||
+            (Array.isArray(parsed.ledgerHistory) && parsed.ledgerHistory.length > 0);
+          if (hasLocalData) {
+            applyParsedState(parsed, options?.initialCurrencyName);
+            // If migrated from v2, immediately persist into v3
+            if (!savedV3 && savedV2) {
+              try { localStorage.setItem("classroom_os_state_v3", savedV2); } catch { /* noop */ }
+            }
+            setIsLoaded(true);
+            return;
           }
-          setIsLoaded(true);
-          return;
         }
       } catch {
         // localStorage parse error — fall through to DB
@@ -215,6 +222,8 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   // Save to localStorage (instant) & schedule debounced DB save & Broadcast to student window
   useEffect(() => {
     if (!isMounted) return;
+    // 로드 완료 전에는 빈 상태를 저장하지 않는다 (데이터 덮어쓰기 방지)
+    if (!isLoaded) return;
     const primaryNoticeHtml = freeCards.find((c) => c.id === "noticeBox")?.html || "";
     const payload = {
       className,
@@ -288,6 +297,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     } catch { /* noop */ }
   }, [
     isMounted,
+    isLoaded,
     className,
     currencyName,
     students,
@@ -998,8 +1008,15 @@ export function useClassroomState(options?: ClassroomStateOptions) {
 
   const updateRoutineOrder = useCallback(
     (id: string, newOrder: string[]) => {
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, "0");
+      const now = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
       setRoutines((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, order: newOrder, currentIdx: 0 } : r))
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, order: newOrder, currentIdx: 0, skipHistory: undefined, pinchHitterStudent: undefined, paidResetAt: now }
+            : r
+        )
       );
       showToast("순환 순서가 저장되었습니다.");
     },
@@ -1009,7 +1026,24 @@ export function useClassroomState(options?: ClassroomStateOptions) {
   const updateRoutine = useCallback(
     (id: string, patch: Partial<ClassroomRoutine>) => {
       setRoutines((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+        prev.map((r) => {
+          if (r.id !== id) return r;
+          // 순서가 바뀌면 오늘 담당·건너뛰기·대타·지급 초기화
+          const resetOnOrderChange =
+            patch.order !== undefined
+              ? {
+                  currentIdx: 0,
+                  skipHistory: undefined,
+                  pinchHitterStudent: undefined,
+                  paidResetAt: (() => {
+                    const d = new Date();
+                    const p = (n: number) => String(n).padStart(2, "0");
+                    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+                  })(),
+                }
+              : {};
+          return { ...r, ...patch, ...resetOnOrderChange };
+        })
       );
     },
     []

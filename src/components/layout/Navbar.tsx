@@ -9,7 +9,6 @@ import {
   FileText,
   Coins,
   Settings,
-  Sparkles,
   Dices,
   Timer,
   BookOpenCheck,
@@ -194,9 +193,11 @@ export default function Navbar({
           <div className="flex items-center gap-2 lg:gap-3 min-w-0">
             {/* Logo & Class Name */}
             <Link href="/notice" className="flex items-center gap-2 group shrink-0">
-              <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
-                <Sparkles className="w-4 h-4 lg:w-5 lg:h-5" />
-              </div>
+              <img
+                src="/teacher-helper-icon.png"
+                alt="Teacher Helper"
+                className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl object-contain shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform"
+              />
               <div>
                 <span className="font-bold text-base lg:text-lg text-slate-800 tracking-tight flex items-center gap-1 whitespace-nowrap">
                   Teacher Helper-학급 운영

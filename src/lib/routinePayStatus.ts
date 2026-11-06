@@ -109,11 +109,15 @@ export function countStudentRoutinePaid(
   if (!routine || !studentName || !ledgerHistory || ledgerHistory.length === 0) return 0;
 
   const cycle = routine.payCycle || "건당";
+  const resetAt = routine.paidResetAt;
+  const resetDay = resetAt ? resetAt.slice(0, 10) : null;
   const bounds = getPayPeriodBounds(cycle);
   let count = 0;
   for (const record of ledgerHistory) {
     if (record.type !== "입금") continue;
     if (!isRoutineSalaryRecord(record, routine, studentName)) continue;
+    // 순서 변경 시점 이전의 오늘 지급 기록은 무시 (재지급 가능)
+    if (resetAt && resetDay && record.date.startsWith(resetDay) && record.date < resetAt) continue;
     if (isInPayPeriod(record, cycle, bounds)) count++;
   }
   return count;
@@ -141,9 +145,13 @@ export function checkStudentRoutinePaid(
   const cycle = routine.payCycle || "건당";
   const bounds = getPayPeriodBounds(cycle);
 
+  const resetAt = routine.paidResetAt;
+  const resetDay = resetAt ? resetAt.slice(0, 10) : null;
+
   for (const record of ledgerHistory) {
     if (record.type !== "입금") continue;
     if (!isRoutineSalaryRecord(record, routine, studentName)) continue;
+    if (resetAt && resetDay && record.date.startsWith(resetDay) && record.date < resetAt) continue;
     if (!isInPayPeriod(record, cycle, bounds)) continue;
 
     const recordDateStr = record.date || ""; // e.g. "2026-09-14 11:05"

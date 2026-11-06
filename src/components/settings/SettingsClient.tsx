@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, Save, CheckCircle } from "lucide-react";
+import { Settings as SettingsIcon, Save, CheckCircle, Mail, ExternalLink } from "lucide-react";
 import { updateClassSettings } from "@/app/actions";
 import type { ClassSetting } from "@/types";
 import { CLASSROOM_FONTS, DEFAULT_CLASSROOM_FONT } from "@/lib/classroomFonts";
@@ -187,6 +187,37 @@ export default function SettingsClient({ initialSetting }: SettingsClientProps) 
 
       {/* 전체 설정 백업 / 복원 */}
       <BackupSection />
+
+      {/* Teacher helper 외부 서비스 안내 */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-3 text-sm">
+        <p className="text-slate-700 leading-relaxed text-lg font-bold">
+          교사의 업무를 간편하게, Teacher helper 앱을 개발하여 운영하고 있습니다. (베타테스트 중)
+        </p>
+        <p className="text-slate-500 leading-relaxed">
+          학교일정 관리, 교육과정 설계, 주간학습 관리, 학교생활기록부 AI 작성, 학교 업무 AI 챗봇, 설문/취합 등 다양한 기능을 체험해보세요.
+        </p>
+        <a
+          href="https://for-teacher.pages.dev/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-base shadow-sm transition-all"
+        >
+          <ExternalLink className="w-5 h-5" />
+          Teacher helper 바로가기 (https://for-teacher.pages.dev/)
+        </a>
+      </div>
+
+      {/* 버그 제보 */}
+      <div className="flex items-center justify-center gap-1.5 text-sm text-slate-500">
+        <Mail className="w-4 h-4 text-slate-400" />
+        <span>버그 제보</span>
+        <a
+          href="mailto:scftsnow@gmail.com"
+          className="font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+        >
+          scftsnow@gmail.com
+        </a>
+      </div>
     </div>
   );
 }

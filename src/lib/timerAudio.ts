@@ -96,18 +96,6 @@ const BUILTIN_DEFS: BuiltinDef[] = [
     },
   },
   {
-    id: "builtin-arpeggio",
-    name: "잔잔한 아르페지오",
-    seconds: 16,
-    render: (ctx, out) => {
-      const notes = [261.63, 293.66, 329.63, 392.0, 440.0, 392.0, 329.63, 293.66];
-      notes.forEach((freq, i) => {
-        blip(ctx, out, i * 2, freq, 1.2, 0.16, "sine");
-        blip(ctx, out, i * 2, freq * 2, 0.9, 0.05, "sine");
-      });
-    },
-  },
-  {
     id: "builtin-pad",
     name: "고요한 패드",
     seconds: 16,
