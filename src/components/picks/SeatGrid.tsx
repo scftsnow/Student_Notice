@@ -16,7 +16,7 @@ interface SeatGridProps {
   onMoveCell: (fromKey: string, toKey: string) => void;
   /** 카드 자유 이동 확정 (캔버스 % 좌표). 위치만 바뀌고 occupant는 유지. */
   onPositionChange: (key: string, x: number, y: number) => void;
-  /** 보기 방향. teacher면 칠판이 아래(뒷줄이 위)에 오도록 상하 반전. 기본 student(칠판 위). */
+  /** 보기 방향. teacher면 칠판이 아래에 오도록 180도 회전(상하+좌우 반전). 기본 student(칠판 위). */
   orientation?: "student" | "teacher";
 }
 
@@ -145,9 +145,10 @@ export default function SeatGrid({
   const centerToTopLeft = (cx: number, cy: number): { x: number; y: number } =>
     seatDropCenterToTopLeft(cx, cy, size.w, size.h, cardW, cardH);
 
-  /** 표시용 y (teacher 보기면 상하 반전). 드롭 좌표(표시 기준)도 같은 공간. */
+  /** 표시용 좌표 (teacher 보기면 180도 회전: 상하+좌우 반전). 드롭 좌표(표시 기준)도 같은 공간. */
+  const toDisplayX = (x: number): number => (orientation === "teacher" ? 100 - x : x);
   const toDisplayY = (y: number): number => (orientation === "teacher" ? 100 - y : y);
-  const dxOf = (c: SeatCellState): number => cxOf(c);
+  const dxOf = (c: SeatCellState): number => toDisplayX(cxOf(c));
   const dyOf = (c: SeatCellState): number => toDisplayY(cyOf(c));
 
   /** 드롭 지점(중심 % 좌표)이 다른 카드 안에 떨어졌는지 판정. occupant 교환 대상 탐색. */
@@ -233,7 +234,7 @@ export default function SeatGrid({
           if (moved < 6) return; // 클릭으로 처리
           dragEndAtRef.current = Date.now();
           // react-rnd가 반환하는 top-left 픽셀 → 카드 중심 % (centerToTopLeft의 정확한 역변환).
-          // 표시 공간 기준이므로 데이터 공간으로 되돌려 저장 (teacher 보기는 상하 반전).
+          // 표시 공간 기준이므로 데이터 공간으로 되돌려 저장 (teacher 보기는 상하+좌우 반전).
           const { x: cx, y: cy } = seatTopLeftToDropCenter(
             d.x,
             d.y,
@@ -248,7 +249,7 @@ export default function SeatGrid({
             onMoveCell(cell.key, target.key);
             return;
           }
-          onPositionChange(cell.key, cx, toDisplayY(cy));
+          onPositionChange(cell.key, toDisplayX(cx), toDisplayY(cy));
         }}
         className="touch-none"
         style={{ zIndex: draggingKey === cell.key ? 30 : 10 }}

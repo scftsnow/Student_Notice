@@ -1,6 +1,6 @@
 {
   "name": "student-notice",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "main": "electron/main.cjs",
   "scripts": {
@@ -20,6 +20,7 @@
     "@prisma/client": "^5.21.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "electron-updater": "^6.8.11",
     "lucide-react": "^0.453.0",
     "next": "^14.2.15",
     "react": "^18.3.1",

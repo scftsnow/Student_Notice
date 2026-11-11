@@ -61,6 +61,11 @@
       ]
     }
   ],
+  "publish": {
+    "provider": "github",
+    "owner": "scftsnow",
+    "repo": "Student_Notice"
+  },
   "asar": true,
   "asarUnpack": [
     "**/*.node",

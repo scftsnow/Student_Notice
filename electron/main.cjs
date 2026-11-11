@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, screen, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -230,12 +231,43 @@ function openOrFocusBoardWindow(baseUrl) {
   });
 }
 
+// 자동 업데이트 설정 (설치 버전에서만 동작)
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.on('error', (err) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] error: ${err && err.message ? err.message : err}\n`); } catch {}
+});
+autoUpdater.on('update-available', (info) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] update available: ${info.version}\n`); } catch {}
+});
+autoUpdater.on('update-downloaded', (info) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] downloaded: ${info.version}\n`); } catch {}
+  if (mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '업데이트',
+      message: `새 버전 ${info.version}이 다운로드되었습니다. 지금 재시작하여 설치할까요?`,
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  }
+});
+
 app.whenReady().then(async () => {
   // 설치형 상단 메뉴바(File·Edit·View…) 제거
   Menu.setApplicationMenu(null);
   try {
     const baseUrl = isDev ? `http://localhost:${DEFAULT_PORT}` : await startStandaloneServer();
     createMainWindow(baseUrl);
+
+    // 설치 버전에서만 자동 업데이트 확인
+    if (!isDev) {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] check failed: ${err && err.message ? err.message : err}\n`); } catch {}
+      });
+    }
 
     // IPC Handlers
     ipcMain.handle('open-board-window', () => {
