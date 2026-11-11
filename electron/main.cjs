@@ -169,7 +169,7 @@ function createMainWindow(baseUrl) {
     height: 850,
     minWidth: 900,
     minHeight: 600,
-    title: 'Teacher Helper-학급 운영',
+    title: `Teacher Helper-학급 운영 v${app.getVersion()}`,
     icon: APP_ICON,
     autoHideMenuBar: true,
     webPreferences: {
@@ -200,7 +200,7 @@ function openOrFocusBoardWindow(baseUrl) {
   const externalDisplay = displays.find((d) => d.bounds.x !== 0 || d.bounds.y !== 0);
 
   const windowOptions = {
-    title: 'Teacher Helper-학급 운영 - 학생 전자칠판',
+    title: `Teacher Helper-학급 운영 v${app.getVersion()} - 학생 전자칠판`,
     icon: APP_ICON,
     autoHideMenuBar: true,
     webPreferences: {

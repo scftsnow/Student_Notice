@@ -14,6 +14,7 @@ import {
   BookOpenCheck,
 } from "lucide-react";
 import { ClassroomStudent, LedgerRecord } from "@/types/classroom";
+import pkg from "../../../package.json";
 import { openTimerWindow } from "@/lib/timerUtils";
 import UnifiedLedgerModal from "@/components/classroom/economy/UnifiedLedgerModal";
 import RecentLedgerPanel from "@/components/classroom/economy/RecentLedgerPanel";
@@ -200,7 +201,7 @@ export default function Navbar({
               />
               <div>
                 <span className="font-bold text-base lg:text-lg text-slate-800 tracking-tight flex items-center gap-1 whitespace-nowrap">
-                  Teacher Helper-학급 운영
+                  Teacher Helper-학급 운영 v{pkg.version}
                 </span>
                 <span suppressHydrationWarning className="text-[11px] text-slate-400 block -mt-1 font-medium">{liveClassName || "우리 반"}</span>
               </div>
