@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import pkg from "../../package.json";
 import "./globals.css";
 import ConditionalChrome from "@/components/layout/ConditionalChrome";
 import GlobalFontApplier from "@/components/GlobalFontApplier";
@@ -6,7 +7,7 @@ import UpdateBanner from "@/components/layout/UpdateBanner";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
-  title: "Teacher Helper-학급 운영",
+  title: `Teacher Helper-학급 운영 v${pkg.version}`,
   description: "학생 명단, 업무 루틴, 알림장, 학급 화폐 통합 관리 솔루션",
 };
 

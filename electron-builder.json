@@ -88,9 +88,13 @@
     "uninstallerIcon": "build/icon.ico",
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
-    "perMachine": false,
+    "perMachine": true,
+    "selectPerMachineByDefault": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Teacher Helper-학급 운영"
+    "shortcutName": "Teacher Helper-학급 운영",
+    "installerSidebar": null,
+    "uninstallerSidebar": null,
+    "installerHeader": null
   }
 }
