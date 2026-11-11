@@ -239,6 +239,14 @@ autoUpdater.on('error', (err) => {
 });
 autoUpdater.on('update-available', (info) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] update available: ${info.version}\n`); } catch {}
+  // 일부 환경에서 자동 다운로드가 시작되지 않는 경우를 대비해 명시적으로 다운로드
+  autoUpdater.downloadUpdate().catch((err) => {
+    try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] download start failed: ${err && err.message ? err.message : err}\n`); } catch {}
+  });
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] progress: ${Math.round(progress.percent)}%\n`); } catch {}
 });
 autoUpdater.on('update-downloaded', (info) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] downloaded: ${info.version}\n`); } catch {}
