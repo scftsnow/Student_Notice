@@ -239,14 +239,38 @@ autoUpdater.on('error', (err) => {
 });
 autoUpdater.on('update-available', (info) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] update available: ${info.version}\n`); } catch {}
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'available', version: info.version });
   // 일부 환경에서 자동 다운로드가 시작되지 않는 경우를 대비해 명시적으로 다운로드
   autoUpdater.downloadUpdate().catch((err) => {
     try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] download start failed: ${err && err.message ? err.message : err}\n`); } catch {}
+    if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err && err.message ? err.message : String(err) });
   });
 });
 
 autoUpdater.on('download-progress', (progress) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] progress: ${Math.round(progress.percent)}%\n`); } catch {}
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloading', percent: Math.round(progress.percent) });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] downloaded: ${info.version}\n`); } catch {}
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'downloaded', version: info.version });
+  if (mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '업데이트',
+      message: `새 버전 ${info.version}이 다운로드되었습니다. 지금 재시작하여 설치할까요?`,
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+    }).then(({ response }) => {
+      if (response === 0) autoUpdater.quitAndInstall();
+    });
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] error: ${err && err.message ? err.message : err}\n`); } catch {}
+  if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err && err.message ? err.message : String(err) });
 });
 autoUpdater.on('update-downloaded', (info) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] downloaded: ${info.version}\n`); } catch {}
@@ -296,6 +320,11 @@ app.whenReady().then(async () => {
         bounds: d.bounds,
         isPrimary: d.bounds.x === 0 && d.bounds.y === 0,
       }));
+    });
+
+    ipcMain.handle('restart-to-update', () => {
+      autoUpdater.quitAndInstall();
+      return { success: true };
     });
   } catch (err) {
     console.error('[Electron Main] Startup error:', err);

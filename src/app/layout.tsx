@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ConditionalChrome from "@/components/layout/ConditionalChrome";
 import GlobalFontApplier from "@/components/GlobalFontApplier";
+import UpdateBanner from "@/components/layout/UpdateBanner";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
@@ -60,6 +61,7 @@ export default async function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col bg-slate-50/70 text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-800">
         <GlobalFontApplier />
+        <UpdateBanner />
         <ConditionalChrome
           classNameTitle={setting.className}
           currencyName={setting.currencyName}
