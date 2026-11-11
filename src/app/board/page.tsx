@@ -36,6 +36,8 @@ export default async function BoardPage({
       classNameTitle={setting?.className || "행복한 6학년 1반"}
       initialContent={notice?.content || ""}
       initialRoutines={routinesData}
+      initialClassName={setting?.className || "행복한 6학년 1반"}
+      initialCurrencyName={setting?.currencyName || "원"}
     />
   );
 }

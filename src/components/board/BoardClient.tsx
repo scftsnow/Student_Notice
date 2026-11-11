@@ -8,6 +8,7 @@ import { ClassroomRoutine, ClassroomStudent, FreeCardData, BoardTheme, BoardElem
 import { resolveStudentName, parseRoutineFormat, parsePinchHitterDetails, getActiveRoutineWorkers } from "@/lib/routineUtils";
 import { checkStudentRoutinePaid } from "@/lib/routinePayStatus";
 import { isBoxVisibleToday, DEFAULT_LAYOUTS } from "@/lib/boardDefaults";
+import EconomyBoardClient from "@/components/economy/EconomyBoardClient";
 import { FALLBACK_FONT_FAMILY } from "@/lib/defaultFont";
 import AnalogClock from "@/components/classroom/canvas/AnalogClock";
 import { boardNameColor, buildHomeworkHtml } from "@/components/classroom/canvas/boardElementShared";
@@ -18,6 +19,9 @@ interface BoardClientProps {
   classNameTitle: string;
   initialContent: string;
   initialRoutines?: DailyRoutineAssignment[];
+  initialCurrencyName?: string;
+  initialClassName?: string;
+  initialView?: "notice" | "economy";
 }
 
 /** 오늘 날짜 (마감 지난 과제 자동 제외용) */
@@ -90,7 +94,11 @@ function BoardTextBox({
 export default function BoardClient({
   initialDateStr,
   todayDayOfWeek,
+  classNameTitle,
   initialContent,
+  initialCurrencyName,
+  initialClassName,
+  initialView,
 }: BoardClientProps) {
   const [contentHtml, setContentHtml] = useState<string>(initialContent || "");
   const [fontSize, setFontSize] = useState<number>(42);
@@ -105,8 +113,9 @@ export default function BoardClient({
   const [currentTime, setCurrentTime] = useState<string>("");
   const [liveDateStr, setLiveDateStr] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(false);
+  const [showEconomyShortcut, setShowEconomyShortcut] = useState<boolean>(true);
   const [layouts, setLayouts] = useState<BoardElementLayouts>(DEFAULT_LAYOUTS);
+  const [view, setView] = useState<"notice" | "economy">(initialView === "economy" ? "economy" : "notice");
   const [viewport, setViewport] = useState({ width: 1280, height: 720 });
 
   useEffect(() => {
@@ -196,17 +205,8 @@ export default function BoardClient({
   }, []);
 
   const handleOpenAccountBoard = () => {
-    if (typeof window !== "undefined") {
-      const w = 1100;
-      const h = 750;
-      const left = Math.max(0, Math.round((window.screen.width - w) / 2));
-      const top = Math.max(0, Math.round((window.screen.height - h) / 2));
-      window.open(
-        "/economy/board",
-        "StudentEconomyBoardWindow",
-        `width=${w},height=${h},left=${left},top=${top},menubar=no,status=no,toolbar=no,resizable=yes`,
-      );
-    }
+    // 전광판 창을 새로 열지 않고 같은 창에서 화폐 현황판으로 전환
+    setView("economy");
   };
 
   useEffect(() => {
@@ -216,6 +216,17 @@ export default function BoardClient({
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
+
+  // 화폐 현황판 보기 (모든 훅 호출 이후에만 early return)
+  if (view === "economy") {
+    return (
+      <EconomyBoardClient
+        initialClassName={initialClassName || classNameTitle}
+        initialCurrencyName={initialCurrencyName}
+        onSwitchToNotice={() => setView("notice")}
+      />
+    );
+  }
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {

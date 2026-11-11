@@ -44,6 +44,7 @@ interface BoardCanvasProps {
   onCurrentLineHeight?: (lineHeight: number) => void;
   onCurrentFontFamily?: (family: string | undefined) => void;
   showEconomyShortcut?: boolean;
+  onOpenAccountBoard?: () => void;
   layouts?: BoardElementLayouts;
   onUpdateLayouts?: (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => void;
   appliedStyle?: {
@@ -77,7 +78,7 @@ export default function BoardCanvas({
   onPayRoutineToday, onUpdateRoutine,
   onAdvanceRoutine, onRewindRoutine, onSkipRoutineWorker, onCancelSkipRoutineWorker, onAdvanceAllRoutines, onOpenRoutineNoticeSettings,
   targetElement = "noticeBox", onSelectElement, onCurrentFontSize, onCurrentLineHeight, onCurrentFontFamily,
-  showEconomyShortcut = false, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
+  showEconomyShortcut = false, onOpenAccountBoard, layouts: externalLayouts, onUpdateLayouts: externalUpdateLayouts, appliedStyle,
   previewScale = 75, taxConfig, ledgerHistory, onUndoLedgerEntry,
   boardHomeworks = [], allHomeworks, onUpdateHomework, onRemoveBoardHomework,
 }: BoardCanvasProps) {
@@ -722,7 +723,8 @@ export default function BoardCanvas({
               containerSize={containerSize}
               targetElement={targetElement}
               onSelectElement={onSelectElement}
-              onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, accountBox: updater(p.accountBox ?? DEFAULT_LAYOUTS.accountBox!) }))}
+              onOpenAccountBoard={onOpenAccountBoard}
+               onUpdateLayout={(updater) => updateLayouts((p) => ({ ...p, accountBox: updater(p.accountBox ?? DEFAULT_LAYOUTS.accountBox!) }))}
             />
           )}
         </div>

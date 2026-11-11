@@ -98,7 +98,8 @@ export default function BundleExecuteRow({
         {extraActions}
         <button
           type="button"
-          onClick={() => onExecute(b.id, selectedNames)}
+          onMouseDown={(e) => e.stopPropagation()}
+           onClick={() => onExecute(b.id, selectedNames)}
           className="px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shrink-0"
         >
           실행

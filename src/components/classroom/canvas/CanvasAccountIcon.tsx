@@ -18,6 +18,7 @@ interface CanvasAccountIconProps {
   targetElement?: BoardTargetElement;
   onSelectElement?: (elem: BoardTargetElement) => void;
   onUpdateLayout: (updater: (prev: ElementLayout) => ElementLayout) => void;
+  onOpenAccountBoard?: () => void;
   scaleFont?: (size: number) => number;
   scale?: number;
 }
@@ -28,6 +29,7 @@ export default function CanvasAccountIcon({
   targetElement,
   onSelectElement,
   onUpdateLayout,
+  onOpenAccountBoard,
   scale,
 }: CanvasAccountIconProps) {
   const leftPct = parsePercent(layout?.left, 93.0);
@@ -41,6 +43,10 @@ export default function CanvasAccountIcon({
   const isSelected = targetElement === "accountBox";
 
   const handleOpenAccountBoard = () => {
+    if (onOpenAccountBoard) {
+      onOpenAccountBoard();
+      return;
+    }
     if (typeof window !== "undefined") {
       const w = 1100;
       const h = 750;

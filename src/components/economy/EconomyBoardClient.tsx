@@ -8,11 +8,13 @@ import BoardManagePanel from "./BoardManagePanel";
 interface EconomyBoardClientProps {
   initialClassName?: string;
   initialCurrencyName?: string;
+  onSwitchToNotice?: () => void;
 }
 
 export default function EconomyBoardClient({
   initialClassName = "우리 반",
   initialCurrencyName = "원",
+  onSwitchToNotice,
 }: EconomyBoardClientProps) {
   const [className, setClassName] = useState<string>(initialClassName);
   const [currencyName, setCurrencyName] = useState<string>(initialCurrencyName);
@@ -217,6 +219,18 @@ export default function EconomyBoardClient({
               잔액순
             </button>
           </div>
+
+          {/* 알림장 전환 */}
+          {onSwitchToNotice && (
+            <button
+              type="button"
+              onClick={onSwitchToNotice}
+              className="px-3 py-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all opacity-80 hover:opacity-100 text-xs font-bold"
+              title="알림장으로 전환"
+            >
+              알림장
+            </button>
+          )}
 
           {/* 전체화면 버튼 */}
           <button

@@ -64,3 +64,5 @@ playwright-report/
 STATUS.md
 backup/
 logs/
+
+dist-electron/
