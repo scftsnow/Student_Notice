@@ -33,7 +33,7 @@ export default function UnifiedLedgerModal({
   currencyName = "원",
 }: UnifiedLedgerModalProps) {
   const [studentFilter, setStudentFilter] = useState(initialStudentFilter);
-  const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("today");
+  const [periodPreset, setPeriodPreset] = useState<"all" | "today" | "7d" | "30d" | "custom">("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -45,7 +45,7 @@ export default function UnifiedLedgerModal({
   useEffect(() => {
     if (isOpen) {
       setStudentFilter(initialStudentFilter);
-      setPeriodPreset("today");
+      setPeriodPreset("all");
     }
   }, [isOpen, initialStudentFilter]);
 

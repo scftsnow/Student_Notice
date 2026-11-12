@@ -64,6 +64,7 @@ export function useClassroomState(options?: ClassroomStateOptions) {
 
   // Debounce timer ref for background DB sync (does NOT affect UI reactivity)
   const dbSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestJsonRef = useRef<string | null>(null);
 
   // Helper: apply parsed snapshot object to state
   const applyParsedState = useCallback((parsed: Record<string, unknown>, initialCurrencyName?: string) => {
@@ -272,11 +273,11 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     // 1) Instant: localStorage for zero-latency UI
     try { localStorage.setItem("classroom_os_state_v3", json); } catch { /* noop */ }
 
-    // 2) Debounced: DB write 1.5s after last state change (Write-through cache)
-    if (dbSyncTimerRef.current) clearTimeout(dbSyncTimerRef.current);
-    dbSyncTimerRef.current = setTimeout(() => {
-      saveClassroomSnapshot(json).catch(() => { /* silent background failure */ });
-    }, 1500);
+    // 2) 즉시 DB 저장 (Write-through cache) — 강제 종료 시 유실 방지
+    saveClassroomSnapshot(json).catch(() => { /* silent background failure */ });
+
+    // 최신 스냅샷 보관 (강제 종료/숨김 시 flush용)
+    latestJsonRef.current = json;
 
     // 3) Instant: BroadcastChannel to student window & navbar
     try {
@@ -342,6 +343,25 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     homeworks,
     boardHomeworkIds,
   ]);
+
+  // 강제 종료/탭 숨김 시 마지막 상태를 DB에 flush (데이터 유실 방지)
+  useEffect(() => {
+    if (!isMounted) return;
+    const flush = () => {
+      if (latestJsonRef.current) {
+        saveClassroomSnapshot(latestJsonRef.current).catch(() => { /* noop */ });
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isMounted]);
 
   const updateLayouts = useCallback(
     (updater: (prev: BoardElementLayouts) => BoardElementLayouts) => {

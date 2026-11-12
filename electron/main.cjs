@@ -262,8 +262,11 @@ autoUpdater.on('update-downloaded', (info) => {
       message: `새 버전 ${info.version}이 다운로드되었습니다. 지금 재시작하여 설치할까요?`,
       buttons: ['지금 재시작', '나중에'],
       defaultId: 0,
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall();
+    }).then(async ({ response }) => {
+      if (response === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        autoUpdater.quitAndInstall();
+      }
     });
   }
 });
@@ -281,8 +284,11 @@ autoUpdater.on('update-downloaded', (info) => {
       message: `새 버전 ${info.version}이 다운로드되었습니다. 지금 재시작하여 설치할까요?`,
       buttons: ['지금 재시작', '나중에'],
       defaultId: 0,
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall();
+    }).then(async ({ response }) => {
+      if (response === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        autoUpdater.quitAndInstall();
+      }
     });
   }
 });
@@ -322,7 +328,8 @@ app.whenReady().then(async () => {
       }));
     });
 
-    ipcMain.handle('restart-to-update', () => {
+    ipcMain.handle('restart-to-update', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       autoUpdater.quitAndInstall();
       return { success: true };
     });
