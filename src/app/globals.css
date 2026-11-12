@@ -189,6 +189,12 @@ body {
   width: 6px;
   height: 6px;
 }
+
+/* 얇은 스크롤바 (학급돈 관리 패널 등) */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
 ::-webkit-scrollbar-track {
   background: transparent;
 }

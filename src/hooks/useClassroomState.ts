@@ -169,44 +169,65 @@ export function useClassroomState(options?: ClassroomStateOptions) {
       } catch {
         // noop
       }
+      // localStorage 파싱
+      let localParsed: Record<string, unknown> | null = null;
+      let savedV3: string | null = null;
+      let savedV2: string | null = null;
       try {
-        const savedV3 = localStorage.getItem("classroom_os_state_v3");
-        const savedV2 = localStorage.getItem("classroom_os_state_v2");
+        savedV3 = localStorage.getItem("classroom_os_state_v3");
+        savedV2 = localStorage.getItem("classroom_os_state_v2");
         const saved = savedV3 || savedV2;
         if (saved) {
-          const parsed = JSON.parse(saved) as Record<string, unknown>;
-          // 포트가 바뀌어 localStorage가 비어 보이거나, 빈 상태면 DB를 우선한다.
-          const hasLocalData =
-            (Array.isArray(parsed.students) && parsed.students.length > 0) ||
-            (Array.isArray(parsed.routines) && parsed.routines.length > 0) ||
-            (Array.isArray(parsed.ledgerHistory) && parsed.ledgerHistory.length > 0);
-          if (hasLocalData) {
-            applyParsedState(parsed, options?.initialCurrencyName);
-            // If migrated from v2, immediately persist into v3
-            if (!savedV3 && savedV2) {
-              try { localStorage.setItem("classroom_os_state_v3", savedV2); } catch { /* noop */ }
-            }
-            setIsLoaded(true);
-            return;
-          }
+          localParsed = JSON.parse(saved) as Record<string, unknown>;
         }
       } catch {
-        // localStorage parse error — fall through to DB
+        localParsed = null;
       }
-      // DB fallback: localStorage was empty or parse failed
+
+      // DB 스냅샷 로드
+      let dbParsed: Record<string, unknown> | null = null;
+      let dbData: string | null = null;
       try {
-        const dbData = await loadClassroomSnapshot();
+        dbData = await loadClassroomSnapshot();
         if (dbData) {
-          const parsed = JSON.parse(dbData) as Record<string, unknown>;
-          applyParsedState(parsed, options?.initialCurrencyName);
-          // Repopulate localStorage from DB so next load is fast
-          try { localStorage.setItem("classroom_os_state_v3", dbData); } catch { /* noop */ }
+          dbParsed = JSON.parse(dbData) as Record<string, unknown>;
         }
       } catch {
-        // DB also unavailable — start fresh
-      } finally {
-        setIsLoaded(true);
+        dbParsed = null;
       }
+
+      const localLedger = Array.isArray(localParsed?.ledgerHistory) ? localParsed.ledgerHistory.length : 0;
+      const dbLedger = Array.isArray(dbParsed?.ledgerHistory) ? dbParsed.ledgerHistory.length : 0;
+      const hasLocalData =
+        (Array.isArray(localParsed?.students) && (localParsed.students as unknown[]).length > 0) ||
+        (Array.isArray(localParsed?.routines) && (localParsed.routines as unknown[]).length > 0) ||
+        localLedger > 0;
+
+      // DB에 장부 이력이 더 많으면 DB를 우선 (포트 변경/로컬 누락 방지)
+      if (dbParsed && dbLedger > localLedger) {
+        applyParsedState(dbParsed, options?.initialCurrencyName);
+        try { if (dbData) localStorage.setItem("classroom_os_state_v3", dbData); } catch { /* noop */ }
+        setIsLoaded(true);
+        return;
+      }
+
+      if (hasLocalData && localParsed) {
+        applyParsedState(localParsed, options?.initialCurrencyName);
+        if (!savedV3 && savedV2) {
+          try { localStorage.setItem("classroom_os_state_v3", savedV2); } catch { /* noop */ }
+        }
+        setIsLoaded(true);
+        return;
+      }
+
+      if (dbParsed) {
+        applyParsedState(dbParsed, options?.initialCurrencyName);
+        try { if (dbData) localStorage.setItem("classroom_os_state_v3", dbData); } catch { /* noop */ }
+        setIsLoaded(true);
+        return;
+      }
+
+      setIsLoaded(true);
     };
     doLoad();
   // eslint-disable-next-line react-hooks/exhaustive-deps

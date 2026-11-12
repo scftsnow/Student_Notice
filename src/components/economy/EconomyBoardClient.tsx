@@ -220,27 +220,6 @@ export default function EconomyBoardClient({
             </button>
           </div>
 
-          {/* 알림장 전환 */}
-          {onSwitchToNotice && (
-            <button
-              type="button"
-              onClick={onSwitchToNotice}
-              className="px-3 py-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all opacity-80 hover:opacity-100 text-xs font-bold"
-              title="알림장으로 전환"
-            >
-              알림장
-            </button>
-          )}
-
-          {/* 전체화면 버튼 */}
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="p-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all opacity-80 hover:opacity-100"
-            title="전체화면 (F11)"
-          >
-            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-          </button>
         </div>
       </header>
 
@@ -291,11 +270,34 @@ export default function EconomyBoardClient({
           {isManageOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
         {isManageOpen && (
-          <div className="max-h-[46vh] overflow-y-auto bg-slate-50 text-slate-900 border-t border-white/10">
+          <div className="max-h-[30vh] overflow-y-auto bg-slate-50 text-slate-900 border-t border-white/10 flex justify-center scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
             <BoardManagePanel />
           </div>
         )}
       </div>
+
+      {/* 알림장 전환 (전체화면 버튼 위) */}
+      {onSwitchToNotice && (
+        <button
+          type="button"
+          onClick={onSwitchToNotice}
+          className="fixed bottom-20 right-4 z-50 px-3 py-1.5 rounded-lg bg-black/20 hover:bg-black/30 transition-all opacity-80 hover:opacity-100 text-xs font-bold"
+          title="알림장으로 전환"
+        >
+          알림장
+        </button>
+      )}
+
+      {/* 전체화면 버튼 (우측 하단) */}
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        className="fixed bottom-8 right-4 z-50 p-2.5 rounded-2xl bg-black/40 hover:bg-black/60 active:scale-95 text-white/70 hover:text-white backdrop-blur-md border border-white/20 transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold select-none cursor-pointer"
+        title={isFullscreen ? "창 화면으로 복귀 (Esc)" : "전체화면 전환 (F11)"}
+      >
+        {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        <span className="opacity-90">{isFullscreen ? "창화면" : "전체화면"}</span>
+      </button>
     </div>
   );
 }

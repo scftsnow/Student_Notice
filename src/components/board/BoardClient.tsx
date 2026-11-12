@@ -505,9 +505,9 @@ export default function BoardClient({
       {/* 글상자 6: 학생 화폐 바로가기 아이콘 (동전 아이콘) */}
       {showEconomyShortcut && (
         <div
-          className="absolute z-20 cursor-pointer select-none flex items-center justify-center p-1.5 transition-transform hover:scale-110 active:scale-95 overflow-hidden box-border"
+          className="absolute z-50 cursor-pointer select-none flex items-center justify-center p-1.5 transition-transform hover:scale-110 active:scale-95 overflow-hidden box-border"
           style={{
-            left: layouts.accountBox?.left || "93.0%",
+            left: layouts.accountBox?.left || "80.0%",
             top: layouts.accountBox?.top || "89.0%",
             width: layouts.accountBox?.width || "50px",
             height: layouts.accountBox?.height || "50px",
@@ -527,7 +527,7 @@ export default function BoardClient({
       <button
         type="button"
         onClick={toggleFullscreen}
-        className="fixed bottom-4 right-4 z-50 p-2.5 rounded-2xl bg-black/40 hover:bg-black/60 active:scale-95 text-white/70 hover:text-white backdrop-blur-md border border-white/20 transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold select-none cursor-pointer"
+        className="fixed bottom-8 right-4 z-40 p-2.5 rounded-2xl bg-black/40 hover:bg-black/60 active:scale-95 text-white/70 hover:text-white backdrop-blur-md border border-white/20 transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold select-none cursor-pointer"
         title={isFullscreen ? "창 화면으로 복귀 (Esc)" : "전체화면 전환 (F11)"}
       >
         {isFullscreen ? (

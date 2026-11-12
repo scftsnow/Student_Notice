@@ -7,6 +7,7 @@ import DepositModal from "@/components/classroom/economy/DepositModal";
 import QuickDepositBar from "@/components/classroom/economy/QuickDepositBar";
 import StudentAccountCards from "@/components/classroom/economy/StudentAccountCards";
 import BundleExecuteRow from "@/components/classroom/economy/BundleExecuteRow";
+import UnifiedLedgerModal from "@/components/classroom/economy/UnifiedLedgerModal";
 
 /**
  * 학급돈 현황판(학생 전광판) 하단 접이식 관리 패널 내용물.
@@ -19,6 +20,7 @@ export default function BoardManagePanel() {
   const state = useClassroomState();
   const [checkedNames, setCheckedNames] = useState<string[]>([]);
   const [isDepositOpen, setIsDepositOpen] = useState(false);
+  const [ledgerModalStudent, setLedgerModalStudent] = useState<string | null>(null);
 
   const students = state.students;
   const currencyName = state.currencyName || "원";
@@ -78,6 +80,7 @@ export default function BoardManagePanel() {
           checkedNames={checkedNames}
           currencyName={currencyName}
           onToggleCheck={toggleCheck}
+          onShowLedger={(name) => setLedgerModalStudent(name)}
         />
 
         {/* 복합 정산 */}
@@ -120,6 +123,20 @@ export default function BoardManagePanel() {
         currencyName={currencyName}
         taxConfig={state.taxConfig}
         onExecute={state.executeBatchDeposit}
+      />
+
+      {/* 학생별 장부 내역 모달 (화폐 메뉴와 동일) */}
+      <UnifiedLedgerModal
+        isOpen={Boolean(ledgerModalStudent)}
+        onClose={() => setLedgerModalStudent(null)}
+        students={students}
+        treasuryBalance={state.treasuryBalance}
+        ledgerHistory={state.ledgerHistory}
+        undoneLedgerHistory={state.undoneLedgerHistory}
+        onUndo={state.undoLedgerEntry}
+        onRedo={state.redoLedgerEntry}
+        initialStudentFilter={ledgerModalStudent || "all"}
+        currencyName={currencyName}
       />
 
       {/* 토스트 */}
