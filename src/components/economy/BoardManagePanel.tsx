@@ -38,7 +38,8 @@ export default function BoardManagePanel() {
 
   return (
     <>
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 flex flex-col">
+        <div className="shrink-0 space-y-4">
         {/* 선택 바 */}
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-slate-800 hover:text-indigo-700 cursor-pointer select-none">
@@ -82,8 +83,10 @@ export default function BoardManagePanel() {
           onToggleCheck={toggleCheck}
           onShowLedger={(name) => setLedgerModalStudent(name)}
         />
+        </div>
 
         {/* 복합 정산 */}
+        <div className="flex-1 overflow-y-auto max-h-[40vh] scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
         <div className="p-3 rounded-2xl bg-white border border-slate-200 space-y-2">
           <div className="flex items-center gap-1.5">
             <Package className="w-4 h-4 text-indigo-600" />
@@ -112,6 +115,7 @@ export default function BoardManagePanel() {
             </div>
           )}
         </div>
+         </div>
       </div>
 
       {/* 입금/차감 모달 (화폐 메뉴와 동일) */}

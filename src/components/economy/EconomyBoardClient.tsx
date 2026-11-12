@@ -270,7 +270,7 @@ export default function EconomyBoardClient({
           {isManageOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </button>
         {isManageOpen && (
-          <div className="max-h-[30vh] overflow-y-auto bg-slate-50 text-slate-900 border-t border-white/10 flex justify-center scrollbar-thin" style={{ scrollbarWidth: "thin" }}>
+          <div className="bg-slate-50 text-slate-900 border-t border-white/10 flex justify-center">
             <BoardManagePanel />
           </div>
         )}
