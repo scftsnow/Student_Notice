@@ -119,6 +119,10 @@ export function isTokenAdjacent(
     if (node.nodeType === Node.ELEMENT_NODE && offset > 0) {
       curr = node.childNodes[offset - 1];
     }
+    // 커서 바로 앞에 실제 텍스트(쉼표·공백 포함)가 있으면 토큰에 붙어 있지 않다.
+    if (curr && curr.nodeType === Node.TEXT_NODE && (curr.textContent ?? "").replace(/\u200B/g, "").length > 0) {
+      return false;
+    }
     if (curr instanceof HTMLElement && curr.hasAttribute(tokenAttr)) return true;
     let prev = curr?.previousSibling;
     while (prev && prev.nodeType === Node.TEXT_NODE && (prev.textContent ?? "").replace(/\u200B/g, "") === "") {
@@ -133,6 +137,9 @@ export function isTokenAdjacent(
     node.nodeType === Node.TEXT_NODE && node.parentElement !== editable ? node.parentElement : node;
   if (node.nodeType === Node.ELEMENT_NODE && offset < node.childNodes.length) {
     curr = node.childNodes[offset];
+  }
+  if (curr && curr.nodeType === Node.TEXT_NODE && (curr.textContent ?? "").slice(offset).replace(/\u200B/g, "").length > 0) {
+    return false;
   }
   if (curr instanceof HTMLElement && curr.hasAttribute(tokenAttr)) return true;
   let next = curr?.nextSibling;
@@ -523,7 +530,7 @@ export interface HomeworkSegment {
  */
 export function defaultHomeworkTemplate(unsubmittedCount: number): string {
   if (unsubmittedCount === 0) return ALL_DONE_TEMPLATE;
-  return `미제출 #명: ${Array(unsubmittedCount).fill("?").join(", ")}`;
+  return `미제출: ${Array(unsubmittedCount).fill("?").join(" ")}`;
 }
 
 /** 템플릿 문자열 → 조각. `?` 는 이름 자리, `#` 는 미제출 인원 자리. */
@@ -564,12 +571,19 @@ export function buildHomeworkHtml(input: {
   const segments = parseHomeworkTemplate(template);
   const parts: string[] = ["\u200B"];
   let nameIdx = 0;
+  // 이름 사이의 구분자 텍스트를 버퍼링해, 이름이 사라질 때 뒤따르는 쉼표/공백이
+  // 남지 않도록 한다 (예: "미제출: 홍길동, " → "미제출: 홍길동").
+  let pendingText = "";
   segments.forEach((seg) => {
     if (seg.type === "text") {
-      parts.push(escapeHtml(seg.text));
+      pendingText += seg.text;
       return;
     }
     if (seg.type === "count") {
+      if (pendingText) {
+        parts.push(escapeHtml(pendingText));
+        pendingText = "";
+      }
       parts.push(
         `<span ${HOMEWORK_COUNT_ATTR}="count" class="font-black">${input.unsubmitted.length}</span>`
       );
@@ -578,12 +592,24 @@ export function buildHomeworkHtml(input: {
     const name = input.unsubmitted[nameIdx];
     const idx = nameIdx;
     nameIdx++;
-    if (!name) return;
+    if (!name) {
+      // 이름이 없으면 앞의 구분자도 함께 버린다.
+      pendingText = "";
+      return;
+    }
+    if (pendingText) {
+      parts.push(escapeHtml(pendingText));
+      pendingText = "";
+    }
     const style = input.nameColor ? ` style="color:${escapeHtml(input.nameColor)};"` : "";
     parts.push(
       `<span data-worker-index="${idx}" ${HOMEWORK_COUNT_ATTR}="name" contenteditable="false" class="${BOARD_NAME_SPAN_CLASS} ${input.nameColorClass}"${style} title="${escapeHtml(name)} — 클릭: 제출 처리">${escapeHtml(name)}</span>`,
       "\u200B"
     );
   });
+  // 마지막 이름 뒤에 남은 구분자(쉼표/공백/zero-width space)는 버린다.
+  if (pendingText && pendingText.replace(/[\s,\u200B]/g, "").length > 0) {
+    parts.push(escapeHtml(pendingText));
+  }
   return parts.join("");
 }
