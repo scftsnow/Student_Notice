@@ -262,7 +262,10 @@ export default function EconomyTab({
                 checkedNames={checkedNames}
                 currencyName={currencyName}
                 taxConfig={taxConfig}
-                onExecuteBatchDeposit={onExecuteBatchDeposit}
+                onExecuteBatchDeposit={(names, amount, desc, applyTax) => {
+                  onExecuteBatchDeposit(names, amount, desc, applyTax);
+                  setCheckedNames([]);
+                }}
                 onOpenDepositModal={handleDepositSelected}
                 onClearSelection={() => setCheckedNames([])}
               />
@@ -370,7 +373,10 @@ export default function EconomyTab({
                   bundle={b}
                   currencyName={currencyName}
                   selectedNames={checkedNames}
-                  onExecute={onExecuteBundle}
+                  onExecute={(id, names) => {
+                    onExecuteBundle(id, names);
+                    setCheckedNames([]);
+                  }}
                   draggableProps={{
                     draggable: true,
                     onDragStart: () => handleBundleDragStart(b.id),
@@ -452,7 +458,10 @@ export default function EconomyTab({
         initialSelectedNames={checkedNames}
         currencyName={currencyName}
         taxConfig={taxConfig}
-        onExecute={onExecuteBatchDeposit}
+        onExecute={(names, amount, desc, applyTax) => {
+          onExecuteBatchDeposit(names, amount, desc, applyTax);
+          setCheckedNames([]);
+        }}
       />
       <UnifiedLedgerModal
         isOpen={Boolean(ledgerModalStudent)}

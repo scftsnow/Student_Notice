@@ -119,8 +119,9 @@ export function isTokenAdjacent(
     if (node.nodeType === Node.ELEMENT_NODE && offset > 0) {
       curr = node.childNodes[offset - 1];
     }
-    // 커서 바로 앞에 실제 텍스트(쉼표·공백 포함)가 있으면 토큰에 붙어 있지 않다.
-    if (curr && curr.nodeType === Node.TEXT_NODE && (curr.textContent ?? "").replace(/\u200B/g, "").length > 0) {
+    // 커서가 텍스트 노드 안에 있으면(쉼표·공백·ZWSP 포함) 토큰에 직접 붙어 있지 않다.
+    // ZWSP만 있는 스페이서도 삭제 가능하도록 허용한다.
+    if (curr && curr.nodeType === Node.TEXT_NODE) {
       return false;
     }
     if (curr instanceof HTMLElement && curr.hasAttribute(tokenAttr)) return true;
@@ -138,7 +139,7 @@ export function isTokenAdjacent(
   if (node.nodeType === Node.ELEMENT_NODE && offset < node.childNodes.length) {
     curr = node.childNodes[offset];
   }
-  if (curr && curr.nodeType === Node.TEXT_NODE && (curr.textContent ?? "").slice(offset).replace(/\u200B/g, "").length > 0) {
+  if (curr && curr.nodeType === Node.TEXT_NODE) {
     return false;
   }
   if (curr instanceof HTMLElement && curr.hasAttribute(tokenAttr)) return true;

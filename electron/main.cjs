@@ -232,7 +232,7 @@ function openOrFocusBoardWindow(baseUrl) {
 }
 
 // 자동 업데이트 설정 (설치 버전에서만 동작)
-autoUpdater.autoDownload = true;
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.on('error', (err) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] error: ${err && err.message ? err.message : err}\n`); } catch {}
@@ -240,11 +240,24 @@ autoUpdater.on('error', (err) => {
 autoUpdater.on('update-available', (info) => {
   try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] update available: ${info.version}\n`); } catch {}
   if (mainWindow) mainWindow.webContents.send('update-status', { status: 'available', version: info.version });
-  // 일부 환경에서 자동 다운로드가 시작되지 않는 경우를 대비해 명시적으로 다운로드
-  autoUpdater.downloadUpdate().catch((err) => {
-    try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] download start failed: ${err && err.message ? err.message : err}\n`); } catch {}
-    if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err && err.message ? err.message : String(err) });
-  });
+
+  // 사용자에게 다운로드 여부 확인
+  if (mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: '업데이트',
+      message: `새 버전 ${info.version}이 있습니다. 다운로드하시겠습니까?`,
+      buttons: ['다운로드', '나중에'],
+      defaultId: 0,
+    }).then(({ response }) => {
+      if (response === 0) {
+        autoUpdater.downloadUpdate().catch((err) => {
+          try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] download start failed: ${err && err.message ? err.message : err}\n`); } catch {}
+          if (mainWindow) mainWindow.webContents.send('update-status', { status: 'error', message: err && err.message ? err.message : String(err) });
+        });
+      }
+    });
+  }
 });
 
 autoUpdater.on('download-progress', (progress) => {
@@ -305,6 +318,12 @@ app.whenReady().then(async () => {
       autoUpdater.checkForUpdatesAndNotify().catch((err) => {
         try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] check failed: ${err && err.message ? err.message : err}\n`); } catch {}
       });
+      // 실행 중 새 릴리스 감지를 위한 주기적 확인 (1시간)
+      setInterval(() => {
+        autoUpdater.checkForUpdates().catch((err) => {
+          try { fs.appendFileSync(path.join(app.getPath('userData'), 'server.log'), `[updater] periodic check failed: ${err && err.message ? err.message : err}\n`); } catch {}
+        });
+      }, 60 * 60 * 1000);
     }
 
     // IPC Handlers

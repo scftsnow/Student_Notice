@@ -68,7 +68,10 @@ export default function BoardManagePanel() {
               checkedNames={checkedNames}
               currencyName={currencyName}
               taxConfig={state.taxConfig}
-              onExecuteBatchDeposit={state.executeBatchDeposit}
+              onExecuteBatchDeposit={(names, amount, desc, applyTax) => {
+                state.executeBatchDeposit(names, amount, desc, applyTax);
+                setCheckedNames([]);
+              }}
               onOpenDepositModal={() => setIsDepositOpen(true)}
               onClearSelection={() => setCheckedNames([])}
             />
@@ -109,7 +112,10 @@ export default function BoardManagePanel() {
                   bundle={b}
                   currencyName={currencyName}
                   selectedNames={checkedNames}
-                  onExecute={state.executeBundle}
+                  onExecute={(id, names) => {
+                    state.executeBundle(id, names);
+                    setCheckedNames([]);
+                  }}
                 />
               ))}
             </div>
