@@ -190,6 +190,10 @@ export function editableKeyGuard(
   e: React.KeyboardEvent<HTMLDivElement>,
   editable: HTMLElement | null
 ): void {
+  // 실행취소/다시실행(Ctrl+Z / Ctrl+Y)은 브라우저 기본 동작을 허용한다.
+  if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "y" || e.key === "Z" || e.key === "Y")) {
+    return;
+  }
   if (e.key === "Enter") {
     e.preventDefault();
     editable?.blur();

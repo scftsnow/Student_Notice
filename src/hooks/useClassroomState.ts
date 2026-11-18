@@ -241,6 +241,33 @@ export function useClassroomState(options?: ClassroomStateOptions) {
     };
   }, []);
 
+  // 창이 다시 포커스될 때 DB에서 최신 상태를 복구 (포트 변경/다른 창 수정 반영)
+  useEffect(() => {
+    if (!isMounted) return;
+    const reloadFromDb = async () => {
+      try {
+        const dbData = await loadClassroomSnapshot();
+        if (!dbData) return;
+        const parsed = JSON.parse(dbData) as Record<string, unknown>;
+        const dbLedger = Array.isArray(parsed.ledgerHistory) ? parsed.ledgerHistory.length : 0;
+        if (dbLedger > ledgerHistory.length) {
+          applyParsedState(parsed, options?.initialCurrencyName);
+          try { localStorage.setItem("classroom_os_state_v3", dbData); } catch { /* noop */ }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    const onFocus = () => { reloadFromDb(); };
+    const onVisibility = () => { if (document.visibilityState === "visible") reloadFromDb(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isMounted, ledgerHistory.length, options?.initialCurrencyName]);
+
   // Save to localStorage (instant) & schedule debounced DB save & Broadcast to student window
   useEffect(() => {
     if (!isMounted) return;

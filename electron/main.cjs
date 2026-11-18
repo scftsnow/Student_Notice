@@ -169,6 +169,7 @@ function createMainWindow(baseUrl) {
     height: 850,
     minWidth: 900,
     minHeight: 600,
+    // 실행 시 전체화면(최대화)으로 시작
     title: `Teacher Helper-학급 운영 v${app.getVersion()}`,
     icon: APP_ICON,
     autoHideMenuBar: true,
@@ -180,6 +181,9 @@ function createMainWindow(baseUrl) {
   });
 
   mainWindow.loadURL(baseUrl);
+
+  // 실행 시 최대화(전체화면에 가깝게)로 시작
+  mainWindow.maximize();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -224,6 +228,7 @@ function openOrFocusBoardWindow(baseUrl) {
   }
 
   boardWindow = new BrowserWindow(windowOptions);
+  if (!externalDisplay) boardWindow.maximize();
   boardWindow.loadURL(`${baseUrl}/board`);
 
   boardWindow.on('closed', () => {
